@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Personal IPTV/Xtream servers are frequently self-hosted and served over
+  plain HTTP without a certificate. Cleartext traffic is allowed so the
+  user can reach the server(s) they configure themselves.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

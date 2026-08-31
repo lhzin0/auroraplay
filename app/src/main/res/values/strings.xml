@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The only string resource actually referenced (AndroidManifest's
+         android:label, and the launcher/leanback name). Every other UI
+         string lives directly in the Compose call sites — this file used to
+         carry ~33 scaffold strings from an early pass that were never wired
+         up and had drifted out of sync with the real (Portuguese) copy. -->
+    <string name="app_name">AuroraPlay</string>
+
+    <!-- Media3's DownloadService.onCreate() passes this straight into
+         context.getString() with no 0-guard, so it MUST be a real resource —
+         passing 0 there throws Resources$NotFoundException on "Baixar". -->
+    <string name="download_notification_channel_name">Downloads</string>
+</resources>
