@@ -59,8 +59,11 @@ fun DetailMediaPager(
                     0 -> DetailBanner(
                         title = title,
                         backdropUrl = backdropUrl,
-                        subtitle = subtitle,
-                        showTextOverlay = false,
+                        // Just the stamped title logo on the hero; the meta
+                        // line ("2026 • Ação • …") stays in the info block
+                        // right below, so it isn't shown twice.
+                        subtitle = null,
+                        showTextOverlay = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
                     else -> TrailerPreview(

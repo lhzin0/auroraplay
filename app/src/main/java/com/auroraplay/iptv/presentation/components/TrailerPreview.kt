@@ -1,55 +1,62 @@
 package com.auroraplay.iptv.presentation.components
 
-import android.os.Handler
-import android.os.Looper
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.net.Uri
-import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.VolumeOff
-import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 
 /**
- * Inline trailer player backed by a verified YouTube video id from TMDB.
- * The app's VOD stream is deliberately not accepted here: it is only used by
- * the primary "Assistir" action, so the preview cannot start a full movie.
+ * Inline trailer — YouTube's own `/embed/` page in a WebView, nothing more.
+ *
+ * The previous build wrapped the video in hand-written HTML + the JS IFrame
+ * Player API bridge. Inside an Android WebView that handshake never worked
+ * reliably: `loadDataWithBaseURL` gives the page an opaque origin, so
+ * YouTube's `postMessage` replies were dropped and the frame just sat black.
+ *
+ * The bare embed page, loaded with `loadUrl`, renders its own poster and
+ * controls and plays inline on every device. `autoplay=1&mute=1` gives the
+ * Netflix-style muted auto-start; YouTube's built-in controls handle
+ * unmute / pause / seek. If the title has embedding disabled, YouTube's page
+ * shows its own "Watch on YouTube" — and the pill below always offers the
+ * full app/site too.
+ *
+ * `youtubeVideoId` is a TMDB-verified id, never an Xtream/stream URL.
  */
 @Composable
 @SuppressLint("SetJavaScriptEnabled")
@@ -60,42 +67,24 @@ fun TrailerPreview(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    val openOfficialTrailer = {
-        context.startActivity(
-            Intent(
-                Intent.ACTION_VIEW,
-                Uri.parse("https://www.youtube.com/watch?v=$youtubeVideoId"),
-            ),
-        )
-    }
+    fun openOnYouTube() = context.startActivity(
+        Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/watch?v=$youtubeVideoId")),
+    )
+
     var webView by remember(youtubeVideoId) { mutableStateOf<WebView?>(null) }
-    var playing by rememberSaveable(youtubeVideoId) { mutableStateOf(false) }
-    var muted by rememberSaveable(youtubeVideoId) { mutableStateOf(false) }
-    var progress by rememberSaveable(youtubeVideoId) { mutableFloatStateOf(0f) }
-    var playerReady by rememberSaveable(youtubeVideoId) { mutableStateOf(false) }
-    var playerError by rememberSaveable(youtubeVideoId) { mutableStateOf<Int?>(null) }
+    var loaded by rememberSaveable(youtubeVideoId) { mutableStateOf(false) }
+    var failed by rememberSaveable(youtubeVideoId) { mutableStateOf(false) }
 
-    val bridge = remember(youtubeVideoId) {
-        YoutubePlayerBridge(
-            onPlaybackState = { state -> playing = state == YOUTUBE_STATE_PLAYING },
-            onProgress = { position, duration ->
-                progress = if (duration > 0.0) (position / duration).toFloat().coerceIn(0f, 1f) else 0f
-            },
-            onReady = {
-                playerReady = true
-                playerError = null
-            },
-            onError = { errorCode ->
-                playerError = errorCode
-                playing = false
-            },
-        )
-    }
-
+    // Pause playback when this page is swiped away; nudge it back when it
+    // returns. WebView.onPause/onResume also freeze the page's timers.
     LaunchedEffect(active, webView) {
-        if (!active) {
-            webView?.evaluateJavascript("pauseTrailer()", null)
-            playing = false
+        val wv = webView ?: return@LaunchedEffect
+        if (active) {
+            wv.onResume()
+            wv.evaluateJavascript("try{document.querySelector('video').play()}catch(e){}", null)
+        } else {
+            wv.evaluateJavascript("try{document.querySelector('video').pause()}catch(e){}", null)
+            wv.onPause()
         }
     }
 
@@ -108,144 +97,49 @@ fun TrailerPreview(
     ) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
-            factory = { viewContext ->
-                WebView(viewContext).also { playerView ->
-                    playerView.setBackgroundColor(android.graphics.Color.BLACK)
-                    playerView.settings.javaScriptEnabled = true
-                    playerView.settings.domStorageEnabled = true
-                    // The visible Compose play button issues playVideo() after
-                    // a real tap. Requiring a second, WebView-local gesture
-                    // makes that command silently fail on many Android
-                    // WebView versions, leaving the trailer black.
-                    playerView.settings.mediaPlaybackRequiresUserGesture = false
-                    playerView.settings.allowFileAccess = false
-                    playerView.settings.allowContentAccess = false
-                    playerView.webChromeClient = WebChromeClient()
-                    playerView.webViewClient = object : WebViewClient() {
-                        // The former implementation returned true for every
-                        // navigation. That also cancelled YouTube's own
-                        // iframe navigation before the video was created.
-                        // This WebView only receives a validated video id, so
-                        // allow the embedded player to handle its resources.
-                        override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean = false
+            factory = { ctx ->
+                WebView(ctx).also { wv ->
+                    wv.setBackgroundColor(android.graphics.Color.BLACK)
+                    with(wv.settings) {
+                        javaScriptEnabled = true
+                        domStorageEnabled = true
+                        mediaPlaybackRequiresUserGesture = false
+                        allowFileAccess = false
+                        allowContentAccess = false
                     }
-                    playerView.addJavascriptInterface(bridge, BRIDGE_NAME)
-                    playerView.loadDataWithBaseURL(
-                        YOUTUBE_BASE_URL,
-                        youtubePlayerHtml(youtubeVideoId),
-                        "text/html",
-                        "utf-8",
-                        null,
+                    wv.webChromeClient = WebChromeClient()
+                    wv.webViewClient = object : WebViewClient() {
+                        override fun onPageFinished(view: WebView, url: String?) { loaded = true }
+                        override fun onReceivedError(
+                            view: WebView,
+                            request: WebResourceRequest?,
+                            error: WebResourceError?,
+                        ) {
+                            if (request?.isForMainFrame == true) failed = true
+                        }
+                    }
+                    wv.loadUrl(
+                        "https://www.youtube.com/embed/$youtubeVideoId" +
+                            "?autoplay=1&mute=1&playsinline=1&controls=1&rel=0&modestbranding=1&iv_load_policy=3&fs=0",
                     )
-                    webView = playerView
+                    webView = wv
                 }
             },
-            onRelease = { playerView ->
-                // AndroidView has detached the view before this callback, so
-                // it is safe to release the renderer here. Destroying it from
-                // DisposableEffect raced while it was still attached and
-                // caused the repeated Chromium errors seen in logcat.
-                playerView.removeJavascriptInterface(BRIDGE_NAME)
-                playerView.stopLoading()
-                playerView.destroy()
-                if (webView === playerView) webView = null
+            onRelease = { wv ->
+                wv.stopLoading()
+                wv.loadUrl("about:blank")
+                wv.destroy()
+                if (webView === wv) webView = null
             },
         )
 
-        Box(
-            Modifier.fillMaxSize().background(
-                Brush.verticalGradient(
-                    0f to Color.Black.copy(alpha = 0.05f),
-                    0.55f to Color.Transparent,
-                    1f to Color.Black.copy(alpha = 0.64f),
-                )
-            )
-        )
-
-        Box(
-            modifier = Modifier
-                .align(Alignment.Center)
-                .size(62.dp)
-                .background(Color.Black.copy(alpha = 0.58f), CircleShape)
-                .clickable {
-                    // Some device WebViews block the embedded frame before it
-                    // ever finishes loading (the black state shown in the
-                    // report). A tap must still play the verified trailer,
-                    // so use the official YouTube watch URL immediately in
-                    // that case instead of leaving the control inert.
-                    if (!playerReady) {
-                        openOfficialTrailer()
-                    } else {
-                        webView?.evaluateJavascript(if (playing) "pauseTrailer()" else "playTrailer()", null)
-                    }
-                },
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = if (playing) Icons.Default.Pause else Icons.Default.PlayArrow,
-                contentDescription = if (playing) "Pausar trailer" else "Reproduzir trailer",
-                tint = Color.White,
-                modifier = Modifier.size(34.dp),
-            )
-        }
-
-        if (!playerReady && playerError == null) {
+        if (!loaded && !failed) {
             CircularProgressIndicator(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(14.dp)
-                    .size(20.dp),
+                modifier = Modifier.align(Alignment.Center).size(28.dp),
                 color = Color.White,
                 strokeWidth = 2.dp,
             )
         }
-
-        if (playerError != null) {
-            Text(
-                text = "Abrir trailer no YouTube",
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.White,
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(10.dp))
-                    .clickable {
-                        openOfficialTrailer()
-                    }
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-            )
-        }
-
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(12.dp)
-                .size(44.dp)
-                .background(Color.Black.copy(alpha = 0.72f), CircleShape)
-                .clickable {
-                    muted = !muted
-                    webView?.evaluateJavascript("setMuted($muted)", null)
-                },
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = if (muted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
-                contentDescription = if (muted) "Ativar som" else "Desativar som",
-                tint = Color.White,
-                modifier = Modifier.size(22.dp),
-            )
-        }
-
-        LinearProgressIndicator(
-            progress = { progress },
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp)
-                .padding(bottom = 9.dp)
-                .clip(RoundedCornerShape(10.dp)),
-            color = Color.White,
-            trackColor = Color.White.copy(alpha = 0.30f),
-        )
 
         Text(
             "TRAILER",
@@ -257,116 +151,31 @@ fun TrailerPreview(
                 .background(Color.Black.copy(alpha = 0.48f), RoundedCornerShape(8.dp))
                 .padding(horizontal = 9.dp, vertical = 5.dp),
         )
+
+        // Always-present escape hatch to the full YouTube app/site — and the
+        // primary affordance if the inline embed failed for this title.
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(12.dp)
+                .clip(RoundedCornerShape(100.dp))
+                .background(Color.Black.copy(alpha = if (failed) 0.85f else 0.5f))
+                .clickable { openOnYouTube() }
+                .padding(horizontal = 12.dp, vertical = 7.dp),
+        ) {
+            Icon(
+                Icons.AutoMirrored.Filled.OpenInNew,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(15.dp),
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                if (failed) "Abrir no YouTube" else "YouTube",
+                color = Color.White,
+                style = MaterialTheme.typography.labelMedium,
+            )
+        }
     }
 }
-
-private class YoutubePlayerBridge(
-    private val onPlaybackState: (Int) -> Unit,
-    private val onProgress: (Double, Double) -> Unit,
-    private val onReady: () -> Unit,
-    private val onError: (Int) -> Unit,
-) {
-    private val mainHandler = Handler(Looper.getMainLooper())
-
-    @JavascriptInterface
-    fun onStateChanged(state: Int) {
-        mainHandler.post { onPlaybackState(state) }
-    }
-
-    @JavascriptInterface
-    fun onProgressChanged(position: Double, duration: Double) {
-        mainHandler.post { onProgress(position, duration) }
-    }
-
-    @JavascriptInterface
-    fun onReady() {
-        mainHandler.post(onReady)
-    }
-
-    @JavascriptInterface
-    fun onError(code: Int) {
-        mainHandler.post { onError(code) }
-    }
-}
-
-/**
- * Uses the official YouTube IFrame Player API (`new YT.Player`) instead of a
- * hand-rolled `postMessage` handshake against a bare `/embed/` iframe. The
- * manual bridge only ever half-worked inside a WebView (`loadDataWithBaseURL`
- * gives the page an opaque origin, so YouTube's `postMessage` replies were
- * dropped and the frame just sat black). The IFrame API sets up its own
- * cross-frame channel and delivers real `onReady` / `onStateChange` /
- * `onError` callbacks; a 500ms timer reports progress.
- */
-private fun youtubePlayerHtml(videoId: String): String = """
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-        <style>
-          html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
-          #player { width: 100%; height: 100%; }
-        </style>
-      </head>
-      <body>
-        <div id="player"></div>
-        <script>
-          var player = null;
-          var ready = false;
-          var playRequested = false;
-          var wantMuted = false;
-
-          function playTrailer() {
-            playRequested = true;
-            if (ready && player) player.playVideo();
-          }
-          function pauseTrailer() { if (ready && player) player.pauseVideo(); }
-          function setMuted(muted) {
-            wantMuted = muted;
-            if (ready && player) { muted ? player.mute() : player.unMute(); }
-          }
-
-          function pollProgress() {
-            if (ready && player && player.getCurrentTime) {
-              $BRIDGE_NAME.onProgressChanged(player.getCurrentTime() || 0, player.getDuration() || 0);
-            }
-            setTimeout(pollProgress, 500);
-          }
-
-          function onYouTubeIframeAPIReady() {
-            player = new YT.Player('player', {
-              videoId: '$videoId',
-              playerVars: {
-                autoplay: 0, controls: 1, playsinline: 1, rel: 0, fs: 0,
-                modestbranding: 1, iv_load_policy: 3
-              },
-              events: {
-                onReady: function() {
-                  ready = true;
-                  if (wantMuted) player.mute();
-                  $BRIDGE_NAME.onReady();
-                  if (playRequested) player.playVideo();
-                  pollProgress();
-                },
-                onStateChange: function(e) { $BRIDGE_NAME.onStateChanged(e.data); },
-                onError: function(e) { $BRIDGE_NAME.onError(e.data); }
-              }
-            });
-          }
-
-          // If the API script never loads (offline / blocked WebView), surface
-          // an error so the "Abrir no YouTube" fallback shows.
-          setTimeout(function() { if (!player) $BRIDGE_NAME.onError(-1); }, 8000);
-
-          var tag = document.createElement('script');
-          tag.src = 'https://www.youtube.com/iframe_api';
-          tag.onerror = function() { $BRIDGE_NAME.onError(-1); };
-          document.body.appendChild(tag);
-        </script>
-      </body>
-    </html>
-""".trimIndent()
-
-private const val BRIDGE_NAME = "AuroraTrailer"
-private const val YOUTUBE_BASE_URL = "https://www.youtube.com/"
-private const val YOUTUBE_STATE_PLAYING = 1

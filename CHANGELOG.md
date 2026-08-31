@@ -1,3 +1,19 @@
+## 1.25.2 — 2026-08-31
+
+- **Trailer refeito, sem HTML/bridge**: agora é só a página `/embed/` do
+  YouTube num WebView via `loadUrl`. O wrapper anterior (HTML próprio + JS
+  IFrame API) nunca funcionava direito dentro do WebView — `loadDataWithBaseURL`
+  dá origem opaca à página e as respostas `postMessage` do YouTube eram
+  descartadas, deixando o quadro preto. A página nua renderiza o próprio
+  pôster e controles e toca inline em qualquer aparelho; `autoplay=1&mute=1`
+  dá o início automático mudo estilo Netflix; controles nativos do YouTube
+  cuidam de som/pausa/seek. Pílula "YouTube / Abrir no YouTube" sempre
+  disponível (e vira a ação principal se o embed falhar).
+- **Título estampado no banner**: `DetailBanner` desenha o título em caixa
+  alta, peso Black, tracking e sombra suave sobre um degradê inferior — o
+  card de detalhe passa a ler como um herói de streaming em vez de um
+  screenshot. A linha de metadados continua só no bloco de info abaixo.
+
 ## 1.25.1 — 2026-08-31
 
 - **Barra de busca travada**: o campo de texto era controlado por
