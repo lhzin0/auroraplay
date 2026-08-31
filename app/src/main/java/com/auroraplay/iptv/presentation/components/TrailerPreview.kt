@@ -289,6 +289,15 @@ private class YoutubePlayerBridge(
     }
 }
 
+/**
+ * Uses the official YouTube IFrame Player API (`new YT.Player`) instead of a
+ * hand-rolled `postMessage` handshake against a bare `/embed/` iframe. The
+ * manual bridge only ever half-worked inside a WebView (`loadDataWithBaseURL`
+ * gives the page an opaque origin, so YouTube's `postMessage` replies were
+ * dropped and the frame just sat black). The IFrame API sets up its own
+ * cross-frame channel and delivers real `onReady` / `onStateChange` /
+ * `onError` callbacks; a 500ms timer reports progress.
+ */
 private fun youtubePlayerHtml(videoId: String): String = """
     <!DOCTYPE html>
     <html>
@@ -296,55 +305,63 @@ private fun youtubePlayerHtml(videoId: String): String = """
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
         <style>
           html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
-          iframe { width: 100%; height: 100%; border: 0; }
+          #player { width: 100%; height: 100%; }
         </style>
       </head>
       <body>
-        <iframe
-          id="aurora-youtube-frame"
-          title="Trailer"
-          src="https://www.youtube.com/embed/$videoId?autoplay=0&controls=1&enablejsapi=1&playsinline=1&rel=0&fs=0&origin=https%3A%2F%2Fwww.youtube.com"
-          allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-          allowfullscreen>
-        </iframe>
+        <div id="player"></div>
         <script>
-          var trailerFrame = document.getElementById('aurora-youtube-frame');
+          var player = null;
+          var ready = false;
           var playRequested = false;
-          function sendCommand(name, args) {
-            if (!trailerFrame || !trailerFrame.contentWindow) return;
-            trailerFrame.contentWindow.postMessage(JSON.stringify({
-              event: 'command',
-              func: name,
-              args: args || []
-            }), '*');
-          }
+          var wantMuted = false;
+
           function playTrailer() {
             playRequested = true;
-            sendCommand('playVideo');
+            if (ready && player) player.playVideo();
           }
-          function pauseTrailer() { sendCommand('pauseVideo'); }
+          function pauseTrailer() { if (ready && player) player.pauseVideo(); }
           function setMuted(muted) {
-            sendCommand(muted ? 'mute' : 'unMute');
+            wantMuted = muted;
+            if (ready && player) { muted ? player.mute() : player.unMute(); }
           }
-          trailerFrame.onload = function() {
-            $BRIDGE_NAME.onReady();
-            sendCommand('addEventListener', ['onStateChange']);
-            sendCommand('addEventListener', ['onError']);
-            if (playRequested) sendCommand('playVideo');
-          };
-          window.addEventListener('message', function(event) {
-            if (event.origin.indexOf('youtube.com') === -1) return;
-            var data = event.data;
-            if (typeof data === 'string') {
-              try { data = JSON.parse(data); } catch (ignored) { return; }
+
+          function pollProgress() {
+            if (ready && player && player.getCurrentTime) {
+              $BRIDGE_NAME.onProgressChanged(player.getCurrentTime() || 0, player.getDuration() || 0);
             }
-            if (!data) return;
-            if (data.event === 'onStateChange') $BRIDGE_NAME.onStateChanged(data.info);
-            if (data.event === 'onError') $BRIDGE_NAME.onError(data.info);
-            if (data.event === 'infoDelivery' && data.info) {
-              $BRIDGE_NAME.onProgressChanged(data.info.currentTime || 0, data.info.duration || 0);
-            }
-          });
+            setTimeout(pollProgress, 500);
+          }
+
+          function onYouTubeIframeAPIReady() {
+            player = new YT.Player('player', {
+              videoId: '$videoId',
+              playerVars: {
+                autoplay: 0, controls: 1, playsinline: 1, rel: 0, fs: 0,
+                modestbranding: 1, iv_load_policy: 3
+              },
+              events: {
+                onReady: function() {
+                  ready = true;
+                  if (wantMuted) player.mute();
+                  $BRIDGE_NAME.onReady();
+                  if (playRequested) player.playVideo();
+                  pollProgress();
+                },
+                onStateChange: function(e) { $BRIDGE_NAME.onStateChanged(e.data); },
+                onError: function(e) { $BRIDGE_NAME.onError(e.data); }
+              }
+            });
+          }
+
+          // If the API script never loads (offline / blocked WebView), surface
+          // an error so the "Abrir no YouTube" fallback shows.
+          setTimeout(function() { if (!player) $BRIDGE_NAME.onError(-1); }, 8000);
+
+          var tag = document.createElement('script');
+          tag.src = 'https://www.youtube.com/iframe_api';
+          tag.onerror = function() { $BRIDGE_NAME.onError(-1); };
+          document.body.appendChild(tag);
         </script>
       </body>
     </html>
