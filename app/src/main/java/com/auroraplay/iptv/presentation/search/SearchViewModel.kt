@@ -21,7 +21,11 @@ import kotlinx.coroutines.launch
 enum class SearchFilter { ALL, MOVIES, SERIES, CHANNELS }
 
 data class SearchUiState(
+    /** Live text in the field — updated synchronously on every keystroke. */
     val query: String = "",
+    /** The (trimmed) query [results] were actually computed for. Lags [query]
+     * by the debounce; used to tell "no results" apart from "still typing". */
+    val searchedQuery: String = "",
     val filter: SearchFilter = SearchFilter.ALL,
     val results: List<MediaItem> = emptyList(),
     val suggestions: List<MediaItem> = emptyList(),
@@ -184,6 +188,7 @@ class SearchViewModel @Inject constructor(
 
                 SearchUiState(
                     query = q,
+                    searchedQuery = q,
                     filter = activeFilter,
                     results = results,
                     suggestions = suggestions,
@@ -194,7 +199,21 @@ class SearchViewModel @Inject constructor(
                 .flowOn(Dispatchers.Default)
                 .distinctUntilChanged()
                 .conflate()
-                .collect { state -> _uiState.value = state }
+                // Merge, never replace: `query` and `filter` are owned by the
+                // synchronous setters below so the field / chips react on the
+                // keystroke, not 250 ms later when this debounced pipeline
+                // catches up. That lag was why the search bar felt dead.
+                .collect { snapshot ->
+                    _uiState.update {
+                        it.copy(
+                            searchedQuery = snapshot.searchedQuery,
+                            results = snapshot.results,
+                            suggestions = snapshot.suggestions,
+                            recentSearches = snapshot.recentSearches,
+                            isLoading = false,
+                        )
+                    }
+                }
         }
 
         // Persist a search only after the user pauses. distinctUntilChanged()
@@ -227,10 +246,14 @@ class SearchViewModel @Inject constructor(
 
     fun updateQuery(newQuery: String) {
         query.value = newQuery
+        // Reflect the keystroke immediately; the debounced pipeline updates
+        // results/searchedQuery a moment later.
+        _uiState.update { it.copy(query = newQuery) }
     }
 
     fun updateFilter(newFilter: SearchFilter) {
         filter.value = newFilter
+        _uiState.update { it.copy(filter = newFilter) }
     }
 
     fun clearRecentSearches() {

@@ -1,3 +1,13 @@
+## 1.25.1 — 2026-08-31
+
+- **Barra de busca travada**: o campo de texto era controlado por
+  `state.query`, que só era atualizado pelo pipeline **com `debounce(250)`**.
+  Digitando continuamente, o `debounce` nunca emitia e o campo parecia
+  congelado / comia caracteres. Agora `updateQuery`/`updateFilter` atualizam
+  o estado do campo e dos chips na hora; só o cálculo de resultados continua
+  com debounce. Novo `searchedQuery` evita o flash de "Nenhum resultado"
+  enquanto o debounce alcança.
+
 ## 1.25.0 — 2026-08-31
 
 - **Trailer nas séries**: a página de detalhes de série agora resolve o

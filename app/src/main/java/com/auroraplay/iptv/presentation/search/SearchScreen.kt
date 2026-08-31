@@ -89,12 +89,16 @@ fun SearchScreen(
 
         val showingSuggestions = state.query.isBlank()
         val list = if (showingSuggestions) state.suggestions else state.results
+        // The results pipeline is debounced, so right after a keystroke it
+        // hasn't caught up yet — don't call it "no results" until it has.
+        val resultsReady = state.searchedQuery == state.query.trim()
 
         when {
-            !showingSuggestions && list.isEmpty() ->
+            !showingSuggestions && list.isEmpty() && resultsReady ->
                 EmptyState(message = "Nenhum resultado para \"${state.query}\"")
 
-            list.isEmpty() && state.recentSearches.isEmpty() -> EmptyState(message = "Nada para sugerir ainda.")
+            showingSuggestions && list.isEmpty() && state.recentSearches.isEmpty() ->
+                EmptyState(message = "Nada para sugerir ainda.")
 
             else -> LazyColumn(
                 contentPadding = PaddingValues(
