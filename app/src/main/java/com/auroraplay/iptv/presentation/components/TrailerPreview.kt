@@ -60,6 +60,14 @@ fun TrailerPreview(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val openOfficialTrailer = {
+        context.startActivity(
+            Intent(
+                Intent.ACTION_VIEW,
+                Uri.parse("https://www.youtube.com/watch?v=$youtubeVideoId"),
+            ),
+        )
+    }
     var webView by remember(youtubeVideoId) { mutableStateOf<WebView?>(null) }
     var playing by rememberSaveable(youtubeVideoId) { mutableStateOf(false) }
     var muted by rememberSaveable(youtubeVideoId) { mutableStateOf(false) }
@@ -160,7 +168,16 @@ fun TrailerPreview(
                 .size(62.dp)
                 .background(Color.Black.copy(alpha = 0.58f), CircleShape)
                 .clickable {
-                    webView?.evaluateJavascript(if (playing) "pauseTrailer()" else "playTrailer()", null)
+                    // Some device WebViews block the embedded frame before it
+                    // ever finishes loading (the black state shown in the
+                    // report). A tap must still play the verified trailer,
+                    // so use the official YouTube watch URL immediately in
+                    // that case instead of leaving the control inert.
+                    if (!playerReady) {
+                        openOfficialTrailer()
+                    } else {
+                        webView?.evaluateJavascript(if (playing) "pauseTrailer()" else "playTrailer()", null)
+                    }
                 },
             contentAlignment = Alignment.Center,
         ) {
@@ -192,12 +209,7 @@ fun TrailerPreview(
                     .align(Alignment.Center)
                     .background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(10.dp))
                     .clickable {
-                        context.startActivity(
-                            Intent(
-                                Intent.ACTION_VIEW,
-                                Uri.parse("https://www.youtube.com/watch?v=$youtubeVideoId"),
-                            ),
-                        )
+                        openOfficialTrailer()
                     }
                     .padding(horizontal = 12.dp, vertical = 8.dp),
             )
