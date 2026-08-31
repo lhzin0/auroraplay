@@ -1,3 +1,19 @@
+## 1.25.0 — 2026-08-31
+
+- **Trailer nas séries**: a página de detalhes de série agora resolve o
+  trailer oficial no TMDB (`tv/{id}/videos`, só YouTube) e ganha a aba
+  Banner ⇄ Trailer, igual aos filmes. `trailerYoutubeId` nunca é uma URL de
+  episódio/Xtream.
+- **Cobertura do trailer ampliada** (filmes e séries): a busca no TMDB tenta
+  título limpo + ano → sem ano → em inglês, e os vídeos em pt-BR → en-US, de
+  modo que praticamente todo título com trailer no TMDB passa a ter um.
+- **Player do trailer** migrado para a YouTube IFrame Player API oficial
+  (`new YT.Player`), que funciona dentro do WebView onde o *handshake* manual
+  via `postMessage` ficava preto; *watchdog* de 8s e erro de script caem no
+  "Abrir no YouTube".
+- **Perfis**: conteúdo adulto ("+18"/"XXX"/"Adultos") removido do herói
+  rotativo do seletor de perfil (`MatureContentFilter`).
+
 ## [1.24.0] — 2026-08-31
 
 ### UI/UX

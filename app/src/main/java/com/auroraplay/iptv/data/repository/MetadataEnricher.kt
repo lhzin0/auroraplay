@@ -95,38 +95,47 @@ class MetadataEnricher @Inject constructor(
 
     /** Resolves a promotional YouTube clip for the details screen. This stays
      * separate from stream playback so a movie URL can never become a trailer. */
-    suspend fun youtubeTrailerForMovie(rawTitle: String, year: String?): String? {
-        val credentials = credentials()
-        return lookupTrailer("youtube-trailer:$rawTitle:$year:${credentials?.cacheFingerprint}") {
-            credentials ?: return@lookupTrailer null
+    suspend fun youtubeTrailerForMovie(rawTitle: String, year: String?): String? =
+        youtubeTrailer(rawTitle, year, isSeries = false)
+
+    /** Series counterpart of [youtubeTrailerForMovie]. TMDB's `tv/{id}/videos`
+     * only ever returns marketing clips, so there is no risk of surfacing a
+     * full episode as the "trailer". */
+    suspend fun youtubeTrailerForSeries(rawTitle: String, year: String?): String? =
+        youtubeTrailer(rawTitle, year, isSeries = true)
+
+    private suspend fun youtubeTrailer(rawTitle: String, year: String?, isSeries: Boolean): String? {
+        val credentials = credentials() ?: return null
+        val kind = if (isSeries) "tv" else "movie"
+        return lookupTrailer("youtube-trailer:$kind:$rawTitle:$year:${credentials.cacheFingerprint}") {
             val cleanTitle = MetadataSanitizer.title(rawTitle)
             val resolvedYear = year ?: MetadataSanitizer.year(null, rawTitle)
-            val movie = pickBest(
-                tmdbApi.searchMovie(
-                    apiKey = credentials.apiKey,
-                    query = cleanTitle,
-                    year = resolvedYear,
-                    authorization = credentials.authorization,
-                ).results,
-                cleanTitle,
-                resolvedYear,
-            )
+
+            suspend fun search(q: String, y: String?, lang: String) =
+                if (isSeries) {
+                    tmdbApi.searchTv(credentials.apiKey, q, y, lang, credentials.authorization).results
+                } else {
+                    tmdbApi.searchMovie(credentials.apiKey, q, y, lang, credentials.authorization).results
+                }
+
+            // Xtream titles are noisy — try the cleaned title with the year,
+            // then without it, then an English-language search, so a match is
+            // found for essentially every real title.
+            val hit = pickBest(search(cleanTitle, resolvedYear, "pt-BR"), cleanTitle, resolvedYear)
+                ?: pickBest(search(cleanTitle, null, "pt-BR"), cleanTitle, null)
+                ?: pickBest(search(cleanTitle, null, "en-US"), cleanTitle, null)
                 ?: return@lookupTrailer null
 
-            pickTrailer(
-                tmdbApi.movieVideos(
-                    movieId = movie.id,
-                    apiKey = credentials.apiKey,
-                    authorization = credentials.authorization,
-                ).results,
-            )?.key ?: pickTrailer(
-                tmdbApi.movieVideos(
-                    movieId = movie.id,
-                    apiKey = credentials.apiKey,
-                    language = "en-US",
-                    authorization = credentials.authorization,
-                ).results,
-            )?.key
+            suspend fun videos(lang: String) =
+                if (isSeries) {
+                    tmdbApi.tvVideos(hit.id, credentials.apiKey, lang, credentials.authorization).results
+                } else {
+                    tmdbApi.movieVideos(hit.id, credentials.apiKey, lang, credentials.authorization).results
+                }
+
+            // pt-BR clips first, then the (usually richer) English set.
+            pickTrailer(videos("pt-BR"))?.key
+                ?: pickTrailer(videos("en-US"))?.key
         }
     }
 

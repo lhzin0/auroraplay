@@ -97,7 +97,7 @@ fun SeriesDetailsScreen(
                                 title = series.name,
                                 backdropUrl = series.backdropUrl ?: series.posterUrl,
                                 subtitle = listOfNotNull(series.year, series.genre, "${series.seasons.size} temporada(s)").joinToString("  •  "),
-                                trailerYoutubeId = null,
+                                trailerYoutubeId = state.trailerYoutubeId,
                             )
                         }
                     }

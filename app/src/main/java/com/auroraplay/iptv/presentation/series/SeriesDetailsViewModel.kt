@@ -11,6 +11,7 @@ import com.auroraplay.iptv.domain.repository.ConnectionRepository
 import com.auroraplay.iptv.domain.repository.ContentRepository
 import com.auroraplay.iptv.domain.repository.FavoriteRepository
 import com.auroraplay.iptv.domain.repository.ProfileRepository
+import com.auroraplay.iptv.data.repository.MetadataEnricher
 import com.auroraplay.iptv.domain.repository.WatchProgressRepository
 import com.auroraplay.iptv.domain.usecase.ToggleFavoriteUseCase
 import com.auroraplay.iptv.player.download.DownloadTracker
@@ -42,6 +43,8 @@ data class SeriesDetailsUiState(
     val downloadHasKnownPercentageByEpisodeId: Map<String, Boolean> = emptyMap(),
     val downloadBytesByEpisodeId: Map<String, Long> = emptyMap(),
     val similar: List<Series> = emptyList(),
+    /** Official YouTube trailer id from TMDB — never an Xtream/episode URL. */
+    val trailerYoutubeId: String? = null,
 )
 
 @HiltViewModel
@@ -54,6 +57,7 @@ class SeriesDetailsViewModel @Inject constructor(
     private val toggleFavoriteUseCase: ToggleFavoriteUseCase,
     private val watchProgressRepository: WatchProgressRepository,
     private val downloadTracker: DownloadTracker,
+    private val metadataEnricher: MetadataEnricher,
 ) : ViewModel() {
 
     private val seriesId: String = checkNotNull(savedStateHandle["seriesId"])
@@ -88,6 +92,13 @@ class SeriesDetailsViewModel @Inject constructor(
 
             val allSeries = contentRepository.observeSeries(connection.id).first()
             val similar = allSeries.filter { it.id != series.id && it.genre != null && it.genre == series.genre }.take(12)
+
+            // Resolve the trailer off the critical path so the page renders
+            // immediately and just gains the trailer tab when it arrives.
+            launch {
+                val trailer = metadataEnricher.youtubeTrailerForSeries(series.name, series.year)
+                _uiState.update { it.copy(trailerYoutubeId = trailer) }
+            }
 
             val favoriteFlow = if (profile != null) favoriteRepository.isFavorite(profile.id, series.id) else flowOf(false)
             // Observe the profile history once and select the most recently

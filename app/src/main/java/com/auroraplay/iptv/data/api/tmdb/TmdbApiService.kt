@@ -44,6 +44,16 @@ interface TmdbApiService {
         @Query("language") language: String = "pt-BR",
         @Header("Authorization") authorization: String? = null,
     ): TmdbVideosResponse
+
+    /** Same as [movieVideos] but for a TV series. Only official YouTube
+     * trailers/teasers are used — never a full episode. */
+    @GET("tv/{tv_id}/videos")
+    suspend fun tvVideos(
+        @Path("tv_id") tvId: Int,
+        @Query("api_key") apiKey: String?,
+        @Query("language") language: String = "pt-BR",
+        @Header("Authorization") authorization: String? = null,
+    ): TmdbVideosResponse
 }
 
 data class TmdbSearchResponse(
