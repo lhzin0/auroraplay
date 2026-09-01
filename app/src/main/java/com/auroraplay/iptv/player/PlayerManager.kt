@@ -111,6 +111,10 @@ class PlayerManager @Inject constructor(
     private val castPlayer: CastPlayer? = castContext?.let { CastPlayer(it) }
 
     private var lastKnownUrl: String? = null
+    /** Original URL requested by the screen. This remains stable if a live
+     * stream later falls back from .m3u8 to .ts, so promoting its preview to
+     * full screen still recognises the stream as the same playback. */
+    private var lastRequestedUrl: String? = null
     private var lastKnownPositionMillis: Long = 0L
     // Guards the one-shot ".m3u8 → .ts" retry for live streams (see onPlayerError).
     private var triedLiveTsFallback = false
@@ -259,6 +263,23 @@ class PlayerManager @Inject constructor(
         }
 
         runCatching {
+            val player = activePlayer()
+            // A PlayerView is recreated when the inline preview is promoted
+            // to the full-screen route. The ExoPlayer itself is shared, so do
+            // not replace its media item or prepare it again for the exact
+            // same request: doing so discarded the already buffered video and
+            // made full screen visibly reload.
+            if (
+                lastRequestedUrl == url &&
+                player.currentMediaItem != null &&
+                player.playbackState != Player.STATE_IDLE &&
+                player.playbackState != Player.STATE_ENDED
+            ) {
+                syncPosition()
+                return
+            }
+
+            lastRequestedUrl = url
             lastKnownUrl = url
             triedLiveTsFallback = false
             _state.value = PlaybackUiState(
@@ -267,7 +288,6 @@ class PlayerManager @Inject constructor(
                 castDeviceName = _state.value.castDeviceName,
             )
             val mediaItem = MediaItem.fromUri(url)
-            val player = activePlayer()
             player.setMediaItem(mediaItem, startPositionMillis.coerceAtLeast(0L))
             player.prepare()
             player.playWhenReady = true
@@ -379,6 +399,8 @@ class PlayerManager @Inject constructor(
         exoPlayer.stop()
         exoPlayer.clearMediaItems()
         castPlayer?.stop()
+        lastKnownUrl = null
+        lastRequestedUrl = null
     }
 
     fun release() {

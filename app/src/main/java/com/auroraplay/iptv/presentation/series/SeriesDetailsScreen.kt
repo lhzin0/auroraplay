@@ -125,14 +125,6 @@ fun SeriesDetailsScreen(
                                     icon = Icons.Default.PlayArrow,
                                     fullWidth = true,
                                 )
-                                if (hasResume && state.resumeSeasonNumber != null && state.resumeEpisodeNumber != null) {
-                                    Spacer(Modifier.height(8.dp))
-                                    Text(
-                                        "T${state.resumeSeasonNumber} E${state.resumeEpisodeNumber} • ${formatTime(state.resumePositionMillis)} / ${formatTime(state.resumeDurationMillis)}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = AuroraColors.TextTertiary,
-                                    )
-                                }
                                 Spacer(Modifier.height(10.dp))
                                 val epIsDownloaded = targetEpisode.id in state.downloadedEpisodeIds
                                 val epIsDownloading = targetEpisode.id in state.downloadingEpisodeIds
@@ -251,6 +243,8 @@ fun SeriesDetailsScreen(
                                 downloadProgress = state.downloadProgressByEpisodeId[episode.id] ?: 0f,
                                 hasKnownDownloadPercentage = state.downloadHasKnownPercentageByEpisodeId[episode.id] ?: true,
                                 downloadBytesDownloaded = state.downloadBytesByEpisodeId[episode.id] ?: 0L,
+                                resumePositionMillis = state.resumePositionMillis.takeIf { episode.id == state.resumeEpisodeId },
+                                resumeDurationMillis = state.resumeDurationMillis.takeIf { episode.id == state.resumeEpisodeId },
                                 onClick = { onWatchEpisode(series.id, episode.id) },
                                 onToggleDownload = { viewModel.toggleEpisodeDownload(episode) },
                             )
@@ -321,6 +315,8 @@ private fun EpisodeRow(
     downloadProgress: Float,
     hasKnownDownloadPercentage: Boolean,
     downloadBytesDownloaded: Long,
+    resumePositionMillis: Long?,
+    resumeDurationMillis: Long?,
     onClick: () -> Unit,
     onToggleDownload: () -> Unit,
 ) {
@@ -365,6 +361,15 @@ private fun EpisodeRow(
                 durationLabel?.takeIf { it.isNotBlank() }?.let {
                     Spacer(Modifier.height(2.dp))
                     Text(it, style = MaterialTheme.typography.bodySmall, color = AuroraColors.TextTertiary)
+                }
+                resumePositionMillis?.takeIf { it > 0L }?.let { position ->
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        "Continuar de ${formatTime(position)} / ${formatTime(resumeDurationMillis ?: 0L)}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                    )
                 }
             }
 

@@ -23,7 +23,8 @@ import androidx.compose.ui.unit.dp
 /**
  * Single media stage used by movie/series details.
  * Page 0 is the artwork and page 1 is the YouTube trailer. When a trailer is
- * available, the player opens first, matching the streaming-detail layout.
+ * available, it remains an explicitly selected second page. Artwork always
+ * opens first, so no video/trailer is shown until the user swipes to it.
  * The stage is intentionally inset from the system status/navigation areas so
  * neither media card nor controls can be hidden behind Android system bars.
  */
@@ -41,7 +42,7 @@ fun DetailMediaPager(
 
     key(trailerYoutubeId) {
         val pagerState = rememberPagerState(
-            initialPage = if (hasTrailer) 1 else 0,
+            initialPage = 0,
             pageCount = { pageCount },
         )
 
@@ -69,7 +70,6 @@ fun DetailMediaPager(
                     else -> TrailerPreview(
                         title = title,
                         youtubeVideoId = checkNotNull(trailerYoutubeId),
-                        active = pagerState.currentPage == 1,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }

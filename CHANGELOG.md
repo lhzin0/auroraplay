@@ -1,3 +1,31 @@
+## 1.25.7 — 2026-08-31
+
+- **Crash ao tocar em "Cinema" no player** — corrigido. O modo cinema pede
+  um quadro do vídeo ao `ExoFrameGrabber`, que monta um segundo ExoPlayer +
+  `ImageReader` e faz seek/decodificação numa `HandlerThread` própria
+  (`aurora-thumb`). Só a *chamada* `handler.post { … }` estava dentro de
+  `runCatching` — o corpo que roda na thread não. Como o app não instala
+  `UncaughtExceptionHandler`, qualquer exceção ali (ExoPlayer/MediaCodec/
+  ImageReader falhando num codec ou stream fora do comum) derrubava o
+  processo inteiro. Em canais **ao vivo** o `prewarm()` é pulado, então o
+  botão Cinema era a primeira coisa que ligava esse caminho — daí "crasha em
+  qualquer player".
+  Agora cada bloco que roda na `aurora-thumb` está encapsulado
+  (`try/catch` + `runCatching` no listener do `ImageReader` e na init do
+  player), a thread tem seu próprio `uncaughtExceptionHandler` como última
+  rede, e o `latch` da inicialização sempre é liberado. Falha de extração
+  volta a ser só "sem quadro de cinema", nunca um crash. Preview da timeline
+  (que usa o mesmo grabber) ganha a mesma proteção.
+
+## 1.25.6 — 2026-08-31
+
+Versões 1.25.3–1.25.6 saíram sem entrada no changelog. Resumo pelos diffs:
+`ExoFrameGrabber.toBitmap` reescrito (cópia RGBA linha a linha, evita o
+preview riscado); `PlayerManager` não recarrega a reprodução ao promover o
+preview inline para tela cheia (`lastRequestedUrl`); ajustes de timeline no
+player e de layout em `DetailMediaPager`/`TrailerPreview`/`SeriesDetails`;
+`MetadataEnricher` e arte em `drawable-nodpi`.
+
 ## 1.25.2 — 2026-08-31
 
 - **Trailer refeito, sem HTML/bridge**: agora é só a página `/embed/` do

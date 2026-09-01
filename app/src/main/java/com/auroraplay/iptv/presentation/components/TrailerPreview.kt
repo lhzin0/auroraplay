@@ -1,16 +1,12 @@
 package com.auroraplay.iptv.presentation.components
 
-import android.annotation.SuppressLint
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.webkit.WebChromeClient
-import android.webkit.WebResourceError
-import android.webkit.WebResourceRequest
-import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -19,163 +15,127 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
+import coil.compose.AsyncImage
 
 /**
- * Inline trailer — YouTube's own `/embed/` page in a WebView, nothing more.
+ * Reliable YouTube trailer preview.
  *
- * The previous build wrapped the video in hand-written HTML + the JS IFrame
- * Player API bridge. Inside an Android WebView that handshake never worked
- * reliably: `loadDataWithBaseURL` gives the page an opaque origin, so
- * YouTube's `postMessage` replies were dropped and the frame just sat black.
- *
- * The bare embed page, loaded with `loadUrl`, renders its own poster and
- * controls and plays inline on every device. `autoplay=1&mute=1` gives the
- * Netflix-style muted auto-start; YouTube's built-in controls handle
- * unmute / pause / seek. If the title has embedding disabled, YouTube's page
- * shows its own "Watch on YouTube" — and the pill below always offers the
- * full app/site too.
- *
- * `youtubeVideoId` is a TMDB-verified id, never an Xtream/stream URL.
+ * The YouTube player blocks/restricts embedded playback in Android WebView on
+ * some devices, which left this area black or white even when the verified
+ * trailer id was correct. A first-party YouTube thumbnail keeps the detail
+ * page fast and visual; tapping it opens the exact verified trailer in the
+ * installed YouTube app (or the browser as a fallback), where playback is
+ * supported by YouTube itself.
  */
 @Composable
-@SuppressLint("SetJavaScriptEnabled")
 fun TrailerPreview(
     title: String,
     youtubeVideoId: String,
-    active: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    fun openOnYouTube() = context.startActivity(
-        Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/watch?v=$youtubeVideoId")),
-    )
-
-    var webView by remember(youtubeVideoId) { mutableStateOf<WebView?>(null) }
-    var loaded by rememberSaveable(youtubeVideoId) { mutableStateOf(false) }
-    var failed by rememberSaveable(youtubeVideoId) { mutableStateOf(false) }
-
-    // Pause playback when this page is swiped away; nudge it back when it
-    // returns. WebView.onPause/onResume also freeze the page's timers.
-    LaunchedEffect(active, webView) {
-        val wv = webView ?: return@LaunchedEffect
-        if (active) {
-            wv.onResume()
-            wv.evaluateJavascript("try{document.querySelector('video').play()}catch(e){}", null)
-        } else {
-            wv.evaluateJavascript("try{document.querySelector('video').pause()}catch(e){}", null)
-            wv.onPause()
-        }
-    }
 
     Box(
         modifier = modifier
             .fillMaxWidth()
             .aspectRatio(16f / 9f)
             .clip(RoundedCornerShape(16.dp))
-            .background(Color.Black),
+            .background(Color(0xFF111014))
+            .clickable { context.openYouTubeTrailer(youtubeVideoId) },
     ) {
-        AndroidView(
+        AsyncImage(
+            model = "https://i.ytimg.com/vi/$youtubeVideoId/hqdefault.jpg",
+            contentDescription = "Trailer de $title",
+            contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize(),
-            factory = { ctx ->
-                WebView(ctx).also { wv ->
-                    wv.setBackgroundColor(android.graphics.Color.BLACK)
-                    with(wv.settings) {
-                        javaScriptEnabled = true
-                        domStorageEnabled = true
-                        mediaPlaybackRequiresUserGesture = false
-                        allowFileAccess = false
-                        allowContentAccess = false
-                    }
-                    wv.webChromeClient = WebChromeClient()
-                    wv.webViewClient = object : WebViewClient() {
-                        override fun onPageFinished(view: WebView, url: String?) { loaded = true }
-                        override fun onReceivedError(
-                            view: WebView,
-                            request: WebResourceRequest?,
-                            error: WebResourceError?,
-                        ) {
-                            if (request?.isForMainFrame == true) failed = true
-                        }
-                    }
-                    wv.loadUrl(
-                        "https://www.youtube.com/embed/$youtubeVideoId" +
-                            "?autoplay=1&mute=1&playsinline=1&controls=1&rel=0&modestbranding=1&iv_load_policy=3&fs=0",
+        )
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        0f to Color.Black.copy(alpha = 0.18f),
+                        0.5f to Color.Transparent,
+                        1f to Color.Black.copy(alpha = 0.78f),
                     )
-                    webView = wv
-                }
-            },
-            onRelease = { wv ->
-                wv.stopLoading()
-                wv.loadUrl("about:blank")
-                wv.destroy()
-                if (webView === wv) webView = null
-            },
+                )
         )
 
-        if (!loaded && !failed) {
-            CircularProgressIndicator(
-                modifier = Modifier.align(Alignment.Center).size(28.dp),
-                color = Color.White,
-                strokeWidth = 2.dp,
-            )
-        }
-
         Text(
-            "TRAILER",
+            "TRAILER OFICIAL",
             color = Color.White,
-            style = MaterialTheme.typography.labelMedium,
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .padding(12.dp)
-                .background(Color.Black.copy(alpha = 0.48f), RoundedCornerShape(8.dp))
+                .background(Color.Black.copy(alpha = 0.60f), RoundedCornerShape(8.dp))
                 .padding(horizontal = 9.dp, vertical = 5.dp),
         )
 
-        // Always-present escape hatch to the full YouTube app/site — and the
-        // primary affordance if the inline embed failed for this title.
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .align(Alignment.Center)
+                .size(62.dp)
+                .background(Color.White, CircleShape),
+        ) {
+            Icon(
+                Icons.Filled.PlayArrow,
+                contentDescription = "Abrir trailer no YouTube",
+                tint = Color.Black,
+                modifier = Modifier.size(34.dp),
+            )
+        }
+
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(12.dp)
-                .clip(RoundedCornerShape(100.dp))
-                .background(Color.Black.copy(alpha = if (failed) 0.85f else 0.5f))
-                .clickable { openOnYouTube() }
-                .padding(horizontal = 12.dp, vertical = 7.dp),
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .padding(14.dp),
         ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "Assistir no YouTube",
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                )
+                Text(
+                    "Abre o trailer oficial completo",
+                    color = Color.White.copy(alpha = 0.76f),
+                    style = MaterialTheme.typography.labelMedium,
+                )
+            }
+            Spacer(Modifier.width(10.dp))
             Icon(
                 Icons.AutoMirrored.Filled.OpenInNew,
                 contentDescription = null,
                 tint = Color.White,
-                modifier = Modifier.size(15.dp),
-            )
-            Spacer(Modifier.width(6.dp))
-            Text(
-                if (failed) "Abrir no YouTube" else "YouTube",
-                color = Color.White,
-                style = MaterialTheme.typography.labelMedium,
+                modifier = Modifier.size(20.dp),
             )
         }
     }
+}
+
+private fun Context.openYouTubeTrailer(youtubeVideoId: String) {
+    val trailerUri = Uri.parse("https://www.youtube.com/watch?v=$youtubeVideoId&autoplay=1")
+    startActivity(Intent(Intent.ACTION_VIEW, trailerUri))
 }

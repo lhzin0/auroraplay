@@ -75,8 +75,8 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
- * Full-screen, landscape-locked player. On entry it forces landscape and
- * hides the system bars (immersive), restoring both on exit. Exiting through
+ * Full-screen player that always opens in landscape while hiding the system
+ * bars (immersive). Exiting through
  * the player back action returns to the exact page that launched fullscreen.
  * The video fills the display instead of sitting letterboxed in a portrait window.
  *
@@ -100,7 +100,8 @@ fun PlayerScreen(
     val context = LocalContext.current
     val activity = context as? Activity
 
-    // Landscape + immersive while this screen is on top; both are reverted on dispose.
+    // Playback is always landscape, independent of the device rotation lock.
+    // The previous orientation and immersive mode are restored on exit.
     DisposableEffect(Unit) {
         val originalOrientation = activity?.requestedOrientation
         activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
@@ -784,7 +785,10 @@ private fun PlayerControlsOverlay(
                         }
                     }
 
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
                         ThinSeekBar(
                             fraction = shownFrac,
                             onScrubStart = { onScrubbingChange(true) },
@@ -800,7 +804,7 @@ private fun PlayerControlsOverlay(
                             },
                             modifier = Modifier.weight(1f),
                         )
-                        Spacer(Modifier.width(10.dp))
+                        Spacer(Modifier.width(12.dp))
                         val remainingMillis = (duration - shownMillis).coerceAtLeast(0)
                         val timeLabel = if (showRemainingTime) {
                             "-${(remainingMillis / 1000).toTimeLabel()}"
@@ -813,7 +817,10 @@ private fun PlayerControlsOverlay(
                             style = MaterialTheme.typography.labelLarge,
                             textAlign = androidx.compose.ui.text.style.TextAlign.End,
                             modifier = Modifier
-                                .widthIn(min = 52.dp)
+                                // A fixed end slot keeps the usable timeline
+                                // width stable and symmetric as -M:SS grows
+                                // into -H:MM:SS during long films.
+                                .width(76.dp)
                                 .clip(RoundedCornerShape(6.dp))
                                 .clickable(onClickLabel = "Alternar entre tempo restante e decorrido", onClick = onToggleTimeDisplay)
                                 .padding(horizontal = 4.dp, vertical = 4.dp),
@@ -1106,7 +1113,7 @@ private fun PlayPauseButton(isPlaying: Boolean, isBuffering: Boolean, onClick: (
     }
 }
 
-/** Slim, elegant timeline — a hair-thin track, small round thumb, purple
+/** Slim, elegant timeline — a precise track, comfortably large round thumb, purple
  * progress. Hand-rolled so the track really is thin (Material's Slider has a
  * fixed 4dp track) and so the whole 24dp band stays a comfortable touch area. */
 @Composable
@@ -1126,7 +1133,7 @@ private fun ThinSeekBar(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(28.dp)
+            .height(34.dp)
             .onSizeChanged { widthPx = it.width.toFloat().coerceAtLeast(1f) }
             .pointerInput(Unit) {
                 detectHorizontalDragGestures(
@@ -1153,9 +1160,9 @@ private fun ThinSeekBar(
             },
         contentAlignment = Alignment.CenterStart,
     ) {
-        val trackH = 4.dp
+        val trackH = 5.dp
         val knob by androidx.compose.animation.core.animateDpAsState(
-            targetValue = if (dragging) 24.dp else 16.dp,
+            targetValue = if (dragging) 28.dp else 20.dp,
             animationSpec = tween(140),
             label = "seekKnob",
         )

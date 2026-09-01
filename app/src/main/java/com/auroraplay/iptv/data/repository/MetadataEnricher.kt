@@ -107,7 +107,7 @@ class MetadataEnricher @Inject constructor(
     private suspend fun youtubeTrailer(rawTitle: String, year: String?, isSeries: Boolean): String? {
         val credentials = credentials() ?: return null
         val kind = if (isSeries) "tv" else "movie"
-        return lookupTrailer("youtube-trailer:$kind:$rawTitle:$year:${credentials.cacheFingerprint}") {
+        return lookupTrailer("youtube-trailer:pt-BR:$kind:$rawTitle:$year:${credentials.cacheFingerprint}") {
             val cleanTitle = MetadataSanitizer.title(rawTitle)
             val resolvedYear = year ?: MetadataSanitizer.year(null, rawTitle)
 
@@ -118,12 +118,11 @@ class MetadataEnricher @Inject constructor(
                     tmdbApi.searchMovie(credentials.apiKey, q, y, lang, credentials.authorization).results
                 }
 
-            // Xtream titles are noisy — try the cleaned title with the year,
-            // then without it, then an English-language search, so a match is
-            // found for essentially every real title.
+            // Xtream titles are noisy — try the cleaned Portuguese-Brazil
+            // search with the year, then without it. We deliberately do not
+            // fall back to English: trailers must be pt-BR when available.
             val hit = pickBest(search(cleanTitle, resolvedYear, "pt-BR"), cleanTitle, resolvedYear)
                 ?: pickBest(search(cleanTitle, null, "pt-BR"), cleanTitle, null)
-                ?: pickBest(search(cleanTitle, null, "en-US"), cleanTitle, null)
                 ?: return@lookupTrailer null
 
             suspend fun videos(lang: String) =
@@ -133,9 +132,7 @@ class MetadataEnricher @Inject constructor(
                     tmdbApi.movieVideos(hit.id, credentials.apiKey, lang, credentials.authorization).results
                 }
 
-            // pt-BR clips first, then the (usually richer) English set.
             pickTrailer(videos("pt-BR"))?.key
-                ?: pickTrailer(videos("en-US"))?.key
         }
     }
 
@@ -174,11 +171,10 @@ class MetadataEnricher @Inject constructor(
             .asSequence()
             .filter { it.site.equals("YouTube", ignoreCase = true) }
             .filter { it.key?.matches(YOUTUBE_VIDEO_ID) == true }
+            .filter { it.type.equals("Trailer", ignoreCase = true) }
+            .filter { it.language.equals("pt", ignoreCase = true) }
             .sortedWith(
-                compareByDescending<TmdbVideoDto> { it.type.equals("Trailer", ignoreCase = true) }
-                    .thenByDescending { it.official == true }
-                    .thenByDescending { it.language.equals("pt", ignoreCase = true) }
-                    .thenByDescending { it.type.equals("Teaser", ignoreCase = true) },
+                compareByDescending<TmdbVideoDto> { it.official == true },
             )
             .firstOrNull()
 
