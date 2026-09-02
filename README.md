@@ -69,12 +69,21 @@ app/src/main/java/com/auroraplay/iptv/
 
 ## Versão atual
 
-**1.25.15** — `versionCode 67`. Dublado/Legendado: detecção agora usa a
-categoria além do título (junta as cópias mesmo sem marca no nome), e o player
-ganhou um segmento **Dublado ⇄ Legendado** na barra superior — um toque troca
-o stream mantendo a posição. Antes: FrostGlass com blur real (Haze).
+**1.25.16** — `versionCode 68`. Build de debug pré-carrega uma playlist de
+teste (`DebugConnectionSeeder`) numa instalação limpa; credenciais vazias no
+release. Antes: detecção Dublado/Legendado pela categoria + troca rápida no
+player, e FrostGlass com blur real (Haze).
 
 ## Novidades desta revisão
+
+### 1.25.16 — 2026-09-02
+
+- **Playlist de teste no build de debug.** `DebugConnectionSeeder` pré-carrega
+  a conexão "HubPlay" + um perfil "Debug" numa instalação limpa, para não
+  refazer o onboarding a cada teste. `BuildConfig.SEED_XTREAM_*` são vazios no
+  release (definidos só em `buildTypes.debug`) e a chamada é cercada por
+  `BuildConfig.DEBUG`. Só preenche tabela vazia — não mexe no que o usuário
+  criou.
 
 ### 1.25.15 — 2026-09-02
 

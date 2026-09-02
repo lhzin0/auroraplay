@@ -1,3 +1,13 @@
+## 1.25.16 — 2026-09-02
+
+- **Playlist de teste embutida (só debug).** Novo `DebugConnectionSeeder`:
+  numa instalação limpa do build de debug, pré-carrega a conexão Xtream
+  "HubPlay" (+ um perfil "Debug" 🧪) para pular o onboarding a cada teste.
+  As credenciais vivem em `BuildConfig.SEED_XTREAM_*`, que são **vazios no
+  build de release** (definidos só no `buildTypes.debug`), e a chamada em
+  `AuroraApplication` é cercada por `BuildConfig.DEBUG`. Nunca sobrescreve
+  uma conexão/perfil criado pelo usuário — só preenche tabela vazia.
+
 ## 1.25.15 — 2026-09-02
 
 Dublado/Legendado: detecção mais forte + troca rápida no player (feedback com print).

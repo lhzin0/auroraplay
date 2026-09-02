@@ -19,11 +19,19 @@ android {
         //   x.x.PATCH  -> bug fixes only
         //   x.MINOR.x  -> larger updates (new features, redesigns)
         // versionCode increments monotonically on every release.
-        versionCode = 67
-        versionName = "1.25.15"
+        versionCode = 68
+        versionName = "1.25.16"
         // Default application credential for automatic metadata and official
         // trailers. It is intentionally kept out of the settings UI.
         buildConfigField("String", "TMDB_API_KEY", "\"b89b1d7fe6f14b4825f390e3db639b16\"")
+
+        // Debug-only playlist seed (see DebugConnectionSeeder). Blank here so
+        // the release build carries no credentials at all; the debug build
+        // type below fills them in.
+        buildConfigField("String", "SEED_XTREAM_NAME", "\"\"")
+        buildConfigField("String", "SEED_XTREAM_URL", "\"\"")
+        buildConfigField("String", "SEED_XTREAM_USER", "\"\"")
+        buildConfigField("String", "SEED_XTREAM_PASS", "\"\"")
 
         vectorDrawables { useSupportLibrary = true }
     }
@@ -37,6 +45,12 @@ android {
         debug {
             isMinifyEnabled = false
             applicationIdSuffix = ".debug"
+            // Pre-loads this Xtream playlist on a fresh debug install so
+            // testing skips the onboarding flow. Never present in release.
+            buildConfigField("String", "SEED_XTREAM_NAME", "\"HubPlay\"")
+            buildConfigField("String", "SEED_XTREAM_URL", "\"https://vaptynew.top\"")
+            buildConfigField("String", "SEED_XTREAM_USER", "\"818617465590\"")
+            buildConfigField("String", "SEED_XTREAM_PASS", "\"939567793225\"")
         }
     }
 

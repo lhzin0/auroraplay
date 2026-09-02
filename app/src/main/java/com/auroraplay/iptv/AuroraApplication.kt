@@ -20,6 +20,7 @@ class AuroraApplication : Application(), Configuration.Provider {
     @Inject lateinit var workerFactory: HiltWorkerFactory
     @Inject lateinit var downloadTracker: DownloadTracker
     @Inject lateinit var settingsRepository: SettingsRepository
+    @Inject lateinit var debugConnectionSeeder: DebugConnectionSeeder
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
@@ -29,6 +30,14 @@ class AuroraApplication : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
         NewEpisodeScheduler.schedule(this)
+
+        // DEBUG only: seed a test playlist on a fresh install (no-op in
+        // release — the BuildConfig.SEED_* fields are blank there).
+        if (BuildConfig.DEBUG) {
+            CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+                runCatching { debugConnectionSeeder.seedIfEmpty() }
+            }
+        }
 
         // DownloadManager.requirements resets to its Hilt-provided default
         // every process start, so the persisted Wi-Fi-only preference has to
