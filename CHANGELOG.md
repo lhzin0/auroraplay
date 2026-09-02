@@ -1,3 +1,32 @@
+## 1.25.8 — 2026-08-31
+
+Refino do player (preservando o design atual) + episódio automático.
+
+- **Modo Cinema — blindagem extra contra crash.** O toque no botão agora é
+  `runCatching`; o job de amostragem de frame no ViewModel ganhou
+  `CoroutineExceptionHandler` + try/catch (cancelamento repassado) e o
+  overlay só desenha bitmap válido/não reciclado. Pior caso possível: sem
+  brilho de cinema — nunca derruba o player.
+- **Timeline** afastada das bordas (padding 18→28dp) e centrada/simétrica:
+  espaçador de 64dp à esquerda espelhando o slot de tempo à direita, que
+  encolheu para 64dp. Evita conflito com os gestos de borda do Android.
+- **Ícones do player sem contorno.** Removidas todas as `.border(...)`: a
+  bolinha da timeline virou um círculo branco sólido (com sombra suave), a
+  pílula da barra de ações e o cartão de preview perderam o traço, o popup
+  de ajustes idem.
+- **Popup dos três pontos (⋮)** reposicionado para abrir ABAIXO do botão,
+  sem cobrir o próprio ⋮.
+- **Controle de brilho** sem cápsula/traço: só ícone + barra + botão, com
+  sombra para legibilidade; barra mais larga (8→12dp), botão maior (16→18dp)
+  e área útil um pouco maior (52×156 → 56×176dp).
+- **Próximo episódio automático** agora funciona: com a opção ligada em
+  Configurações › Reprodução, séries avançam sozinhas nos últimos ~40s do
+  episódio (heurística de "créditos" — o Xtream não fornece marcadores),
+  uma vez por episódio.
+
+Ainda pendente (passo dedicado): efeito FrostGlass + toggle, e a unificação
+dublado/legendado com seletor de idioma no player.
+
 ## 1.25.7 — 2026-08-31
 
 - **Crash ao tocar em "Cinema" no player** — corrigido. O modo cinema pede

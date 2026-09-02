@@ -84,7 +84,33 @@ class PlayerViewModel @Inject constructor(
             settingsRepository.observeSettings().collect { settings ->
                 _seekSeconds.value = settings.seekSeconds
                 playerManager.seekIncrementMs = settings.seekSeconds * 1000L
+                autoPlayNextEnabled = settings.autoPlayNext
             }
+        }
+    }
+
+    /** From Settings > Reprodução > "Próximo episódio automático". */
+    @Volatile
+    private var autoPlayNextEnabled: Boolean = true
+    private var autoAdvancedForUrl: String? = null
+
+    /**
+     * Auto-advance heuristic: Xtream gives us no chapter/credits markers, so
+     * "detect the end credits" becomes "the last [CREDITS_WINDOW_MS] of the
+     * episode". Fires at most once per loaded stream.
+     */
+    private fun maybeAutoAdvance() {
+        if (!autoPlayNextEnabled) return
+        val state = _loadState.value
+        val url = state.streamUrl ?: return
+        if (state.nextEpisode == null || state.contentType != ContentType.SERIES) return
+        if (autoAdvancedForUrl == url) return
+        val duration = playerManager.currentDuration()
+        val position = playerManager.currentPosition()
+        if (duration <= 0L) return
+        if (duration - position in 1..CREDITS_WINDOW_MS) {
+            autoAdvancedForUrl = url
+            playNextEpisode()
         }
     }
 
@@ -342,6 +368,7 @@ class PlayerViewModel @Inject constructor(
     /** Pushes the live position into PlaybackUiState so the seek bar tracks playback. */
     fun refreshPosition() {
         playerManager.syncPosition()
+        runCatching { maybeAutoAdvance() }
     }
 
     /** Wraps PlayerManager's version to also persist the language, so it's
@@ -378,7 +405,11 @@ class PlayerViewModel @Inject constructor(
         }
 
         val url = _loadState.value.streamUrl ?: return
-        cinematicJob = viewModelScope.launch(Dispatchers.Default) {
+        // A crash anywhere in this frame-sampling loop must never reach the
+        // process — the worst acceptable outcome is "no cinema glow".
+        val safety = kotlinx.coroutines.CoroutineExceptionHandler { _, _ -> _cinematicFrame.value = null }
+        cinematicJob = viewModelScope.launch(Dispatchers.Default + safety) {
+          try {
             // YouTube's own design notes describe using thumbnails/storyboards,
             // stretching, blurring and scrimming them rather than tinting the
             // video. A 6s cadence gives a similar slow-moving theatre glow
@@ -399,6 +430,11 @@ class PlayerViewModel @Inject constructor(
                 }
                 delay(6.seconds)
             }
+          } catch (c: kotlinx.coroutines.CancellationException) {
+            throw c
+          } catch (t: Throwable) {
+            _cinematicFrame.value = null
+          }
         }
     }
 
@@ -478,5 +514,10 @@ class PlayerViewModel @Inject constructor(
         playerManager.stop()
         thumbnailPreviewGenerator.release()
         cinematicJob?.cancel()
+    }
+
+    private companion object {
+        /** Treated as "the credits" for auto-advance (no chapter data from Xtream). */
+        const val CREDITS_WINDOW_MS = 40_000L
     }
 }

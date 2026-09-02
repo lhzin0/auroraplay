@@ -18,7 +18,6 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -46,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
@@ -287,7 +287,8 @@ fun PlayerScreen(
         // cannot work reliably with SurfaceView/TextureView because the video
         // surface may remain opaque. The video itself is never covered.
         val frame = cinematicFrame
-        if (cinematicModeEnabled && frame != null &&
+        val frameUsable = frame != null && !frame.isRecycled && frame.width > 0 && frame.height > 0
+        if (cinematicModeEnabled && frameUsable && frame != null &&
             playbackState.videoWidth > 0 && playbackState.videoHeight > 0 &&
             loadState.resizeMode == androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT) {
             CinematicBarsOverlay(
@@ -393,8 +394,11 @@ fun PlayerScreen(
                     onLock = { isLocked = true },
                     cinematicModeEnabled = cinematicModeEnabled,
                     onToggleCinematicMode = {
-                        cinematicModeEnabled = !cinematicModeEnabled
-                        viewModel.setCinematicMode(cinematicModeEnabled)
+                        val next = !cinematicModeEnabled
+                        cinematicModeEnabled = next
+                        // The cinematic frame path drives a headless decoder;
+                        // never let a failure there take down the player.
+                        runCatching { viewModel.setCinematicMode(next) }
                     },
                     onOpenAudio = { showAudioSheet = true },
                     onSkipIntro = { viewModel.playerManager.skipIntro() },
@@ -549,26 +553,32 @@ private fun VerticalMiniSlider(
         modifier = modifier
             .width(width)
             .height(height)
-            .clip(RoundedCornerShape(26.dp))
-            .background(Color.Black.copy(alpha = 0.42f))
+            // No capsule/border behind the bar — just the icon, track and
+            // knob. A soft drop shadow keeps it legible over bright video.
             .pointerInput(Unit) {
                 detectVerticalDragGestures { change, dragAmount ->
                     change.consume()
-                    // Dragging the slider's full height sweeps the full range,
-                    // so the taller control doesn't feel slower to move.
                     onDrag(-dragAmount / size.height.toFloat())
                 }
             }
-            .padding(vertical = 14.dp),
+            .padding(vertical = 10.dp),
     ) {
-        Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp))
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = Color.White,
+            modifier = Modifier
+                .size(24.dp)
+                .shadow(6.dp, CircleShape),
+        )
         Spacer(Modifier.height(10.dp))
         Box(
             modifier = Modifier
                 .weight(1f)
-                .width(8.dp)
+                .width(12.dp)
+                .shadow(6.dp, RoundedCornerShape(100.dp))
                 .clip(RoundedCornerShape(100.dp))
-                .background(Color.White.copy(alpha = 0.22f)),
+                .background(Color.White.copy(alpha = 0.30f)),
             contentAlignment = Alignment.BottomCenter,
         ) {
             Box(
@@ -581,8 +591,9 @@ private fun VerticalMiniSlider(
             ) {
                 Box(
                     Modifier
-                        .offset(y = (-7).dp)
-                        .size(16.dp)
+                        .offset(y = (-9).dp)
+                        .size(18.dp)
+                        .shadow(4.dp, CircleShape)
                         .clip(CircleShape)
                         .background(Color.White)
                 )
@@ -718,8 +729,10 @@ private fun PlayerControlsOverlay(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 18.dp, vertical = 8.dp)
-                    .padding(bottom = 2.dp),
+                    // Kept well clear of the screen edges so the scrub area
+                    // never collides with Android's edge gesture zones.
+                    .padding(horizontal = 28.dp, vertical = 8.dp)
+                    .padding(bottom = 4.dp),
             ) {
                 if (!isLive && duration > 0) {
                     var scrubFrac by remember { mutableStateOf<Float?>(null) }
@@ -749,9 +762,9 @@ private fun PlayerControlsOverlay(
                                     modifier = Modifier
                                         .width(140.dp)
                                         .aspectRatio(16f / 9f)
+                                        .shadow(6.dp, RoundedCornerShape(10.dp))
                                         .clip(RoundedCornerShape(10.dp))
-                                        .background(Color.Black)
-                                        .border(1.dp, Color.White.copy(alpha = 0.28f), RoundedCornerShape(10.dp)),
+                                        .background(Color.Black),
                                     contentAlignment = Alignment.Center,
                                 ) {
                                     val frame = scrubThumbnail
@@ -789,6 +802,9 @@ private fun PlayerControlsOverlay(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
+                        // Mirror of the fixed time slot on the right, so the
+                        // scrub track itself is centred and symmetric.
+                        Spacer(Modifier.width(64.dp))
                         ThinSeekBar(
                             fraction = shownFrac,
                             onScrubStart = { onScrubbingChange(true) },
@@ -820,10 +836,10 @@ private fun PlayerControlsOverlay(
                                 // A fixed end slot keeps the usable timeline
                                 // width stable and symmetric as -M:SS grows
                                 // into -H:MM:SS during long films.
-                                .width(76.dp)
+                                .width(64.dp)
                                 .clip(RoundedCornerShape(6.dp))
                                 .clickable(onClickLabel = "Alternar entre tempo restante e decorrido", onClick = onToggleTimeDisplay)
-                                .padding(horizontal = 4.dp, vertical = 4.dp),
+                                .padding(horizontal = 2.dp, vertical = 4.dp),
                         )
                     }
                 } else if (isLive) {
@@ -882,7 +898,6 @@ private fun PlayerControlsOverlay(
                         .align(Alignment.CenterHorizontally)
                         .clip(RoundedCornerShape(18.dp))
                         .background(Color.Black.copy(alpha = 0.28f))
-                        .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(18.dp))
                         .padding(horizontal = 4.dp, vertical = 2.dp),
                 ) {
                     Row(
@@ -926,12 +941,12 @@ private fun PlayerControlsOverlay(
             value = brightnessValue,
             icon = Icons.Default.BrightnessHigh,
             onDrag = onBrightnessDrag,
-            width = 52.dp,
-            height = 156.dp,
+            width = 56.dp,
+            height = 176.dp,
             modifier = Modifier
                 .align(Alignment.CenterStart)
                 .displayCutoutPadding()
-                .padding(start = 20.dp),
+                .padding(start = 18.dp),
         )
 
         // ---- Transport cluster: aligned to this full-screen Box, so it sits
@@ -1174,17 +1189,17 @@ private fun ThinSeekBar(
             Modifier.fillMaxWidth(shown).height(trackH).clip(CircleShape).background(primary),
             contentAlignment = Alignment.CenterEnd,
         ) {
-            // The precise position dot: a solid accent circle with a white
-            // ring so it stays readable over any frame, plus a soft halo
-            // while dragging. Offset by half its own size so its centre sits
+            // Precise position dot — a clean solid white circle (no ring),
+            // with a soft shadow for contrast over bright frames and a faint
+            // halo while dragging. Offset by half its size so its centre sits
             // exactly on the end of the filled track.
             Box(
                 modifier = Modifier
                     .size(knob)
                     .offset { IntOffset(knob.roundToPx() / 2, 0) }
+                    .shadow(4.dp, CircleShape)
                     .clip(CircleShape)
-                    .background(primary)
-                    .border(2.dp, Color.White, CircleShape),
+                    .background(Color.White),
                 contentAlignment = Alignment.Center,
             ) {
                 if (dragging) {
@@ -1192,7 +1207,7 @@ private fun ThinSeekBar(
                         Modifier
                             .matchParentSize()
                             .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.18f))
+                            .background(primary.copy(alpha = 0.35f))
                     )
                 }
             }
@@ -1276,16 +1291,16 @@ private fun PlayerSettingsSheet(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .displayCutoutPadding()
-                .padding(top = 8.dp, end = 10.dp),
+                // Sits BELOW the top bar so it never covers the ⋮ that opens
+                // and closes it (56dp top bar + a small gap).
+                .padding(top = 60.dp, end = 10.dp),
         ) {
             Column(
                 modifier = Modifier
                     .width(200.dp)
                     .clip(RoundedCornerShape(16.dp))
-                    // Translucent "glass" — the video shows through faintly —
-                    // with a hairline edge to lift it off the frame.
+                    // Translucent "glass" — the video shows through faintly.
                     .background(Color.Black.copy(alpha = 0.62f))
-                    .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(16.dp))
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
