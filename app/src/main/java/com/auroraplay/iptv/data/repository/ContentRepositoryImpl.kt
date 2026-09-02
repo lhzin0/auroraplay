@@ -64,47 +64,79 @@ class ContentRepositoryImpl @Inject constructor(
             emit(Resource.Success(SyncStage.CONNECTING))
             api.authenticate(urlBuilder.auth())
 
+            // Every section below follows the same rule: only wipe-and-replace
+            // the local rows when the remote fetch actually returned something.
+            // A fetch that fails (timeout, 5xx, provider rate-limit) yields null
+            // here and we KEEP whatever is already cached — a transient blip
+            // during the on-open auto-sync must never leave the catalog empty.
+            var anyStreamFetched = false
+
             // --- Live channels ---
             emit(Resource.Success(SyncStage.CHANNELS))
-            val liveCategories = runCatching { api.getLiveCategories(urlBuilder.liveCategories()) }.getOrDefault(emptyList())
-            categoryDao.clear(connectionId, ContentType.LIVE.name)
-            categoryDao.upsertAll(liveCategories.map { it.toEntity(connectionId, ContentType.LIVE) })
-            val categoryNameById = liveCategories.associate { it.categoryId to it.categoryName }
-            val liveStreams = runCatching { api.getLiveStreams(urlBuilder.liveStreams()) }.getOrDefault(emptyList())
-            channelDao.clear(connectionId)
-            channelDao.upsertAll(
-                liveStreams.map { it.toEntity(connectionId, categoryNameById[it.categoryId] ?: "Geral", urlBuilder) }
-            )
+            val liveCategories = runCatching { api.getLiveCategories(urlBuilder.liveCategories()) }.getOrNull()
+            if (!liveCategories.isNullOrEmpty()) {
+                categoryDao.clear(connectionId, ContentType.LIVE.name)
+                categoryDao.upsertAll(liveCategories.map { it.toEntity(connectionId, ContentType.LIVE) })
+            }
+            val liveCategoryNameById = liveCategories?.associate { it.categoryId to it.categoryName }
+                ?: categoryDao.getAll(connectionId, ContentType.LIVE.name).associate { it.id to it.name }
+            val liveStreams = runCatching { api.getLiveStreams(urlBuilder.liveStreams()) }.getOrNull()
+            if (!liveStreams.isNullOrEmpty()) {
+                channelDao.clear(connectionId)
+                channelDao.upsertAll(
+                    liveStreams.map { it.toEntity(connectionId, liveCategoryNameById[it.categoryId] ?: "Geral", urlBuilder) }
+                )
+                anyStreamFetched = true
+            }
 
             // --- Movies ---
             emit(Resource.Success(SyncStage.MOVIES))
-            val vodCategories = runCatching { api.getVodCategories(urlBuilder.vodCategories()) }.getOrDefault(emptyList())
-            categoryDao.clear(connectionId, ContentType.MOVIE.name)
-            categoryDao.upsertAll(vodCategories.map { it.toEntity(connectionId, ContentType.MOVIE) })
-            val vodCategoryNameById = vodCategories.associate { it.categoryId to it.categoryName }
-            val vodStreams = runCatching { api.getVodStreams(urlBuilder.vodStreams()) }.getOrDefault(emptyList())
-            movieDao.clear(connectionId)
-            movieDao.upsertAll(
-                vodStreams.map { it.toEntity(connectionId, vodCategoryNameById[it.categoryId] ?: "Geral", urlBuilder) }
-            )
+            val vodCategories = runCatching { api.getVodCategories(urlBuilder.vodCategories()) }.getOrNull()
+            if (!vodCategories.isNullOrEmpty()) {
+                categoryDao.clear(connectionId, ContentType.MOVIE.name)
+                categoryDao.upsertAll(vodCategories.map { it.toEntity(connectionId, ContentType.MOVIE) })
+            }
+            val vodCategoryNameById = vodCategories?.associate { it.categoryId to it.categoryName }
+                ?: categoryDao.getAll(connectionId, ContentType.MOVIE.name).associate { it.id to it.name }
+            val vodStreams = runCatching { api.getVodStreams(urlBuilder.vodStreams()) }.getOrNull()
+            if (!vodStreams.isNullOrEmpty()) {
+                movieDao.clear(connectionId)
+                movieDao.upsertAll(
+                    vodStreams.map { it.toEntity(connectionId, vodCategoryNameById[it.categoryId] ?: "Geral", urlBuilder) }
+                )
+                anyStreamFetched = true
+            }
 
             // --- Series ---
             emit(Resource.Success(SyncStage.SERIES))
-            val seriesCategories = runCatching { api.getSeriesCategories(urlBuilder.seriesCategories()) }.getOrDefault(emptyList())
-            categoryDao.clear(connectionId, ContentType.SERIES.name)
-            categoryDao.upsertAll(seriesCategories.map { it.toEntity(connectionId, ContentType.SERIES) })
-            val seriesCategoryNameById = seriesCategories.associate { it.categoryId to it.categoryName }
-            val seriesList = runCatching { api.getSeries(urlBuilder.series()) }.getOrDefault(emptyList())
-            seriesDao.clear(connectionId)
-            seriesDao.upsertAll(
-                seriesList.map { it.toEntity(connectionId, seriesCategoryNameById[it.categoryId] ?: "Geral") }
-            )
+            val seriesCategories = runCatching { api.getSeriesCategories(urlBuilder.seriesCategories()) }.getOrNull()
+            if (!seriesCategories.isNullOrEmpty()) {
+                categoryDao.clear(connectionId, ContentType.SERIES.name)
+                categoryDao.upsertAll(seriesCategories.map { it.toEntity(connectionId, ContentType.SERIES) })
+            }
+            val seriesCategoryNameById = seriesCategories?.associate { it.categoryId to it.categoryName }
+                ?: categoryDao.getAll(connectionId, ContentType.SERIES.name).associate { it.id to it.name }
+            val seriesList = runCatching { api.getSeries(urlBuilder.series()) }.getOrNull()
+            if (!seriesList.isNullOrEmpty()) {
+                seriesDao.clear(connectionId)
+                seriesDao.upsertAll(
+                    seriesList.map { it.toEntity(connectionId, seriesCategoryNameById[it.categoryId] ?: "Geral") }
+                )
+                anyStreamFetched = true
+            }
             // Episodes are fetched lazily per-series (get_series_info) when the user opens details,
             // to avoid one request per series during a full sync.
 
-            connectionDao.updateLastSync(connectionId, System.currentTimeMillis())
-            connectionDao.updateStatus(connectionId, "ONLINE")
-            emit(Resource.Success(SyncStage.DONE))
+            if (anyStreamFetched) {
+                connectionDao.updateLastSync(connectionId, System.currentTimeMillis())
+                connectionDao.updateStatus(connectionId, "ONLINE")
+                emit(Resource.Success(SyncStage.DONE))
+            } else {
+                // Nothing came back from any endpoint — treat it as an outage
+                // rather than a successful "sync" that happened to change nothing.
+                connectionDao.updateStatus(connectionId, "OFFLINE")
+                emit(Resource.Error("Não foi possível atualizar o catálogo agora."))
+            }
         } catch (e: Exception) {
             connectionDao.updateStatus(connectionId, "OFFLINE")
             emit(Resource.Error(mapSyncError(e), e))
@@ -194,6 +226,25 @@ class ContentRepositoryImpl @Inject constructor(
         MetadataSanitizer.AudioVariant.LEGENDADO -> 2
     }
 
+    private fun seasonsOf(episodes: List<com.auroraplay.iptv.data.database.entity.EpisodeEntity>) =
+        episodes.groupBy { it.seasonNumber }
+            .toSortedMap()
+            .map { (seasonNumber, eps) ->
+                Season(
+                    seasonNumber = seasonNumber,
+                    name = "Temporada $seasonNumber",
+                    episodes = eps.sortedBy { it.episodeNumber }.map { it.toDomain() },
+                )
+            }
+
+    override suspend fun getCachedMovie(connectionId: String, movieId: String): Movie? =
+        movieDao.getById(connectionId, movieId)?.toDomain()
+
+    override suspend fun getCachedSeries(connectionId: String, seriesId: String): Series? {
+        val entity = seriesDao.getById(connectionId, seriesId) ?: return null
+        return entity.toDomain().copy(seasons = seasonsOf(episodeDao.getForSeries(connectionId, seriesId)))
+    }
+
     override suspend fun getSeriesDetail(connectionId: String, seriesId: String): Series? {
         val entity = seriesDao.getById(connectionId, seriesId) ?: return null
         var episodes = episodeDao.getForSeries(connectionId, seriesId)
@@ -213,15 +264,7 @@ class ContentRepositoryImpl @Inject constructor(
             }
         }
 
-        val seasons = episodes.groupBy { it.seasonNumber }
-            .toSortedMap()
-            .map { (seasonNumber, eps) ->
-                Season(
-                    seasonNumber = seasonNumber,
-                    name = "Temporada $seasonNumber",
-                    episodes = eps.sortedBy { it.episodeNumber }.map { it.toDomain() },
-                )
-            }
+        val seasons = seasonsOf(episodes)
 
         var enriched = entity
         if (enriched.plot.isNullOrBlank()) {

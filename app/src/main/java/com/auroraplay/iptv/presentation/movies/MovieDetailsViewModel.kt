@@ -67,30 +67,51 @@ class MovieDetailsViewModel @Inject constructor(
             val profile = profileRepository.observeActiveProfile().first()
             activeProfileId = profile?.id
 
-            val movie = contentRepository.getMovieDetail(connection.id, movieId)
-            if (movie == null) {
-                _uiState.value = MovieDetailsUiState(isLoading = false, errorMessage = "Não foi possível carregar o conteúdo.")
-                return@launch
+            // The freshest movie we have. Seeded from the local catalog row (a
+            // single indexed DB read — instant), then upgraded in the background
+            // once get_vod_info / TMDB come back. The page paints on the first,
+            // not the round-trips — that wait was the "demora para abrir".
+            val movieFlow = MutableStateFlow(contentRepository.getCachedMovie(connection.id, movieId))
+            if (movieFlow.value == null) {
+                val fetched = contentRepository.getMovieDetail(connection.id, movieId)
+                if (fetched == null) {
+                    _uiState.value = MovieDetailsUiState(isLoading = false, errorMessage = "Não foi possível carregar o conteúdo.")
+                    return@launch
+                }
+                movieFlow.value = fetched
+            } else {
+                launch {
+                    contentRepository.getMovieDetail(connection.id, movieId)?.let { movieFlow.value = it }
+                }
             }
 
-            val allMovies = contentRepository.observeMovies(connection.id).first()
-            val similar = allMovies.filter { it.id != movie.id && it.genre != null && it.genre == movie.genre }.take(12)
-
-            val progress = profile?.let { watchProgressRepository.getProgress(it.id, movie.id) }
+            val progress = profile?.let { watchProgressRepository.getProgress(it.id, movieId) }
             val remaining = progress?.let { p ->
                 val remainingSeconds = ((p.durationMillis - p.positionMillis) / 1000).coerceAtLeast(0)
                 val minutes = remainingSeconds / 60
                 if (minutes > 0) "Tempo restante: ${minutes}m" else null
             }
 
+            // "Você também pode gostar" scans the whole catalog — kept off the
+            // critical path so it can never delay the first paint.
+            val similarFlow = MutableStateFlow<List<Movie>>(emptyList())
             launch {
-                val trailerYoutubeId = metadataEnricher.youtubeTrailerForMovie(movie.name, movie.year)
+                val genre = movieFlow.value?.genre
+                val allMovies = contentRepository.observeMovies(connection.id).first()
+                similarFlow.value = allMovies
+                    .filter { it.id != movieId && it.genre != null && it.genre == genre }
+                    .take(12)
+            }
+
+            launch {
+                val base = movieFlow.value ?: return@launch
+                val trailerYoutubeId = metadataEnricher.youtubeTrailerForMovie(base.name, base.year)
                 _uiState.update { it.copy(trailerYoutubeId = trailerYoutubeId) }
             }
 
-            val favoriteFlow = if (profile != null) favoriteRepository.isFavorite(profile.id, movie.id) else flowOf(false)
-            combine(favoriteFlow, downloadTracker.downloads) { isFav, downloads ->
-                val download = downloads[movie.id]
+            val favoriteFlow = if (profile != null) favoriteRepository.isFavorite(profile.id, movieId) else flowOf(false)
+            combine(movieFlow, similarFlow, favoriteFlow, downloadTracker.downloads) { movie, similar, isFav, downloads ->
+                val download = downloads[movieId]
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     movie = movie,

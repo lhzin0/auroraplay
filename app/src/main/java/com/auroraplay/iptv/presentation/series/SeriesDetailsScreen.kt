@@ -250,6 +250,30 @@ fun SeriesDetailsScreen(
                             )
                             Spacer(Modifier.height(8.dp))
                         }
+                    } else {
+                        // Row + synopsis are already on screen; the episode list
+                        // is still being fetched (get_series_info) in the
+                        // background — show it's coming, don't block the page.
+                        item {
+                            Spacer(Modifier.height(28.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                                Spacer(Modifier.width(10.dp))
+                                Text(
+                                    "Carregando episódios…",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = AuroraColors.TextTertiary,
+                                )
+                            }
+                        }
                     }
                     selectedSeason?.episodes?.let { episodes ->
                         items(episodes, key = { it.id }) { episode ->

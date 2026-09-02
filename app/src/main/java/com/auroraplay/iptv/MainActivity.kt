@@ -91,6 +91,28 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
             settingsRepository.observeSettings().collect { pipEnabledSetting = it.pipEnabled }
         }
 
+        // Picture-in-Picture, the modern way (API 31+): the system slides the
+        // activity into a PiP window by itself when the user goes Home/Recents,
+        // as long as the params say auto-enter is on. onUserLeaveHint (below) is
+        // the manual fallback for API 26–30, where it often fired too late on
+        // gesture navigation — the activity was already stopping, so the call
+        // was ignored and playback just continued as background audio.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            lifecycleScope.launch {
+                kotlinx.coroutines.flow.combine(
+                    playerManager.pipEligible,
+                    playerManager.state
+                        .map { Triple(it.isPlaying, it.videoWidth, it.videoHeight) }
+                        .distinctUntilChanged(),
+                    settingsRepository.observeSettings().map { it.pipEnabled }.distinctUntilChanged(),
+                ) { eligible, playState, enabled ->
+                    enabled && eligible && playState.first
+                }.distinctUntilChanged().collect { canPip ->
+                    runCatching { setPictureInPictureParams(buildPipParams(autoEnter = canPip)) }
+                }
+            }
+        }
+
         val isTvDevice = isRunningOnTv()
 
         setContent {
@@ -158,23 +180,31 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        if (!pipEnabledSetting || !playerManager.pipEligible) return
+        // API 31+ auto-enters via the params set above; only drive it by hand
+        // on the older versions that have no auto-enter.
+        if (Build.VERSION.SDK_INT !in Build.VERSION_CODES.O until Build.VERSION_CODES.S) return
+        if (!pipEnabledSetting || !playerManager.pipEligible.value) return
         if (!playerManager.state.value.isPlaying) return
-        runCatching { enterPictureInPictureMode(buildPipParams()) }
+        runCatching { enterPictureInPictureMode(buildPipParams(autoEnter = false)) }
     }
 
     @androidx.annotation.RequiresApi(Build.VERSION_CODES.O)
-    private fun buildPipParams(): android.app.PictureInPictureParams {
+    private fun buildPipParams(autoEnter: Boolean): android.app.PictureInPictureParams {
         val s = playerManager.state.value
         val w = s.videoWidth.takeIf { it > 0 } ?: 16
         val h = s.videoHeight.takeIf { it > 0 } ?: 9
         // Android rejects ratios outside ~[1:2.39 .. 2.39:1].
         val ratio = (w.toFloat() / h.toFloat()).coerceIn(0.42f, 2.38f)
         val num = (ratio * 1000).toInt()
-        return android.app.PictureInPictureParams.Builder()
+        val builder = android.app.PictureInPictureParams.Builder()
             .setAspectRatio(android.util.Rational(num, 1000))
-            .build()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            builder.setAutoEnterEnabled(autoEnter)
+            // Video is not a seamless resize target — let the system letterbox
+            // it during the enter/exit animation instead of stretching.
+            builder.setSeamlessResizeEnabled(false)
+        }
+        return builder.build()
     }
 
     override fun onPictureInPictureModeChanged(isInPip: Boolean, newConfig: Configuration) {

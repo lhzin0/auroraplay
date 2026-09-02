@@ -155,8 +155,16 @@ class SearchViewModel @Inject constructor(
                 val results = if (q.isBlank()) {
                     emptyList()
                 } else {
+                    val needle = com.auroraplay.iptv.core.util.MetadataSanitizer.fold(q)
+                    // A short query is also tried as a genre/category term, so
+                    // "romance", "drama", "dorama", "ação"… surface the whole
+                    // strand, not just titles that literally contain the word.
+                    val genreNeedles = (GENRE_SYNONYMS[needle] ?: emptySet()) + needle
                     pool.asSequence()
-                        .filter { it.title.contains(q, ignoreCase = true) }
+                        .filter { item ->
+                            item.title.contains(q, ignoreCase = true) ||
+                                haystacksFor(item).any { hay -> genreNeedles.any(hay::contains) }
+                        }
                         .take(60)
                         .toList()
                 }
@@ -236,6 +244,39 @@ class SearchViewModel @Inject constructor(
         is MediaItem.MovieItem -> item.movie.genre
         is MediaItem.SeriesItem -> item.series.genre
         is MediaItem.ChannelItem -> null
+    }
+
+    /** Folded genre + category strings a genre query is tested against. */
+    private fun haystacksFor(item: MediaItem): List<String> {
+        val raw = when (item) {
+            is MediaItem.MovieItem -> listOf(item.movie.genre, item.movie.categoryName)
+            is MediaItem.SeriesItem -> listOf(item.series.genre, item.series.categoryName)
+            is MediaItem.ChannelItem -> listOf(item.channel.categoryName)
+        }
+        return raw.filterNotNull()
+            .filter { it.isNotBlank() }
+            .map { com.auroraplay.iptv.core.util.MetadataSanitizer.fold(it) }
+    }
+
+    private companion object {
+        /** Both directions so a PT query hits an EN tag and vice-versa. Values
+         * are already folded/lower-case, matched as substrings. */
+        val GENRE_SYNONYMS: Map<String, Set<String>> = mapOf(
+            "acao" to setOf("action"),
+            "action" to setOf("acao"),
+            "comedia" to setOf("comedy"),
+            "comedy" to setOf("comedia"),
+            "romance" to setOf("romantic", "romantico"),
+            "terror" to setOf("horror"),
+            "horror" to setOf("terror"),
+            "ficcao cientifica" to setOf("sci-fi", "science fiction", "ficcao"),
+            "dorama" to setOf("doramas", "k-drama", "kdrama", "coreano", "coreana", "asiatica", "asiatico"),
+            "animacao" to setOf("animation", "anime", "desenho"),
+            "documentario" to setOf("documentary", "docs"),
+            "guerra" to setOf("war"),
+            "faroeste" to setOf("western"),
+            "suspense" to setOf("thriller"),
+        )
     }
 
     private fun newestFirst(item: MediaItem): Long = when (item) {

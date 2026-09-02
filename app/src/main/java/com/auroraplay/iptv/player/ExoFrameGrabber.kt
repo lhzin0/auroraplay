@@ -48,7 +48,14 @@ class ExoFrameGrabber(private val context: Context) {
     private companion object {
         const val W = 320
         const val H = 180
-        const val TIMEOUT_MS = 2_200L
+        const val TIMEOUT_MS = 3_400L
+        // Right after seekTo + playWhenReady the decoder flushes and pushes one
+        // or two blank/black frames before the real seeked content lands. Ignore
+        // everything for this long, then take the first frame that isn't black.
+        const val SETTLE_MS = 380L
+        // A frame passes when it's both bright enough on average AND not a flat
+        // fill — black flush frames score ~0, a solid slate scores ~0 on spread.
+        const val MIN_CONTENT_SCORE = 10
         const val TAG = "ExoFrameGrabber"
     }
 
@@ -84,6 +91,11 @@ class ExoFrameGrabber(private val context: Context) {
         val reader = imageReader ?: return null
 
         val result = arrayOfNulls<Bitmap>(1)
+        // Best frame seen so far even if it's on the dark side — used only as a
+        // last resort if every frame up to the timeout looks black.
+        val fallback = arrayOfNulls<Bitmap>(1)
+        var fallbackScore = -1
+        val settled = java.util.concurrent.atomic.AtomicBoolean(false)
         val done = CountDownLatch(1)
         val playerListener = object : Player.Listener {
             override fun onPlayerError(error: PlaybackException) = done.countDown()
@@ -99,14 +111,16 @@ class ExoFrameGrabber(private val context: Context) {
                 while (true) (runCatching { reader.acquireLatestImage() }.getOrNull() ?: break).close()
 
                 val imageListener = ImageReader.OnImageAvailableListener { r ->
-                    val img = runCatching { r.acquireLatestImage() }.getOrNull()
-                    if (img != null) {
-                        if (result[0] == null) {
-                            result[0] = runCatching { img.use(::toBitmap) }.getOrNull()
-                            done.countDown()
-                        } else {
-                            img.close()
-                        }
+                    val img = runCatching { r.acquireLatestImage() }.getOrNull() ?: return@OnImageAvailableListener
+                    if (result[0] != null || !settled.get()) { img.close(); return@OnImageAvailableListener }
+                    val bmp = runCatching { img.use(::toBitmap) }.getOrNull() ?: return@OnImageAvailableListener
+                    val score = brightnessScore(bmp)
+                    if (score >= MIN_CONTENT_SCORE) {
+                        result[0] = bmp
+                        done.countDown()
+                    } else if (score > fallbackScore) {
+                        fallbackScore = score
+                        fallback[0] = bmp
                     }
                 }
                 reader.setOnImageAvailableListener(imageListener, h)
@@ -120,6 +134,8 @@ class ExoFrameGrabber(private val context: Context) {
                 p.seekTo(positionMillis.coerceAtLeast(0))
                 // Run briefly so the decoder pushes a post-seek frame to the surface.
                 p.playWhenReady = true
+                // Only start accepting frames once the post-seek flush is over.
+                h.postDelayed({ settled.set(true) }, SETTLE_MS)
             } catch (e: Throwable) {
                 Log.w(TAG, "grab failed", e)
                 done.countDown()
@@ -127,6 +143,7 @@ class ExoFrameGrabber(private val context: Context) {
         }
 
         done.await(TIMEOUT_MS, TimeUnit.MILLISECONDS)
+        if (result[0] == null) result[0] = fallback[0]
         h.post {
             runCatching { player?.playWhenReady = false }
             runCatching { player?.removeListener(playerListener) }
@@ -170,6 +187,35 @@ class ExoFrameGrabber(private val context: Context) {
             }
         }
         return Bitmap.createBitmap(pixels, width, height, Bitmap.Config.ARGB_8888)
+    }
+
+    /**
+     * `min(mean luma, luma spread)` over a coarse grid. A post-seek black flush
+     * frame has a mean near 0; a solid-colour fill has a spread near 0; either
+     * way the score stays below [MIN_CONTENT_SCORE] and the frame is rejected in
+     * favour of waiting for real picture.
+     */
+    private fun brightnessScore(bmp: Bitmap): Int {
+        val cols = 12
+        val rows = 8
+        var sum = 0
+        var min = 255
+        var max = 0
+        var n = 0
+        for (gy in 0 until rows) {
+            val y = (bmp.height * (gy * 2 + 1)) / (rows * 2)
+            for (gx in 0 until cols) {
+                val x = (bmp.width * (gx * 2 + 1)) / (cols * 2)
+                val c = bmp.getPixel(x, y)
+                val luma = ((c ushr 16 and 0xFF) * 30 + (c ushr 8 and 0xFF) * 59 + (c and 0xFF) * 11) / 100
+                sum += luma
+                if (luma < min) min = luma
+                if (luma > max) max = luma
+                n++
+            }
+        }
+        val mean = if (n == 0) 0 else sum / n
+        return minOf(mean, max - min)
     }
 
     private fun ensureStarted() {

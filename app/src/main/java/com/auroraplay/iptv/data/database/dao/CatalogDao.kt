@@ -13,6 +13,9 @@ interface CategoryDao {
     @Query("SELECT * FROM categories WHERE connectionId = :connectionId AND type = :type ORDER BY name ASC")
     fun observe(connectionId: String, type: String): Flow<List<CategoryEntity>>
 
+    @Query("SELECT * FROM categories WHERE connectionId = :connectionId AND type = :type")
+    suspend fun getAll(connectionId: String, type: String): List<CategoryEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(categories: List<CategoryEntity>)
 

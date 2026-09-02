@@ -1,3 +1,40 @@
+## 1.26.9 — 2026-09-02
+
+- **Canais ao vivo sumindo (regressão da 1.26.7).** A sincronização apagava a
+  tabela de canais **antes** de saber se a busca no servidor tinha dado certo —
+  um `getLiveStreams()` que falhava (timeout, 5xx, limite do provedor) virava
+  lista vazia e limpava tudo. Com a sincronização automática ao abrir, qualquer
+  falha passageira zerava o catálogo. Agora cada seção (canais / filmes /
+  séries) só é substituída quando a busca **realmente traz dados**; se falhar,
+  mantém o que já estava. *(Depois de instalar, puxe para atualizar em Canais
+  uma vez para repovoar.)*
+- **PiP não abria janela — só continuava o áudio.** Em Android 12+ o app agora
+  usa auto-entrada (`setAutoEnterEnabled`): o sistema encolhe a janela sozinho
+  ao ir para a Home/Recentes. O `onUserLeaveHint` (que chegava tarde demais na
+  navegação por gestos) virou só o caminho de Android 8–11. *(O One UI pode
+  pedir a permissão "Picture-in-picture" do app uma vez.)*
+- **Modo Cinema: confirmação explícita.** Tocar no botão mostra "Modo cinema
+  ligado / desligado" no centro e o botão ganha um fundo aceso quando está
+  ativo — antes só mudava um tom de cor num ícone de 20dp e parecia que "não
+  fazia nada / não desligava".
+- **Abrir filme/série ficou rápido.** A página não espera mais os
+  `get_vod_info` / `get_series_info` / TMDB: aparece na hora com o que já está
+  no catálogo local e a sinopse, o elenco de "parecidos" e o trailer entram
+  depois. Em séries, a lista de episódios mostra um "Carregando episódios…"
+  enquanto chega.
+- **Busca por gênero.** Digite "romance", "drama", "dorama", "ação"… e a busca
+  geral também traz o que está nessas categorias/gêneros — sem acento e sem
+  caixa (então "acao" acha "AÇÃO"), com alguns sinônimos PT/EN.
+- **Prévia da timeline não fica mais preta.** O extrator ignora os frames de
+  "flush" logo após o seek (~380ms) e recusa frames pretos/chapados, pegando o
+  primeiro com imagem de verdade.
+- **Animações de abertura/fechamento.** Navegar para uma tela desliza da
+  direita com leve recuo da tela de trás; Voltar reverte. (O `NavHost` usava um
+  cross-fade chapado.)
+- **Configurações mais enxutas.** Saíram o botão "Animações" (o polimento de
+  movimento agora é sempre ligado) e o card "Informações e trailers" (era só
+  texto — as sinopses automáticas e os trailers continuam iguais).
+
 ## 1.26.8 — 2026-09-02
 
 - **Ícone sem o fundo preto.** O `background` do ícone adaptativo virou

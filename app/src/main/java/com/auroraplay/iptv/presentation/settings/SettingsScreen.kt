@@ -189,32 +189,17 @@ fun SettingsScreen(
                             title = "Vidro fosco (FrostGlass)",
                             checked = settings.frostGlass,
                             onCheckedChange = { viewModel.setFrostGlass(it) },
-                        )
-                        SettingsSwitchRow(
-                            icon = Icons.Default.Animation,
-                            title = "Animações",
-                            checked = settings.animationsEnabled,
-                            onCheckedChange = { viewModel.setAnimationsEnabled(it) },
                             showDivider = false,
                         )
+                        // "Animações" toggle intentionally not surfaced here — the
+                        // motion polish is always on now; the setting still exists
+                        // in AppSettings for a possible future accessibility need.
                     }
                 }
 
-                item {
-                    SettingsSection(title = "Informações e trailers") {
-                        SettingsInfoRow(
-                            icon = Icons.Default.AutoAwesome,
-                            title = "Informações automáticas",
-                            subtitle = "O AuroraPlay usa os dados disponíveis da playlist e busca sinopses quando necessário.",
-                        )
-                        SettingsInfoRow(
-                            icon = Icons.Default.VideoLibrary,
-                            title = "Trailers do YouTube",
-                            subtitle = "Trailers oficiais aparecem automaticamente na página do filme.",
-                            showDivider = false,
-                        )
-                    }
-                }
+                // "Informações e trailers" section removed from the UI — the
+                // automatic-metadata and YouTube-trailer behaviour it merely
+                // described is unchanged and still runs on the detail pages.
 
                 item {
                     SettingsSection(title = "Notificações") {

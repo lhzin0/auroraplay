@@ -82,41 +82,58 @@ class SeriesDetailsViewModel @Inject constructor(
             val profile = profileRepository.observeActiveProfile().first()
             activeProfileId = profile?.id
 
-            val series = contentRepository.getSeriesDetail(connection.id, seriesId)
-            if (series == null) {
-                _uiState.value = SeriesDetailsUiState(isLoading = false, errorMessage = "Não foi possível carregar o conteúdo.")
-                return@launch
+            // Seeded from the local row + already-cached episodes (instant),
+            // then upgraded once get_series_info / TMDB return. First paint no
+            // longer waits on those round-trips.
+            val seriesFlow = MutableStateFlow(contentRepository.getCachedSeries(connection.id, seriesId))
+            if (seriesFlow.value == null) {
+                val fetched = contentRepository.getSeriesDetail(connection.id, seriesId)
+                if (fetched == null) {
+                    _uiState.value = SeriesDetailsUiState(isLoading = false, errorMessage = "Não foi possível carregar o conteúdo.")
+                    return@launch
+                }
+                seriesFlow.value = fetched
+            } else {
+                launch {
+                    contentRepository.getSeriesDetail(connection.id, seriesId)?.let { seriesFlow.value = it }
+                }
             }
-            loadedSeriesName = series.name
-            loadedSeriesPoster = series.posterUrl
+            loadedSeriesName = seriesFlow.value?.name
+            loadedSeriesPoster = seriesFlow.value?.posterUrl
 
-            val allSeries = contentRepository.observeSeries(connection.id).first()
-            val similar = allSeries.filter { it.id != series.id && it.genre != null && it.genre == series.genre }.take(12)
+            val similarFlow = MutableStateFlow<List<Series>>(emptyList())
+            launch {
+                val genre = seriesFlow.value?.genre
+                val allSeries = contentRepository.observeSeries(connection.id).first()
+                similarFlow.value = allSeries
+                    .filter { it.id != seriesId && it.genre != null && it.genre == genre }
+                    .take(12)
+            }
 
             // Resolve the trailer off the critical path so the page renders
             // immediately and just gains the trailer tab when it arrives.
             launch {
-                val trailer = metadataEnricher.youtubeTrailerForSeries(series.name, series.year)
+                val base = seriesFlow.value ?: return@launch
+                loadedSeriesName = base.name
+                loadedSeriesPoster = base.posterUrl
+                val trailer = metadataEnricher.youtubeTrailerForSeries(base.name, base.year)
                 _uiState.update { it.copy(trailerYoutubeId = trailer) }
             }
 
-            val favoriteFlow = if (profile != null) favoriteRepository.isFavorite(profile.id, series.id) else flowOf(false)
-            // Observe the profile history once and select the most recently
-            // watched episode belonging to this series. The stored position is
-            // kept with it so the button can resume at the exact timestamp.
-            val latestProgress = profile?.let { profile ->
-                // Query every episode so even a progress record very near
-                // completion is eligible as the last watched chapter; the
-                // "continue watching" feed intentionally hides finished items.
-                series.seasons
+            val favoriteFlow = if (profile != null) favoriteRepository.isFavorite(profile.id, seriesId) else flowOf(false)
+            // Most recently watched episode of this series, recomputed if the
+            // episode list grows when the full fetch lands. Every episode is
+            // eligible (even near-complete ones) so Resume never skips a chapter.
+            val latestProgressFlow = seriesFlow.map { s ->
+                val p = profile ?: return@map null
+                s?.seasons.orEmpty()
                     .flatMap { it.episodes }
-                    .mapNotNull { episode ->
-                        watchProgressRepository.getProgress(profile.id, "${series.id}:${episode.id}")
-                    }
+                    .mapNotNull { episode -> watchProgressRepository.getProgress(p.id, "$seriesId:${episode.id}") }
                     .maxByOrNull { it.lastWatchedMillis }
             }
 
-            combine(favoriteFlow, downloadTracker.downloads) { isFav, downloads ->
+            combine(seriesFlow, similarFlow, latestProgressFlow, favoriteFlow, downloadTracker.downloads) { series, similar, latestProgress, isFav, downloads ->
+                if (series == null) return@combine
                 val episodeIds = series.seasons.flatMap { it.episodes }.map { it.id }.toSet()
                 val relevant = downloads.filterKeys { it in episodeIds }
                 _uiState.value = _uiState.value.copy(

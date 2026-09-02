@@ -228,6 +228,10 @@ object MetadataSanitizer {
         java.text.Normalizer.normalize(s, java.text.Normalizer.Form.NFD)
             .replace(Regex("\\p{Mn}+"), "")
 
+    /** Lower-cased and accent-folded — for case/accent-insensitive matching
+     * (search by genre: "acao" must match "AÇÃO", "romance" a "Romance" tag). */
+    fun fold(s: String): String = foldAccents(s.lowercase()).trim()
+
     /** Treats blank/"null"/"N/A" server strings as genuinely absent. */
     fun text(raw: String?): String? {
         val value = raw?.trim().orEmpty()

@@ -1,5 +1,13 @@
 package com.auroraplay.iptv.navigation
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -52,7 +60,27 @@ fun AuroraNavGraph(
   androidx.compose.runtime.CompositionLocalProvider(
       com.auroraplay.iptv.presentation.components.LocalIsTvDevice provides isTvDevice
   ) {
-    NavHost(navController = navController, startDestination = Screen.ProfileSelection.route) {
+    // One coherent push/pop feel for the whole app: forward navigations glide
+    // in from the right and the page behind recedes slightly; Back reverses it.
+    // (NavHost's built-in default is a flat cross-fade, which is what made
+    // opening a film / going Back feel abrupt.)
+    val d = 300
+    NavHost(
+        navController = navController,
+        startDestination = Screen.ProfileSelection.route,
+        enterTransition = {
+            slideInHorizontally(tween(d, easing = FastOutSlowInEasing)) { it / 5 } + fadeIn(tween(d))
+        },
+        exitTransition = {
+            scaleOut(tween(d), targetScale = 0.96f) + fadeOut(tween(d * 2 / 3))
+        },
+        popEnterTransition = {
+            scaleIn(tween(d), initialScale = 0.96f) + fadeIn(tween(d))
+        },
+        popExitTransition = {
+            slideOutHorizontally(tween(d, easing = FastOutSlowInEasing)) { it / 5 } + fadeOut(tween(d))
+        },
+    ) {
 
         composable(Screen.ProfileSelection.route) {
             ProfileSelectionScreen(

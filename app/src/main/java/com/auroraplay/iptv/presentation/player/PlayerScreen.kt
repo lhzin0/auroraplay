@@ -135,8 +135,8 @@ fun PlayerScreen(
     // Tell the Activity that Picture-in-Picture is available while this screen
     // is up (it reads this in onUserLeaveHint).
     DisposableEffect(Unit) {
-        viewModel.playerManager.pipEligible = true
-        onDispose { viewModel.playerManager.pipEligible = false }
+        viewModel.playerManager.pipEligible.value = true
+        onDispose { viewModel.playerManager.pipEligible.value = false }
     }
     val pipActive by viewModel.playerManager.pipActive.collectAsState()
 
@@ -522,6 +522,10 @@ fun PlayerScreen(
                     onToggleCinematicMode = {
                         val next = !cinematicModeEnabled
                         cinematicModeEnabled = next
+                        // Explicit confirmation — the button is a small icon and
+                        // the glow itself is subtle, so a tap with no feedback
+                        // read as "nothing happened / it won't turn off".
+                        toastLabel = if (next) "Modo cinema ligado" else "Modo cinema desligado"
                         // The ambient glow can only paint the letterbox space
                         // that FIT leaves, so turning Cinema on snaps back to
                         // FIT — otherwise a pinch-zoomed video has nowhere for
@@ -1059,9 +1063,10 @@ private fun PlayerControlsOverlay(
                         }
                         PlayerBottomAction(Icons.Default.Lock, "Bloquear", onClick = onLock, modifier = slot)
                         PlayerBottomAction(
-                            icon = if (cinematicModeEnabled) Icons.Default.Theaters else Icons.Default.Theaters,
-                            label = "Cinema",
-                            tint = if (cinematicModeEnabled) MaterialTheme.colorScheme.primary else Color.White,
+                            icon = Icons.Default.Theaters,
+                            label = if (cinematicModeEnabled) "Cinema ✓" else "Cinema",
+                            tint = if (cinematicModeEnabled) Color.White else Color.White.copy(alpha = 0.92f),
+                            active = cinematicModeEnabled,
                             onClick = onToggleCinematicMode,
                             modifier = slot,
                         )
@@ -1504,11 +1509,19 @@ private fun PlayerBottomAction(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     tint: Color = Color.White,
+    active: Boolean = false,
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
+            // A lit fill makes an on/off action unmistakable — a tint change
+            // alone on a 20dp glyph was too easy to miss (read as "the button
+            // did nothing").
+            .then(
+                if (active) Modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = 0.22f))
+                else Modifier
+            )
             .clickable(onClick = onClick)
             .padding(horizontal = 4.dp, vertical = 7.dp),
     ) {

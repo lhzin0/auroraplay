@@ -69,13 +69,38 @@ app/src/main/java/com/auroraplay/iptv/
 
 ## Versão atual
 
-**1.26.8** — `versionCode 78`. Ícone do app: `background` do adaptativo agora
-totalmente transparente (sem a tarja preta); PNGs legados trocados por vetor.
-O resultado depende do launcher (Samsung: squircle branco; Pixel: preenche de
-preto). Antes (1.26.7): Cinema sem piscar, troca rápida de episódio, PiP,
-sincronização automática.
+**1.26.9** — `versionCode 79`. Correção da regressão que apagava os canais ao
+vivo (a sincronização limpava a seção antes de confirmar que o servidor tinha
+respondido). PiP agora usa auto-entrada no Android 12+. Abrir filme/série ficou
+rápido (a página não espera mais os `get_*_info`/TMDB). Busca por gênero
+("romance", "dorama", "ação"…). Prévia da timeline não fica mais preta.
+Animações de push/pop na navegação. Configurações mais enxutas (saíram
+"Animações" e o card "Informações e trailers").
 
 ## Novidades desta revisão
+
+### 1.26.9 — 2026-09-02
+
+- **Canais ao vivo (regressão 1.26.7):** `syncConnection` só faz
+  `clear()` + `upsertAll()` de uma seção quando a busca remota traz dados; uma
+  falha passageira mantém o cache. `CategoryDao.getAll` novo para o mapa de
+  nomes de categoria quando a busca de categorias falha.
+- **PiP:** `setAutoEnterEnabled` (API 31+) via `setPictureInPictureParams`
+  reativo em `MainActivity`; `onUserLeaveHint` vira fallback API 26–30.
+  `PlayerManager.pipEligible` agora é `MutableStateFlow`.
+- **Abrir filme/série:** `getCachedMovie` / `getCachedSeries` (só banco, sem
+  rede) pintam a página na hora; enriquecimento e "parecidos" entram por
+  `MutableStateFlow` depois. `SeriesDetailsScreen` mostra "Carregando
+  episódios…" enquanto o `get_series_info` volta.
+- **Busca por gênero:** `SearchViewModel` casa o termo com `genre` +
+  `categoryName` (via `MetadataSanitizer.fold` — sem acento/caixa) e um mapa de
+  sinônimos PT/EN.
+- **Prévia da timeline:** `ExoFrameGrabber` ignora frames por `SETTLE_MS` após
+  o seek e rejeita frames pretos/chapados (`brightnessScore`).
+- **Navegação:** `NavHost` com `enterTransition`/`popExitTransition` (slide +
+  leve escala) no lugar do cross-fade padrão.
+- **Configurações:** removidos o `SettingsSwitchRow` "Animações" e a seção
+  "Informações e trailers" (era `SettingsInfoRow`, sem lógica atrás).
 
 ### 1.26.8 — 2026-09-02
 

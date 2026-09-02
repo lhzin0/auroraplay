@@ -69,10 +69,10 @@ class PlayerManager @Inject constructor(
     @param:ApplicationContext private val context: Context,
     @param:PlaybackCacheReadOnly private val cacheDataSourceFactory: CacheDataSource.Factory,
 ) {
-    /** True while the full-screen player is on screen — the Activity checks
-     * this in onUserLeaveHint() to decide whether to enter Picture-in-Picture. */
-    @Volatile
-    var pipEligible: Boolean = false
+    /** True while the full-screen player is on screen. The Activity watches this
+     * to keep PictureInPictureParams.setAutoEnterEnabled in sync (API 31+) and
+     * reads it in onUserLeaveHint() for the manual-entry path (API 26–30). */
+    val pipEligible = MutableStateFlow(false)
 
     /** Set by the Activity when it enters/leaves PiP, so the player UI can
      * strip its chrome down to just the video. */

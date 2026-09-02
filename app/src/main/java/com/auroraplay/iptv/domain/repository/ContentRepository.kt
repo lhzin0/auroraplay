@@ -19,6 +19,12 @@ interface ContentRepository {
     suspend fun getSeriesDetail(connectionId: String, seriesId: String): Series?
     suspend fun getMovieDetail(connectionId: String, movieId: String): Movie?
 
+    /** Local-only, no network: the catalog row (and, for a series, whatever
+     * episodes are already cached). Returned instantly so the detail page can
+     * paint before [getMovieDetail] / [getSeriesDetail] finish enriching. */
+    suspend fun getCachedMovie(connectionId: String, movieId: String): Movie?
+    suspend fun getCachedSeries(connectionId: String, seriesId: String): Series?
+
     suspend fun getLastSyncMillis(connectionId: String): Long?
 
     fun search(connectionId: String, query: String): Flow<SearchResults>
