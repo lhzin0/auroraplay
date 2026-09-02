@@ -34,6 +34,8 @@ class SettingsDataStore @Inject constructor(
         val DOWNLOAD_WIFI_ONLY = booleanPreferencesKey("download_wifi_only")
         val SEEK_SECONDS = intPreferencesKey("seek_seconds")
         val FROST_GLASS = booleanPreferencesKey("frost_glass")
+        val AUTO_SYNC_HOURS = intPreferencesKey("auto_sync_hours")
+        val PIP_ENABLED = booleanPreferencesKey("pip_enabled")
     }
 
     val settingsFlow = context.dataStore.data.map { prefs ->
@@ -50,6 +52,8 @@ class SettingsDataStore @Inject constructor(
             downloadWifiOnly = prefs[Keys.DOWNLOAD_WIFI_ONLY] ?: true,
             seekSeconds = prefs[Keys.SEEK_SECONDS]?.takeIf { it == 5 || it == 10 } ?: 10,
             frostGlass = prefs[Keys.FROST_GLASS] ?: true,
+            autoSyncHours = prefs[Keys.AUTO_SYNC_HOURS]?.takeIf { it in setOf(0, 12, 24, 168) } ?: 24,
+            pipEnabled = prefs[Keys.PIP_ENABLED] ?: true,
         )
     }
 
@@ -109,6 +113,14 @@ class SettingsDataStore @Inject constructor(
 
     suspend fun updateFrostGlass(enabled: Boolean) {
         context.dataStore.edit { it[Keys.FROST_GLASS] = enabled }
+    }
+
+    suspend fun updateAutoSyncHours(hours: Int) {
+        context.dataStore.edit { it[Keys.AUTO_SYNC_HOURS] = if (hours in setOf(0, 12, 24, 168)) hours else 24 }
+    }
+
+    suspend fun updatePipEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.PIP_ENABLED] = enabled }
     }
 
     // Recent searches are keyed per profile (each profile browses differently)

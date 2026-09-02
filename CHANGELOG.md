@@ -1,3 +1,22 @@
+## 1.26.7 — 2026-09-02
+
+- **Modo Cinema sem piscar.** O `Crossfade` fazia as duas camadas caírem de
+  opacidade ao mesmo tempo no meio da transição → a tarja escurecia e voltava
+  a cada ciclo (o "piscar"). Agora são duas camadas explícitas: a anterior
+  fica 100% opaca **por baixo** enquanto a nova aparece **por cima** (fade
+  linear de 2s) — nunca há vale de opacidade. Amostra a cada ~2,7s.
+- **Troca rápida de episódio no player.** Nova ação "Episódios" (só em séries)
+  abre uma gaveta lateral com todos os episódios agrupados por temporada,
+  episódio atual destacado, toque troca na hora mantendo o player aberto
+  (`PlayerViewModel.switchToEpisode`). O "Próximo ep." continua.
+- **Picture-in-Picture.** Toggle em Configurações › Reprodução (ligado por
+  padrão). Ao apertar Home durante um vídeo tocando, o app entra em PiP
+  (proporção do vídeo). Em PiP a interface fica só o vídeo.
+- **Sincronização automática.** Configurações › Dados: Desligada / 12h / 24h /
+  Semanal (padrão 24h). Ao abrir o app, se houver playlist ativa e a última
+  sincronização for mais antiga que o intervalo escolhido, sincroniza em
+  segundo plano.
+
 ## 1.26.6 — 2026-09-02
 
 - **Modo Cinema de volta ao efeito "cinematográfico".** A versão de cor

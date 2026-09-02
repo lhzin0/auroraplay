@@ -7,7 +7,6 @@ import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.EaseOutCubic
@@ -37,6 +36,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Lightbulb
@@ -132,6 +132,14 @@ fun PlayerScreen(
         }
     }
 
+    // Tell the Activity that Picture-in-Picture is available while this screen
+    // is up (it reads this in onUserLeaveHint).
+    DisposableEffect(Unit) {
+        viewModel.playerManager.pipEligible = true
+        onDispose { viewModel.playerManager.pipEligible = false }
+    }
+    val pipActive by viewModel.playerManager.pipActive.collectAsState()
+
     val loadState by viewModel.loadState.collectAsState()
     val playbackState by viewModel.playerManager.state.collectAsState()
     val seekSeconds by viewModel.seekSeconds.collectAsState()
@@ -145,10 +153,13 @@ fun PlayerScreen(
     // crashed the app.
     var videoTextureView by remember { mutableStateOf<TextureView?>(null) }
     // Cinema mode: a small copy of the current frame, drawn heavily blurred and
-    // stretched into the letterbox bars (YouTube "ambient/cinematic" look). The
-    // abrupt colour change people hated came from a short crossfade — this one
-    // is a long, linear cross-dissolve so a hard cut just melts over ~1.8s.
-    var cinemaFrame by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
+    // stretched into the letterbox bars (YouTube "ambient" look). Two layers —
+    // the previous frame stays fully opaque underneath while the new one fades
+    // in ON TOP — so there's never an opacity dip (that dip is what read as
+    // flicker with a plain Crossfade).
+    var cinemaPrev by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
+    var cinemaCur by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
+    val cinemaFade = remember { Animatable(1f) }
     // Backdrop the ⋮ panel blurs (FrostGlass): the video surface is the source.
     val playerHaze = remember { HazeState() }
 
@@ -156,6 +167,7 @@ fun PlayerScreen(
     var isLocked by remember { mutableStateOf(false) }
     var showChannelList by remember { mutableStateOf(false) }
     var showChannelEpg by remember { mutableStateOf(false) }
+    var showEpisodeList by remember { mutableStateOf(false) }
     // One combined Áudio + Legendas sheet (the subtitle one used to be
     // unreachable). Also carries the Dublado/Legendado stream switch.
     var showAudioSubsSheet by remember { mutableStateOf(false) }
@@ -209,6 +221,9 @@ fun PlayerScreen(
         }
     }
 
+    // In PiP the window is tiny — strip everything down to just the video.
+    LaunchedEffect(pipActive) { if (pipActive) { controlsVisible = false } }
+
     LaunchedEffect(controlsVisible, playbackState.isPlaying, isScrubbing) {
         if (controlsVisible && playbackState.isPlaying && !isScrubbing) {
             delay(4.seconds)
@@ -227,17 +242,23 @@ fun PlayerScreen(
     // Cinema mode. Sample the on-screen video TextureView itself — frames that
     // are already decoded and composited — instead of running a second decoder.
     // A tiny `getBitmap` is a cheap read-back; drawn upscaled + blurred it
-    // reads as a soft continuation of the scene. Don't recycle: the crossfade
-    // may still be drawing the previous frame. Worst case: no glow, no crash.
+    // reads as a soft continuation of the scene. Each new sample fades in over
+    // the last (2s, linear) so scene cuts melt. ~2.7s cadence. Don't recycle:
+    // both layers may still be on screen. Worst case: no glow, no crash.
     LaunchedEffect(cinematicModeEnabled, videoTextureView) {
-        if (!cinematicModeEnabled) { cinemaFrame = null; return@LaunchedEffect }
+        if (!cinematicModeEnabled) { cinemaPrev = null; cinemaCur = null; return@LaunchedEffect }
         val tv = videoTextureView ?: return@LaunchedEffect
         while (true) {
             val shot = runCatching {
                 if (tv.isAvailable && tv.width > 0 && tv.height > 0) tv.getBitmap(96, 54) else null
             }.getOrNull()
-            if (shot != null) cinemaFrame = shot
-            delay(1500.milliseconds)
+            if (shot != null) {
+                cinemaPrev = cinemaCur ?: shot
+                cinemaCur = shot
+                cinemaFade.snapTo(0f)
+                cinemaFade.animateTo(1f, tween(2000, easing = LinearEasing))
+            }
+            delay(700.milliseconds)
         }
     }
 
@@ -343,12 +364,14 @@ fun PlayerScreen(
         // letterbox regions. This is important: placing it behind PlayerView
         // cannot work reliably with SurfaceView/TextureView because the video
         // surface may remain opaque. The video itself is never covered.
-        val cFrame = cinemaFrame
-        if (cinematicModeEnabled && cFrame != null && !cFrame.isRecycled && cFrame.width > 0 &&
+        val cCur = cinemaCur
+        if (!pipActive && cinematicModeEnabled && cCur != null && !cCur.isRecycled && cCur.width > 0 &&
             playbackState.videoWidth > 0 && playbackState.videoHeight > 0 &&
             loadState.resizeMode == androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT) {
             CinematicBarsOverlay(
-                frame = cFrame,
+                prev = cinemaPrev?.takeIf { !it.isRecycled },
+                cur = cCur,
+                curAlpha = cinemaFade.value,
                 videoWidth = playbackState.videoWidth,
                 videoHeight = playbackState.videoHeight,
             )
@@ -389,7 +412,7 @@ fun PlayerScreen(
         // Discreet "jumping to the next episode" countdown — bottom-right,
         // always visible (controls up or not), clear of the gesture areas.
         val autoNextSecs = autoNextInSeconds
-        if (!isLocked && autoNextSecs != null) {
+        if (!isLocked && !pipActive && autoNextSecs != null) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
@@ -426,7 +449,9 @@ fun PlayerScreen(
             }
         }
 
-        if (isLocked) {
+        if (pipActive) {
+            // PiP: video only, nothing else.
+        } else if (isLocked) {
             // Only the unlock affordance remains tappable while locked.
             IconButton(
                 onClick = { isLocked = false },
@@ -459,6 +484,7 @@ fun PlayerScreen(
                     isCasting = playbackState.isCasting,
                     castDeviceName = playbackState.castDeviceName,
                     hasNextEpisode = loadState.nextEpisode != null,
+                    hasEpisodeList = loadState.contentType == ContentType.SERIES && loadState.episodes.size > 1,
                     hasAudioMenu = playbackState.availableAudioTracks.size > 1 ||
                         playbackState.availableSubtitleTracks.isNotEmpty(),
                     currentProgramLabel = loadState.currentProgramLabel,
@@ -481,6 +507,7 @@ fun PlayerScreen(
                     showRemainingTime = showRemainingTime,
                     onToggleTimeDisplay = { showRemainingTime = !showRemainingTime },
                     onNextEpisode = { viewModel.playNextEpisode() },
+                    onShowEpisodes = { showEpisodeList = true },
                     onPreviousChannel = { viewModel.previousChannel() },
                     onNextChannel = { viewModel.nextChannel() },
                     onShowChannelList = { showChannelList = true },
@@ -515,6 +542,15 @@ fun PlayerScreen(
                 currentChannelId = loadState.contentId,
                 onSelect = { viewModel.switchChannel(it); showChannelList = false },
                 onDismiss = { showChannelList = false },
+            )
+        }
+
+        if (showEpisodeList) {
+            EpisodePickerSheet(
+                episodes = loadState.episodes,
+                currentEpisodeId = loadState.currentEpisodeId,
+                onSelect = { viewModel.switchToEpisode(it); showEpisodeList = false },
+                onDismiss = { showEpisodeList = false },
             )
         }
 
@@ -573,13 +609,15 @@ fun PlayerScreen(
 /**
  * The frame, heavily blurred and oversized, painted into the real letterbox
  * bars that FIT leaves — a soft, out-of-focus continuation of the scene, the
- * way YouTube's ambient/cinematic mode works. Frames cross-dissolve over
- * ~1.8s so a hard cut melts instead of flashing. The video rectangle is never
- * covered; bars that don't exist (video fills that axis) aren't drawn.
+ * way YouTube's ambient mode works. Two layers: [prev] stays fully opaque
+ * while [cur] fades in over it ([curAlpha]), so there's no opacity dip and
+ * therefore no flicker. Bars that don't exist aren't drawn.
  */
 @Composable
 private fun CinematicBarsOverlay(
-    frame: android.graphics.Bitmap,
+    prev: android.graphics.Bitmap?,
+    cur: android.graphics.Bitmap,
+    curAlpha: Float,
     videoWidth: Int,
     videoHeight: Int,
 ) {
@@ -591,44 +629,45 @@ private fun CinematicBarsOverlay(
         val barH = ((maxHeight - renderedH) / 2f).coerceAtLeast(0.dp)
 
         if (barH > 2.dp) {
-            CinematicBarImage(frame, Modifier.align(Alignment.TopCenter).fillMaxWidth().height(barH), Alignment.TopCenter)
-            CinematicBarImage(frame, Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(barH), Alignment.BottomCenter)
+            CinematicBarImage(prev, cur, curAlpha, Modifier.align(Alignment.TopCenter).fillMaxWidth().height(barH), Alignment.TopCenter)
+            CinematicBarImage(prev, cur, curAlpha, Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(barH), Alignment.BottomCenter)
         }
         if (barW > 2.dp) {
-            CinematicBarImage(frame, Modifier.align(Alignment.CenterStart).fillMaxHeight().width(barW), Alignment.CenterStart)
-            CinematicBarImage(frame, Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(barW), Alignment.CenterEnd)
+            CinematicBarImage(prev, cur, curAlpha, Modifier.align(Alignment.CenterStart).fillMaxHeight().width(barW), Alignment.CenterStart)
+            CinematicBarImage(prev, cur, curAlpha, Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(barW), Alignment.CenterEnd)
         }
     }
 }
 
 @Composable
 private fun CinematicBarImage(
-    frame: android.graphics.Bitmap,
+    prev: android.graphics.Bitmap?,
+    cur: android.graphics.Bitmap,
+    curAlpha: Float,
     modifier: Modifier,
     align: Alignment,
 ) {
     Box(modifier.clipToBounds()) {
-        Crossfade(
-            targetState = frame,
-            animationSpec = tween(1800, easing = LinearEasing),
-            label = "cinemaFrame",
-            modifier = Modifier.fillMaxSize(),
-        ) { f ->
-            Image(
-                bitmap = f.asImageBitmap(),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                alignment = align,
-                alpha = 0.9f,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .scale(1.35f)                       // hide the blurred edges
-                    .blur(44.dp, BlurredEdgeTreatment.Unbounded),
-            )
-        }
+        prev?.let { CinematicLayer(it, align, alpha = 1f) }
+        CinematicLayer(cur, align, alpha = curAlpha)
         // Keep the video the focus.
         Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = 0.25f)))
     }
+}
+
+@Composable
+private fun CinematicLayer(bitmap: android.graphics.Bitmap, align: Alignment, alpha: Float) {
+    Image(
+        bitmap = bitmap.asImageBitmap(),
+        contentDescription = null,
+        contentScale = ContentScale.Crop,
+        alignment = align,
+        alpha = (alpha * 0.9f).coerceIn(0f, 1f),
+        modifier = Modifier
+            .fillMaxSize()
+            .scale(1.35f)                       // hide the blurred edges
+            .blur(44.dp, BlurredEdgeTreatment.Unbounded),
+    )
 }
 
 /** Vertical slider used for brightness/volume inside the controls overlay —
@@ -739,6 +778,8 @@ private fun PlayerControlsOverlay(
     onPreviousChannel: () -> Unit,
     onNextChannel: () -> Unit,
     onShowChannelList: () -> Unit,
+    hasEpisodeList: Boolean = false,
+    onShowEpisodes: () -> Unit = {},
     onShowEpg: () -> Unit,
     onToggleFavorite: () -> Unit,
     onLock: () -> Unit,
@@ -986,6 +1027,7 @@ private fun PlayerControlsOverlay(
                     (if (hasAudioMenu) 1 else 0) +
                     1 + // Bloquear
                     1 + // Cinema
+                    (if (hasEpisodeList) 1 else 0) +
                     (if (hasNextEpisode) 1 else 0)
                 val slotWidth = if (actionCount >= 5) 66.dp else 72.dp
                 val slot = Modifier.width(slotWidth)
@@ -1023,6 +1065,9 @@ private fun PlayerControlsOverlay(
                             onClick = onToggleCinematicMode,
                             modifier = slot,
                         )
+                        if (hasEpisodeList) {
+                            PlayerBottomAction(Icons.AutoMirrored.Filled.PlaylistPlay, "Episódios", onClick = onShowEpisodes, modifier = slot)
+                        }
                         if (hasNextEpisode) {
                             PlayerBottomAction(Icons.Default.SkipNext, "Próximo ep.", onClick = onNextEpisode, modifier = slot)
                         }
@@ -1597,6 +1642,101 @@ private fun LiveChannelQuickList(
                         onClick = { onSelect(channel) },
                         modifier = Modifier.padding(bottom = 8.dp),
                     )
+                }
+            }
+        }
+    }
+}
+
+/** Right-side drawer to jump to any episode of the current series without
+ * leaving the player — grouped by season, current episode highlighted. */
+@Composable
+private fun EpisodePickerSheet(
+    episodes: List<com.auroraplay.iptv.domain.model.Episode>,
+    currentEpisodeId: String?,
+    onSelect: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val currentIndex = episodes.indexOfFirst { it.id == currentEpisodeId }
+    LaunchedEffect(currentIndex) {
+        if (currentIndex >= 0) runCatching { listState.scrollToItem(currentIndex) }
+    }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.5f))
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onDismiss),
+    ) {
+        Column(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .fillMaxWidth(0.46f)
+                .fillMaxHeight()
+                .background(AuroraColors.BackgroundElevated)
+                .displayCutoutPadding()
+                .navigationBarsPadding()
+                .padding(top = 16.dp)
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = {}),
+        ) {
+            Text(
+                "Episódios",
+                style = MaterialTheme.typography.titleLarge,
+                color = AuroraColors.TextPrimary,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+            LazyColumn(
+                state = listState,
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                var lastSeason = Int.MIN_VALUE
+                episodes.forEach { ep ->
+                    if (ep.seasonNumber != lastSeason) {
+                        lastSeason = ep.seasonNumber
+                        item(key = "s${ep.seasonNumber}") {
+                            Text(
+                                "Temporada ${ep.seasonNumber}",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = AuroraColors.TextTertiary,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                                modifier = Modifier.padding(start = 8.dp, top = 8.dp, bottom = 2.dp),
+                            )
+                        }
+                    }
+                    item(key = ep.id) {
+                        val active = ep.id == currentEpisodeId
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(
+                                    if (active) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+                                    else Color.White.copy(alpha = 0.04f)
+                                )
+                                .clickable { onSelect(ep.id) }
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                        ) {
+                            Text(
+                                "E${ep.episodeNumber}",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = if (active) MaterialTheme.colorScheme.primary else AuroraColors.TextSecondary,
+                                modifier = Modifier.width(34.dp),
+                            )
+                            Text(
+                                ep.title,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = if (active) AuroraColors.TextPrimary else AuroraColors.TextSecondary,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f),
+                            )
+                            if (active) {
+                                Icon(Icons.Default.PlayArrow, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                            }
+                        }
+                    }
                 }
             }
         }

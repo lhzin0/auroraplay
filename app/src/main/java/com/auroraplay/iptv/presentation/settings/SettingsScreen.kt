@@ -155,6 +155,12 @@ fun SettingsScreen(
                             title = "Avançar / retroceder",
                             subtitle = "${settings.seekSeconds} segundos",
                             onClick = { openPicker = "seek" },
+                        )
+                        SettingsSwitchRow(
+                            icon = Icons.Default.PictureInPictureAlt,
+                            title = "Picture-in-Picture",
+                            checked = settings.pipEnabled,
+                            onCheckedChange = { viewModel.setPipEnabled(it) },
                             showDivider = false,
                         )
                     }
@@ -224,6 +230,12 @@ fun SettingsScreen(
 
                 item {
                     SettingsSection(title = "Dados") {
+                        SettingsRow(
+                            icon = Icons.Default.Sync,
+                            title = "Sincronização automática",
+                            subtitle = autoSyncLabel(settings.autoSyncHours),
+                            onClick = { openPicker = "autosync" },
+                        )
                         SettingsSwitchRow(
                             icon = Icons.Default.Wifi,
                             title = "Baixar somente com Wi-Fi",
@@ -288,6 +300,13 @@ fun SettingsScreen(
                     options = listOf("10" to "10 segundos", "5" to "5 segundos"),
                     selected = settings.seekSeconds.toString(),
                     onSelect = { value -> value?.toIntOrNull()?.let(viewModel::setSeekSeconds) },
+                    onDismiss = { openPicker = null },
+                )
+                "autosync" -> SettingsPickerDialog(
+                    title = "Sincronização automática",
+                    options = listOf("0" to "Desligada", "12" to "A cada 12 horas", "24" to "A cada 24 horas", "168" to "Semanal"),
+                    selected = settings.autoSyncHours.toString(),
+                    onSelect = { value -> value?.toIntOrNull()?.let(viewModel::setAutoSyncHours) },
                     onDismiss = { openPicker = null },
                 )
             }
@@ -397,6 +416,13 @@ private fun ProfileSwitcherDialog(
             }
         },
     )
+}
+
+private fun autoSyncLabel(h: Int) = when (h) {
+    0 -> "Desligada"
+    12 -> "A cada 12 horas"
+    168 -> "Semanal"
+    else -> "A cada 24 horas"
 }
 
 private fun qualityLabel(q: String) = when (q) {

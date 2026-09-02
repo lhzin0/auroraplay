@@ -42,15 +42,16 @@ data class PlayerLoadState(
     val contentType: ContentType = ContentType.MOVIE,
     val contentId: String = "",
     val nextEpisode: Episode? = null,
+    /** Every episode of the current series (all seasons), for the in-player
+     * quick episode switcher. Empty for movies/live. */
+    val episodes: List<Episode> = emptyList(),
+    val currentEpisodeId: String? = null,
     val liveChannels: List<Channel> = emptyList(),
     val resumePositionMillis: Long = 0L,
     val isFavorite: Boolean = false,
     val resizeMode: Int = AspectRatioFrameLayout.RESIZE_MODE_FIT,
     val currentProgramLabel: String? = null,
     val programProgress: Float? = null,
-    /** Dubbed/subtitled sibling streams of the current movie (provider split
-     * "DUBLADO" / "LEGENDADO" into separate entries). 0–1 items = nothing to
-     * switch between; the player's audio picker shows them when there are ≥2. */
     val loadError: String? = null,
 )
 
@@ -320,9 +321,22 @@ class PlayerViewModel @Inject constructor(
             contentType = ContentType.SERIES,
             contentId = progressKey,
             nextEpisode = next,
+            episodes = allEpisodes,
+            currentEpisodeId = episode.id,
             resumePositionMillis = saved?.positionMillis ?: 0L,
             isFavorite = isFav,
         )
+    }
+
+    /** Jump straight to another episode of the current series, keeping the
+     * player open (persists progress on the way out, like the next-episode
+     * auto-advance). */
+    fun switchToEpisode(episodeId: String) {
+        val state = _loadState.value
+        if (state.contentType != ContentType.SERIES || episodeId == state.currentEpisodeId) return
+        val seriesId = state.contentId.substringBefore(":")
+        persistProgressNow()
+        load(ContentType.SERIES, "$seriesId:$episodeId")
     }
 
     fun switchChannel(channel: Channel) {

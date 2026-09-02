@@ -53,6 +53,8 @@ class SettingsViewModel @Inject constructor(
     }
     fun setSeekSeconds(seconds: Int) = viewModelScope.launch { settingsRepository.updateSeekSeconds(seconds) }
     fun setFrostGlass(enabled: Boolean) = viewModelScope.launch { settingsRepository.updateFrostGlass(enabled) }
+    fun setAutoSyncHours(hours: Int) = viewModelScope.launch { settingsRepository.updateAutoSyncHours(hours) }
+    fun setPipEnabled(enabled: Boolean) = viewModelScope.launch { settingsRepository.updatePipEnabled(enabled) }
     fun clearCache() = viewModelScope.launch { settingsRepository.clearCache() }
     fun restoreDefaults() = viewModelScope.launch { settingsRepository.restoreDefaults() }
 }

@@ -69,12 +69,25 @@ app/src/main/java/com/auroraplay/iptv/
 
 ## Versão atual
 
-**1.26.6** — `versionCode 76`. Modo Cinema volta ao efeito borrado/esticado do
-frame (estilo YouTube ambient) em vez da cor chapada que parecia ambilight; a
-"troca brusca" foi resolvida com cross-dissolve linear de 1,8s. Antes (1.26.5):
-fix do APK `testOnly`, `[L]`=Legendado, título de episódio limpo.
+**1.26.7** — `versionCode 77`. Modo Cinema sem piscar (duas camadas, a anterior
+opaca por baixo enquanto a nova aparece por cima). Troca rápida de episódio no
+player ("Episódios" → gaveta lateral). Picture-in-Picture (toggle em
+Configurações, entra no Home durante o vídeo). Sincronização automática ao
+abrir (Desligada/12h/24h/Semanal).
 
 ## Novidades desta revisão
+
+### 1.26.7 — 2026-09-02
+
+- **Modo Cinema:** o flicker vinha do `Crossfade` (as duas camadas caíam de
+  opacidade juntas). Agora a camada anterior fica 100% por baixo e a nova
+  aparece por cima em 2s — sem vale de opacidade.
+- **Troca rápida de episódio:** ação "Episódios" no player → gaveta lateral
+  com todos os episódios por temporada, toque troca na hora.
+- **Picture-in-Picture:** toggle em Configurações › Reprodução (padrão on);
+  Home durante o vídeo → PiP na proporção do vídeo.
+- **Sincronização automática:** Configurações › Dados — Desligada/12h/24h/
+  Semanal; ao abrir o app, sincroniza se estiver mais velho que o intervalo.
 
 ### 1.26.6 — 2026-09-02
 

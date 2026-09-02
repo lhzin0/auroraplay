@@ -37,6 +37,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.auroraplay.iptv.core.util.NetworkMonitor
 import com.auroraplay.iptv.domain.repository.SettingsRepository
+import com.auroraplay.iptv.player.PlayerManager
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 import dagger.hilt.android.AndroidEntryPoint
 import com.auroraplay.iptv.core.theme.AuroraColors
 import com.auroraplay.iptv.core.theme.AuroraPlayTheme
@@ -50,6 +54,11 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
 
     @javax.inject.Inject
     lateinit var networkMonitor: NetworkMonitor
+
+    @javax.inject.Inject
+    lateinit var playerManager: PlayerManager
+
+    @Volatile private var pipEnabledSetting: Boolean = true
 
     // Registered as a property (not inside onCreate) since it must exist
     // before the activity reaches STARTED — declaring it here, rather than
@@ -76,6 +85,10 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         }
         if (Build.VERSION.SDK_INT in Build.VERSION_CODES.N..Build.VERSION_CODES.P) {
             storagePermissionLauncher.launch(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        }
+
+        lifecycleScope.launch {
+            settingsRepository.observeSettings().collect { pipEnabledSetting = it.pipEnabled }
         }
 
         val isTvDevice = isRunningOnTv()
@@ -139,6 +152,34 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
     private fun isRunningOnTv(): Boolean {
         val uiModeManager = getSystemService(Context.UI_MODE_SERVICE) as? UiModeManager
         return uiModeManager?.currentModeType == Configuration.UI_MODE_TYPE_TELEVISION
+    }
+
+    // ---- Picture-in-Picture -------------------------------------------------
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        if (!pipEnabledSetting || !playerManager.pipEligible) return
+        if (!playerManager.state.value.isPlaying) return
+        runCatching { enterPictureInPictureMode(buildPipParams()) }
+    }
+
+    @androidx.annotation.RequiresApi(Build.VERSION_CODES.O)
+    private fun buildPipParams(): android.app.PictureInPictureParams {
+        val s = playerManager.state.value
+        val w = s.videoWidth.takeIf { it > 0 } ?: 16
+        val h = s.videoHeight.takeIf { it > 0 } ?: 9
+        // Android rejects ratios outside ~[1:2.39 .. 2.39:1].
+        val ratio = (w.toFloat() / h.toFloat()).coerceIn(0.42f, 2.38f)
+        val num = (ratio * 1000).toInt()
+        return android.app.PictureInPictureParams.Builder()
+            .setAspectRatio(android.util.Rational(num, 1000))
+            .build()
+    }
+
+    override fun onPictureInPictureModeChanged(isInPip: Boolean, newConfig: Configuration) {
+        super.onPictureInPictureModeChanged(isInPip, newConfig)
+        playerManager.pipActive.value = isInPip
     }
 }
 

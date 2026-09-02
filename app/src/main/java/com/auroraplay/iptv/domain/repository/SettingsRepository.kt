@@ -20,6 +20,12 @@ data class AppSettings(
      * frosted graphite pane instead of a flat wash. Only swaps the material —
      * off restores the exact previous look. */
     val frostGlass: Boolean = true,
+    /** Auto-sync the active playlist when the app opens if the last sync is
+     * older than this many hours. 0 = off. 12 / 24 / 168 (weekly). */
+    val autoSyncHours: Int = 24,
+    /** Enter Picture-in-Picture when the user leaves the player (Home button)
+     * while a video is playing. */
+    val pipEnabled: Boolean = true,
 )
 
 interface SettingsRepository {
@@ -36,6 +42,8 @@ interface SettingsRepository {
     suspend fun updateDownloadWifiOnly(enabled: Boolean)
     suspend fun updateSeekSeconds(seconds: Int)
     suspend fun updateFrostGlass(enabled: Boolean)
+    suspend fun updateAutoSyncHours(hours: Int)
+    suspend fun updatePipEnabled(enabled: Boolean)
     suspend fun clearCache()
     suspend fun restoreDefaults()
     fun recentSearches(profileId: String): Flow<List<String>>
