@@ -1,3 +1,21 @@
+## 1.25.17 — 2026-09-02
+
+Troca Dublado ⇄ Legendado no player: detecção do gêmeo muito mais tolerante.
+
+- **`variantKeyBase`** (nova): tira a "cauda" de marca do fim do título de
+  forma agressiva — " - LEG", " LEGENDADO", " [L]", " DUAL ÁUDIO" etc. — só
+  para agrupar (nunca no nome exibido). Antes, `variantKey` só tirava marca
+  colada no fim; "Filme LEG" (com espaço) não batia com "Filme".
+- **`getMovieAudioVariants` afrouxado.** Casa pelo **base sem ano** e só
+  descarta um candidato se os dois têm ano *conhecido e diferente* (ano nulo
+  de qualquer lado ainda pareia). Assim o gêmeo é achado mesmo quando o
+  provedor preenche o ano só numa das cópias. Ainda exige que o par seja
+  dublado+legendado (ou mesmo título+ano) pra evitar oferecer troca entre
+  filmes diferentes de nome parecido.
+- O segmento **Dublado ⇄ Legendado** na barra superior do player aparece
+  assim que ≥2 versões são resolvidas; um toque troca o stream mantendo a
+  posição (o `PlayerManager` reprepara porque a URL muda).
+
 ## 1.25.16 — 2026-09-02
 
 - **Playlist de teste embutida (só debug).** Novo `DebugConnectionSeeder`:

@@ -173,18 +173,38 @@ object MetadataSanitizer {
         AudioVariant.DESCONHECIDO -> "Original"
     }
 
+    // Trailing dub/sub/version tail used ONLY for the grouping key (never for
+    // display), peeled aggressively so "Duna - LEG [HD]", "Duna LEGENDADO" and
+    // "Duna" all reduce to the same base. The marker must sit behind a space,
+    // a separator or a bracket, so it can't eat a glued word.
+    private val KEY_TAIL = Regex(
+        "(?i)(?:\\s+|\\s*[\\-–—_/|.:•]\\s*|\\s*[\\[(]\\s*)" +
+            "(dublad[oa]s?|dublagem|dubbed|legendad[oa]s?|legendas?|nacion(?:al|ais)|leg|dub|subbed|sub|dual\\s*[aá]?udio?|dual|nac|[ld])" +
+            "\\s*[\\])]?\\s*$"
+    )
+
     /**
-     * Identity key that is equal for the dubbed and subtitled copies of one
-     * title: sanitized base name (markers + year removed), accent-folded and
-     * reduced to [a-z0-9], plus the year when known.
+     * Yearless base of the grouping key: the title with any trailing dub/sub
+     * tag peeled off, accent-folded and reduced to [a-z0-9]. Two copies of one
+     * film share this even when the provider tags only one of them.
      */
-    fun variantKey(raw: String?, year: String?): String {
-        val base = stripAudioMarkers(title(raw))
-            .lowercase()
-            .let { foldAccents(it) }
-            .replace(Regex("[^a-z0-9]+"), "")
-        return base + "|" + (year?.trim().orEmpty())
+    fun variantKeyBase(raw: String?): String {
+        var s = title(raw).lowercase().let { foldAccents(it) }
+        repeat(4) {
+            val t = s.replace(KEY_TAIL, "").trim()
+            if (t == s || t.isEmpty()) return@repeat
+            s = t
+        }
+        return s.replace(Regex("[^a-z0-9]+"), "")
     }
+
+    /**
+     * Identity key equal for the dubbed and subtitled copies of one title:
+     * [variantKeyBase] plus the year. Used to group rows within a single year
+     * so a remake ("Mulan" 1998 vs 2020) is never folded in.
+     */
+    fun variantKey(raw: String?, year: String?): String =
+        variantKeyBase(raw) + "|" + (year?.trim().orEmpty())
 
     private fun foldAccents(s: String): String =
         java.text.Normalizer.normalize(s, java.text.Normalizer.Form.NFD)

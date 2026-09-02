@@ -19,8 +19,8 @@ android {
         //   x.x.PATCH  -> bug fixes only
         //   x.MINOR.x  -> larger updates (new features, redesigns)
         // versionCode increments monotonically on every release.
-        versionCode = 68
-        versionName = "1.25.16"
+        versionCode = 69
+        versionName = "1.25.17"
         // Default application credential for automatic metadata and official
         // trailers. It is intentionally kept out of the settings UI.
         buildConfigField("String", "TMDB_API_KEY", "\"b89b1d7fe6f14b4825f390e3db639b16\"")

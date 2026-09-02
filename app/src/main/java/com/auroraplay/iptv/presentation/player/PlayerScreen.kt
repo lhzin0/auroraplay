@@ -1521,8 +1521,14 @@ private fun AudioVariantToggle(
     currentStreamUrl: String?,
     onSelect: (com.auroraplay.iptv.domain.model.AudioStreamVariant) -> Unit,
 ) {
-    val shown = variants.distinctBy { it.label }.take(2)
-    if (shown.size < 2) return
+    val distinct = variants.distinctBy { it.streamUrl }.take(2)
+    if (distinct.size < 2) return
+    // Never show two identical captions — fall back to numbered versions.
+    val shown = if (distinct[0].label == distinct[1].label) {
+        distinct.mapIndexed { i, v -> v to "Versão ${i + 1}" }
+    } else {
+        distinct.map { it to it.label }
+    }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -1530,10 +1536,10 @@ private fun AudioVariantToggle(
             .background(Color.White.copy(alpha = 0.14f))
             .padding(3.dp),
     ) {
-        shown.forEach { v ->
+        shown.forEach { (v, label) ->
             val active = v.streamUrl == currentStreamUrl
             Text(
-                text = v.label,
+                text = label,
                 style = MaterialTheme.typography.labelMedium,
                 color = if (active) Color.Black else Color.White,
                 maxLines = 1,

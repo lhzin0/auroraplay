@@ -69,12 +69,21 @@ app/src/main/java/com/auroraplay/iptv/
 
 ## Versão atual
 
-**1.25.16** — `versionCode 68`. Build de debug pré-carrega uma playlist de
-teste (`DebugConnectionSeeder`) numa instalação limpa; credenciais vazias no
-release. Antes: detecção Dublado/Legendado pela categoria + troca rápida no
-player, e FrostGlass com blur real (Haze).
+**1.25.17** — `versionCode 69`. Troca Dublado ⇄ Legendado no player: a
+detecção do gêmeo ficou bem mais tolerante (base sem ano + poda agressiva de
+marca no fim do título), então o par é achado mesmo com metadados inconsistentes
+entre as duas cópias. Antes: playlist de teste no build de debug.
 
 ## Novidades desta revisão
+
+### 1.25.17 — 2026-09-02
+
+- **Detecção do gêmeo dublado/legendado bem mais tolerante.** Nova
+  `variantKeyBase` poda " - LEG" / " LEGENDADO" / " [L]" do fim do título só
+  para agrupar; `getMovieAudioVariants` casa pelo base **sem ano** e só
+  descarta candidato com ano conhecido e diferente. O segmento Dublado ⇄
+  Legendado na barra superior do player aparece assim que há ≥2 versões e um
+  toque troca o stream mantendo a posição.
 
 ### 1.25.16 — 2026-09-02
 

@@ -275,36 +275,63 @@ class ContentRepositoryImpl @Inject constructor(
 
     override suspend fun getMovieAudioVariants(connectionId: String, movieId: String): List<AudioStreamVariant> {
         val movie = movieDao.getById(connectionId, movieId) ?: return emptyList()
-        val key = MetadataSanitizer.variantKey(movie.name, movie.year)
-        // Bound the candidate set with a LIKE on the longest base-title word,
-        // then keep only exact variantKey matches.
+        val base = MetadataSanitizer.variantKeyBase(movie.name)
+        if (base.length < 3) return emptyList()
+        val myYear = movie.year?.trim()?.takeIf { it.isNotEmpty() }
+
+        // LIKE probe on the longest title word (accent/punctuation-stripped),
+        // then keep rows with the same yearless base and no *conflicting*
+        // known year (a null year on either side is allowed to pair).
         val probe = MetadataSanitizer.stripAudioMarkers(movie.name)
-            .split(Regex("\\s+")).maxByOrNull { it.length }?.takeIf { it.length >= 3 } ?: movie.name
+            .split(Regex("\\s+"))
+            .map { it.replace(Regex("[^\\p{L}\\p{N}]"), "") }
+            .filter { it.length >= 3 }
+            .maxByOrNull { it.length } ?: movie.name
         val group = (runCatching { movieDao.searchAll(connectionId, probe) }.getOrDefault(emptyList()) + movie)
             .distinctBy { it.id }
-            .filter { MetadataSanitizer.variantKey(it.name, it.year) == key }
+            .filter { MetadataSanitizer.variantKeyBase(it.name) == base }
+            .filter { c ->
+                val cy = c.year?.trim()?.takeIf { it.isNotEmpty() }
+                cy == null || myYear == null || cy == myYear
+            }
+            .distinctBy { it.streamUrl }
         if (group.size < 2) return emptyList()
 
         val tagged = group.map { it to MetadataSanitizer.audioVariantFrom(it.name, it.categoryName) }
         val hasLeg = tagged.any { it.second == MetadataSanitizer.AudioVariant.LEGENDADO }
-        return tagged
-            .map { (m, tag) ->
-                // With a subtitled copy present, treat the un-marked ones as
-                // dubbed — the pt-BR default — so the toggle reads cleanly.
-                val effective = if (tag == MetadataSanitizer.AudioVariant.DESCONHECIDO && hasLeg)
-                    MetadataSanitizer.AudioVariant.DUBLADO else tag
-                AudioStreamVariant(
-                    label = when (effective) {
-                        MetadataSanitizer.AudioVariant.DUBLADO -> "Dublado"
-                        MetadataSanitizer.AudioVariant.LEGENDADO -> "Legendado"
-                        MetadataSanitizer.AudioVariant.DESCONHECIDO -> "Original"
-                    },
-                    streamUrl = m.streamUrl,
-                    variant = effective,
-                )
-            }
+        val hasNonLeg = tagged.any { it.second != MetadataSanitizer.AudioVariant.LEGENDADO }
+        val sameYearPair = myYear != null && group.all { it.year?.trim().orEmpty().ifEmpty { myYear } == myYear }
+        // Offer the switch when it's a real dub/sub pair, or when the streams
+        // are the same title + same year (still an alternate version worth
+        // flipping to). Otherwise stay quiet.
+        if (!((hasLeg && hasNonLeg) || sameYearPair)) return emptyList()
+
+        val result = tagged.map { (m, tag) ->
+            // With a subtitled copy present, the un-marked ones are the dubbed
+            // track (pt-BR default), so the toggle reads cleanly.
+            val effective = if (tag == MetadataSanitizer.AudioVariant.DESCONHECIDO && hasLeg)
+                MetadataSanitizer.AudioVariant.DUBLADO else tag
+            AudioStreamVariant(
+                label = when (effective) {
+                    MetadataSanitizer.AudioVariant.DUBLADO -> "Dublado"
+                    MetadataSanitizer.AudioVariant.LEGENDADO -> "Legendado"
+                    MetadataSanitizer.AudioVariant.DESCONHECIDO -> "Original"
+                },
+                streamUrl = m.streamUrl,
+                variant = effective,
+            )
+        }
             .distinctBy { it.streamUrl }
             .sortedBy { it.variant.ordinal }
+
+        // Two copies but nothing told us which is which (identical name +
+        // category, no marker anywhere). Don't guess a wrong "Dublado" label —
+        // number them; the viewer flips once and hears which is which.
+        return if (result.size == 2 && result.all { it.variant == MetadataSanitizer.AudioVariant.DESCONHECIDO }) {
+            result.mapIndexed { i, v -> v.copy(label = "Versão ${i + 1}") }
+        } else {
+            result
+        }
     }
 
     override suspend fun getLastSyncMillis(connectionId: String): Long? =
