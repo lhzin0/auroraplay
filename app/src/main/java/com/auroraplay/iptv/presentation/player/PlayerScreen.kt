@@ -1,4 +1,3 @@
-@file:OptIn(androidx.media3.common.util.UnstableApi::class)
 package com.auroraplay.iptv.presentation.player
 
 import android.app.Activity
@@ -70,6 +69,8 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.auroraplay.iptv.core.theme.AuroraColors
 import com.auroraplay.iptv.core.theme.frostSurface
 import com.auroraplay.iptv.core.util.toTimeLabel
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeSource
 import com.auroraplay.iptv.domain.model.ContentType
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -142,8 +143,10 @@ fun PlayerScreen(
     // crashed the app.
     var videoTextureView by remember { mutableStateOf<TextureView?>(null) }
     var cinematicFrame by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
+    // Backdrop the ⋮ panel blurs (FrostGlass): the video surface is the source.
+    val playerHaze = remember { HazeState() }
 
-    var controlsVisible by remember { mutableStateOf(true) }
+    var controlsVisible by remember { mutableStateOf(value = true) }
     var isLocked by remember { mutableStateOf(false) }
     var showChannelList by remember { mutableStateOf(false) }
     var showChannelEpg by remember { mutableStateOf(false) }
@@ -225,9 +228,13 @@ fun PlayerScreen(
         val tv = videoTextureView ?: return@LaunchedEffect
         while (true) {
             val shot = runCatching {
-                if (tv.isAvailable && (tv.width > 0 && tv.height > 0)) tv.getBitmap(192, 108) else null
+                if (tv.isAvailable && (tv.width > 0 && tv.height > 0)) {
+                    tv.getBitmap(192, 108)
+                } else null
             }.getOrNull()
-            if (shot != null) cinematicFrame = shot
+            if (shot != null) {
+                cinematicFrame = shot
+            }
             delay(900.milliseconds)
         }
     }
@@ -324,7 +331,9 @@ fun PlayerScreen(
                 resizeMode = loadState.resizeMode,
                 showBufferingIndicator = !controlsVisible,
                 onVideoTextureView = { videoTextureView = it },
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .hazeSource(playerHaze),
             )
         }
 
@@ -546,6 +555,7 @@ fun PlayerScreen(
                 onOpenSpeed = { showSettingsSheet = false; showSpeedSheet = true },
                 onCycleResize = { viewModel.cycleResizeMode() },
                 onDismiss = { showSettingsSheet = false },
+                hazeState = playerHaze,
             )
         }
 
@@ -1369,6 +1379,7 @@ private fun PlayerSettingsSheet(
     onOpenSpeed: () -> Unit,
     onCycleResize: () -> Unit,
     onDismiss: () -> Unit,
+    hazeState: HazeState? = null,
 ) {
     var open by remember { mutableStateOf(false) }
     var closing by remember { mutableStateOf(false) }
@@ -1404,12 +1415,14 @@ private fun PlayerSettingsSheet(
             Column(
                 modifier = Modifier
                     .width(200.dp)
-                    // Translucent "glass" — the video shows through faintly.
-                    // Follows the FrostGlass setting (flat black wash when off).
+                    // Translucent "glass" — the video shows through. Follows the
+                    // FrostGlass setting: real backdrop blur of the video on
+                    // API 31+, flat black wash when the toggle is off.
                     .frostSurface(
                         shape = RoundedCornerShape(16.dp),
                         flat = Color.Black.copy(alpha = 0.62f),
                         tint = AuroraColors.SurfaceDark,
+                        haze = hazeState,
                     )
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },

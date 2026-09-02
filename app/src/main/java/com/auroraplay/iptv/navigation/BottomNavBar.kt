@@ -56,6 +56,7 @@ fun AuroraBottomNavBar(
     currentTab: MainTab,
     onTabSelected: (MainTab) -> Unit,
     modifier: Modifier = Modifier,
+    hazeState: dev.chrisbanes.haze.HazeState? = null,
 ) {
     Box(
         modifier = modifier
@@ -69,6 +70,7 @@ fun AuroraBottomNavBar(
                 .frostSurface(
                     shape = RoundedCornerShape(32.dp),
                     flat = AuroraColors.BackgroundElevated.copy(alpha = 0.98f),
+                    haze = hazeState,
                 )
                 .padding(horizontal = 6.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(2.dp),

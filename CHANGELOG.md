@@ -1,3 +1,21 @@
+## 1.25.14 — 2026-09-02
+
+FrostGlass: blur real do fundo nas superfícies flutuantes (lib Haze).
+
+- Nova dependência **`dev.chrisbanes.haze:haze:1.6.10`**. `Modifier.frostSurface`
+  ganhou um parâmetro `haze: HazeState?`: quando informado (e o aparelho é
+  API 31+), a superfície vira um **RenderEffect blur de verdade** do conteúdo
+  marcado com `Modifier.hazeSource(...)`. Sem `HazeState`, ou em API < 31,
+  cai no fosco estilizado de antes (degradê translúcido, alpha 170).
+- Ligado em: **barra de navegação inferior** (fonte = conteúdo das abas, em
+  `AuroraNavGraph`) e **pop-over ⋮ do player** (fonte = a `TextureView` do
+  vídeo). É o visual da imagem de referência.
+- As superfícies embutidas (chips, cartões de canal, cartões de
+  Configurações, campo de busca) seguem no fosco estilizado — blur de fundo
+  não faz sentido para elemento que não flutua sobre conteúdo.
+- Toggle "Vidro fosco" continua valendo para os dois caminhos; desligado,
+  tudo volta ao chapado.
+
 ## 1.25.13 — 2026-09-02
 
 FrostGlass agora cobre as superfícies que faltavam (feedback com prints).

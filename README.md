@@ -69,12 +69,21 @@ app/src/main/java/com/auroraplay/iptv/
 
 ## Versão atual
 
-**1.25.13** — `versionCode 65`. FrostGlass estendido aos chips de categoria,
-campo de busca, cartão de canal e cartões de Configurações (feedback com
-prints). Antes: unificação Dublado/Legendado (catálogo + seletor no player) e
-a reescrita do Modo Cinema sem segundo decodificador.
+**1.25.14** — `versionCode 66`. FrostGlass com blur real do fundo (lib Haze)
+na barra de navegação e no pop-over ⋮ do player — o visual da referência.
+Antes: FrostGlass estendido aos chips/campo de busca/cartões, e a unificação
+Dublado/Legendado.
 
 ## Novidades desta revisão
+
+### 1.25.14 — 2026-09-02
+
+- **Blur real do fundo no FrostGlass.** Nova dep `dev.chrisbanes.haze:haze`.
+  `Modifier.frostSurface(…, haze = state)` faz RenderEffect blur de verdade
+  no Android 12+; sem `HazeState`/abaixo disso, cai no fosco estilizado.
+  Ligado na barra de navegação (fonte = conteúdo das abas) e no pop-over ⋮
+  do player (fonte = `TextureView` do vídeo). Chips/cartões/busca seguem no
+  fosco estilizado (blur de fundo não se aplica a elemento não-flutuante).
 
 ### 1.25.13 — 2026-09-02
 

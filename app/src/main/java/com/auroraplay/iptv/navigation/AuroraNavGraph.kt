@@ -21,6 +21,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.auroraplay.iptv.core.theme.AuroraColors
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeSource
 import com.auroraplay.iptv.domain.model.ContentType
 import com.auroraplay.iptv.presentation.connections.AddConnectionScreen
 import com.auroraplay.iptv.presentation.connections.ConnectionsScreen
@@ -311,17 +313,23 @@ private fun MainShell(isTvDevice: Boolean, initialTab: MainTab, navController: N
             label = "bottomNavOffset",
         )
 
+        // Backdrop the floating nav bar blurs (FrostGlass). The tab content is
+        // the source; the bar reads it through its own HazeState.
+        val navHaze = remember { HazeState() }
         Box(
             Modifier
                 .fillMaxSize()
                 .background(AuroraColors.BackgroundBase)
                 .nestedScroll(scrollConnection)
         ) {
-            TabContent()
+            Box(Modifier.fillMaxSize().hazeSource(navHaze)) {
+                TabContent()
+            }
             if (currentTab != MainTab.SETTINGS) {
                 AuroraBottomNavBar(
                     currentTab = currentTab,
                     onTabSelected = { currentTab = it },
+                    hazeState = navHaze,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .graphicsLayer {

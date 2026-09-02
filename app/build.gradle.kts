@@ -19,8 +19,8 @@ android {
         //   x.x.PATCH  -> bug fixes only
         //   x.MINOR.x  -> larger updates (new features, redesigns)
         // versionCode increments monotonically on every release.
-        versionCode = 65
-        versionName = "1.25.13"
+        versionCode = 66
+        versionName = "1.25.14"
         // Default application credential for automatic metadata and official
         // trailers. It is intentionally kept out of the settings UI.
         buildConfigField("String", "TMDB_API_KEY", "\"b89b1d7fe6f14b4825f390e3db639b16\"")
@@ -128,6 +128,11 @@ dependencies {
     implementation("androidx.hilt:hilt-work:1.3.0")
     ksp("androidx.hilt:hilt-compiler:1.3.0")
     implementation("androidx.media3:media3-database:1.11.0")
+
+    // Backdrop blur — real frosted glass on API 31+ (RenderEffect), graceful
+    // tint-only scrim below that. Powers FrostGlass on the floating surfaces
+    // (bottom nav bar, the player's ⋮ panel).
+    implementation("dev.chrisbanes.haze:haze:1.6.10")
 
     // Image loading
     implementation("io.coil-kt:coil-compose:2.7.0")
