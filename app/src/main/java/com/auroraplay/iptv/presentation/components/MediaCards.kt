@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.auroraplay.iptv.core.theme.AuroraColors
 import com.auroraplay.iptv.core.theme.AuroraRadius
+import com.auroraplay.iptv.core.theme.frostSurface
 
 /** Poster-style card used for Movies and Series (2:3 aspect). */
 @Composable
@@ -138,15 +139,22 @@ fun ChannelCard(
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val visuals = rememberTvFocusVisuals(interactionSource, pressed = pressed, pressedScale = 0.97f, focusedScale = 1.06f)
+    val cardShape = RoundedCornerShape(AuroraRadius.Card)
+    // Selected keeps its flat accent wash; the neutral row is a glass surface
+    // that follows the FrostGlass setting.
+    val cardSurface = if (selected) {
+        Modifier.clip(cardShape).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f))
+    } else {
+        Modifier.frostSurface(cardShape, flat = AuroraColors.SurfaceDark)
+    }
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .fillMaxWidth()
             .scale(visuals.scale)
-            .clip(RoundedCornerShape(AuroraRadius.Card))
-            .background(if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.16f) else AuroraColors.SurfaceDark)
-            .border(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = visuals.ringAlpha), RoundedCornerShape(AuroraRadius.Card))
+            .then(cardSurface)
+            .border(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = visuals.ringAlpha), cardShape)
             .focusable(interactionSource = interactionSource)
             .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
             .padding(10.dp)

@@ -163,6 +163,14 @@ fun CategoryChip(
 ) {
     val chipInteraction = remember { MutableInteractionSource() }
     val chipFocused by chipInteraction.collectIsFocusedAsState()
+    val chipShape = RoundedCornerShape(100.dp)
+    // Selected keeps its flat accent fill; the neutral pill is a glass surface
+    // that follows the FrostGlass setting.
+    val chipSurface = if (selected) {
+        Modifier.clip(chipShape).background(MaterialTheme.colorScheme.primary)
+    } else {
+        Modifier.frostSurface(chipShape, flat = AuroraColors.SurfaceHigh)
+    }
 
     // Box with a fixed min height and centred content: relying on the Text's
     // own padding left the label sitting slightly high inside the pill,
@@ -171,11 +179,7 @@ fun CategoryChip(
         contentAlignment = Alignment.Center,
         modifier = modifier
             .heightIn(min = 36.dp)
-            .clip(RoundedCornerShape(100.dp))
-            .background(
-                if (selected) MaterialTheme.colorScheme.primary
-                else AuroraColors.SurfaceHigh
-            )
+            .then(chipSurface)
             .border(
                 width = if (chipFocused) 2.dp else 0.dp,
                 color = if (chipFocused) MaterialTheme.colorScheme.primary else Color.Transparent,

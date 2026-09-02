@@ -69,13 +69,21 @@ app/src/main/java/com/auroraplay/iptv/
 
 ## Versão atual
 
-**1.25.12** — `versionCode 64`. Dublado/Legendado unificado: cópias DUB/LEG do
-mesmo filme colapsam numa linha só no catálogo (não destrutivo) e o player
-ganha um seletor "Dublado / Legendado (áudio original)" que troca o stream
-mantendo a posição, na mesma folha das legendas. Antes: FrostGlass (toggle de
-vidro fosco) e a reescrita do Modo Cinema sem segundo decodificador.
+**1.25.13** — `versionCode 65`. FrostGlass estendido aos chips de categoria,
+campo de busca, cartão de canal e cartões de Configurações (feedback com
+prints). Antes: unificação Dublado/Legendado (catálogo + seletor no player) e
+a reescrita do Modo Cinema sem segundo decodificador.
 
 ## Novidades desta revisão
+
+### 1.25.13 — 2026-09-02
+
+- **FrostGlass nas superfícies que faltavam.** `Modifier.frostSurface` agora
+  também vale para `CategoryChip` (chips de categoria), `ContextualSearchField`
+  (campo de busca do cabeçalho), `ChannelCard` (lista de Canais) e
+  `SettingsSection` (cartões de Configurações). Estado selecionado segue
+  chapado; só o neutro vira vidro. Sem mudança de layout; toggle desligado
+  volta ao visual atual.
 
 ### 1.25.12 — 2026-09-02
 

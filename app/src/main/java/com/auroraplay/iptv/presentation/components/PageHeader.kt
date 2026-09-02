@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.auroraplay.iptv.core.theme.AuroraColors
+import com.auroraplay.iptv.core.theme.frostSurface
 
 /**
  * Consistent spacing scale used across every screen, so gaps between
@@ -178,8 +179,7 @@ fun ContextualSearchField(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(AuroraColors.SurfaceHigh)
+            .frostSurface(RoundedCornerShape(14.dp), flat = AuroraColors.SurfaceHigh)
             .padding(horizontal = Spacing.lg),
     ) {
         Icon(Icons.Default.Search, contentDescription = null, tint = AuroraColors.TextTertiary, modifier = Modifier.size(18.dp))

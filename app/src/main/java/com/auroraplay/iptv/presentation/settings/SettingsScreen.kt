@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.auroraplay.iptv.core.theme.AuroraColors
+import com.auroraplay.iptv.core.theme.frostSurface
 import com.auroraplay.iptv.presentation.components.ProfileAvatar
 import com.auroraplay.iptv.presentation.components.Spacing
 import com.auroraplay.iptv.presentation.components.rememberTvFocusVisuals
@@ -495,8 +496,7 @@ private fun SettingsSection(title: String, content: @Composable ColumnScope.() -
         Column(
             Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(18.dp))
-                .background(AuroraColors.SurfaceHigh)
+                .frostSurface(RoundedCornerShape(18.dp), flat = AuroraColors.SurfaceHigh)
                 .border(1.dp, Color.White.copy(alpha = 0.045f), RoundedCornerShape(18.dp)),
             content = content,
         )

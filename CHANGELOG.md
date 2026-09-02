@@ -1,3 +1,20 @@
+## 1.25.13 — 2026-09-02
+
+FrostGlass agora cobre as superfícies que faltavam (feedback com prints).
+
+- `Modifier.frostSurface` aplicado também a: **chips de categoria**
+  (`CategoryChip` — linhas "Todos/Favoritos/…" em Canais/Busca/Filmes/
+  Séries), **campo de busca** (`ContextualSearchField` do `PageHeader`),
+  **cartão de canal** (`ChannelCard` da lista de Canais) e os **cartões de
+  seção** de Configurações (`SettingsSection`). O estado selecionado dos
+  chips/cartão continua com o preenchimento chapado de destaque; só o
+  estado neutro vira vidro.
+- Sem mudança de forma/tamanho/padding/borda — continua só troca de
+  material, e o toggle desligado devolve o visual chapado atual.
+- Nota: o blur real de fundo da imagem de referência (estilo Mihon) exige
+  a lib Haze, que foi descartada antes; o efeito aqui é o fosco
+  estilizado (degradê translúcido, alpha 170), consistente em todo Android.
+
 ## 1.25.12 — 2026-09-02
 
 Dublado/Legendado unificado — catálogo + seletor no player.
