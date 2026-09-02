@@ -13,23 +13,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.auroraplay.iptv.core.theme.AuroraColors
-import com.auroraplay.iptv.domain.model.AudioStreamVariant
 import com.auroraplay.iptv.player.TrackOption
 
 /**
  * One sheet for both audio and subtitles — the two were separate before and
- * the subtitle one had no way to be opened. "Áudio" gathers, in order:
- *  - the dubbed/subtitled sibling streams a provider split apart
- *    ("Dublado" / "Legendado (áudio original)"), and
- *  - the real embedded audio tracks of the current stream.
- * "Legendas" lists "Desativado" plus every embedded subtitle track.
+ * the subtitle one had no way to be opened. "Áudio" lists the stream's
+ * embedded audio tracks; "Legendas" lists "Desativado" plus every embedded
+ * subtitle track.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AudioAndSubtitlesSheet(
-    audioVariants: List<AudioStreamVariant>,
-    currentStreamUrl: String?,
-    onSelectVariant: (AudioStreamVariant) -> Unit,
     audioTracks: List<TrackOption>,
     onSelectAudio: (TrackOption) -> Unit,
     subtitleTracks: List<TrackOption>,
@@ -42,22 +36,11 @@ fun AudioAndSubtitlesSheet(
         LazyColumn(contentPadding = PaddingValues(bottom = 28.dp)) {
             item { SheetHeader("Áudio") }
 
-            val hasVariants = audioVariants.size >= 2
-            if (hasVariants) {
-                items(audioVariants) { v ->
-                    OptionRow(
-                        label = v.label,
-                        selected = v.streamUrl == currentStreamUrl,
-                        onClick = { onSelectVariant(v); onDismiss() },
-                    )
-                }
-            }
             if (audioTracks.size > 1) {
-                if (hasVariants) item { SheetSubHeader("Faixas deste stream") }
                 items(audioTracks) { track ->
                     OptionRow(track.label, track.isSelected) { onSelectAudio(track); onDismiss() }
                 }
-            } else if (!hasVariants) {
+            } else {
                 item { SheetNote("Somente uma faixa de áudio disponível.") }
             }
 
@@ -80,17 +63,6 @@ private fun SheetHeader(text: String) {
         style = MaterialTheme.typography.titleLarge,
         color = AuroraColors.TextPrimary,
         modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 8.dp),
-    )
-}
-
-@Composable
-private fun SheetSubHeader(text: String) {
-    Text(
-        text,
-        style = MaterialTheme.typography.labelMedium,
-        color = AuroraColors.TextTertiary,
-        fontWeight = FontWeight.SemiBold,
-        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 10.dp, bottom = 4.dp),
     )
 }
 

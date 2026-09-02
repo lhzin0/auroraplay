@@ -24,8 +24,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.auroraplay.iptv.core.theme.AuroraColors
+import com.auroraplay.iptv.core.theme.frostSurface
 
-/** Search result/suggestion row with a true poster treatment. */
+/** Search result / suggestion row — a uniform frosted card: a fixed 56×80
+ * poster, the title, and a play affordance, all vertically centred so every
+ * row lines up regardless of how many lines the title takes. */
 @Composable
 fun SuggestionRow(
     title: String,
@@ -34,26 +37,25 @@ fun SuggestionRow(
     modifier: Modifier = Modifier,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
+    val shape = RoundedCornerShape(14.dp)
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            // No opaque background between the shape and its border here, so
-            // the bundled helper (scale + ring + focusable in one go) is safe.
-            .tvFocusable(shape = RoundedCornerShape(10.dp), accent = MaterialTheme.colorScheme.primary, interactionSource = interactionSource, focusedScale = 1.02f)
+            .padding(vertical = 4.dp)
+            .heightIn(min = 96.dp)
+            .frostSurface(shape, flat = AuroraColors.SurfaceHigh)
+            .tvFocusable(shape = shape, accent = MaterialTheme.colorScheme.primary, interactionSource = interactionSource, focusedScale = 1.02f)
             .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
-            .padding(vertical = Spacing.sm),
+            .padding(10.dp),
     ) {
-        // Just the poster — the title already sits as the row's own label to
-        // the right, so an overlay caption here only repeated the name.
         Box(
             modifier = Modifier
-                .width(92.dp)
+                .width(56.dp)
                 .aspectRatio(2f / 3f)
-                .clip(RoundedCornerShape(10.dp))
-                .background(AuroraColors.SurfaceHigh),
+                .clip(RoundedCornerShape(8.dp))
+                .background(AuroraColors.SurfaceDark),
         ) {
             if (imageUrl != null) {
                 AsyncImage(
@@ -73,19 +75,19 @@ fun SuggestionRow(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
-        Spacer(Modifier.width(Spacing.md))
+        Spacer(Modifier.width(Spacing.sm))
         Box(
             modifier = Modifier
-                .size(40.dp)
+                .size(36.dp)
                 .clip(CircleShape)
-                .background(AuroraColors.SurfaceHigh),
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 Icons.Default.PlayArrow,
                 contentDescription = null,
-                tint = AuroraColors.TextPrimary,
-                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(18.dp),
             )
         }
     }

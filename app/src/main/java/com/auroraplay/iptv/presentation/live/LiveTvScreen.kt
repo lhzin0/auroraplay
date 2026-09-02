@@ -181,14 +181,12 @@ fun LiveTvScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 items(visibleChannels, key = { it.id }) { channel ->
-                    // Fires once per row composition; LazyColumn only composes
-                    // rows actually on screen, so this scales with what's
-                    // visible while scrolling rather than the whole list.
-                    LaunchedEffect(channel.id) { viewModel.ensureEpg(channel) }
                     ChannelCard(
                         name = channel.name,
                         logoUrl = channel.logoUrl,
-                        currentProgram = channel.currentProgram?.title ?: channel.categoryName,
+                        // No second line in the channels list — just the name,
+                        // so the per-row EPG fetch is gone too.
+                        currentProgram = null,
                         selected = channel.id == state.selectedChannel?.id,
                         isFavorite = state.favoriteIds.contains(channel.id),
                         onClick = { viewModel.selectChannel(channel) },

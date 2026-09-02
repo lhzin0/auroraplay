@@ -151,7 +151,7 @@ class PlayerManager @Inject constructor(
             // before surfacing an error. This is per-channel, not global:
             // channels that do have an HLS playlist keep using it.
             val url = lastKnownUrl
-            if (!triedLiveTsFallback && (url != null && url.contains("/live/") && url.endsWith(".m3u8"))) {
+            if (!triedLiveTsFallback && (url != null && (url.contains("/live/") && url.endsWith(".m3u8")))) {
                 triedLiveTsFallback = true
                 val tsUrl = url.removeSuffix(".m3u8") + ".ts"
                 val player = activePlayer()

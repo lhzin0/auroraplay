@@ -1,7 +1,6 @@
 package com.auroraplay.iptv.player.download
 
 import android.content.Context
-import android.net.Uri
 import androidx.core.net.toUri
 import androidx.media3.exoplayer.offline.Download
 import androidx.media3.exoplayer.offline.DownloadManager
@@ -101,11 +100,11 @@ class DownloadTracker @Inject constructor(
         downloadManager.addListener(
             object : DownloadManager.Listener {
                 override fun onDownloadChanged(downloadManager: DownloadManager, download: Download, finalException: Exception?) {
-                    _downloads.value = _downloads.value + (download.request.id to download.toState())
+                    _downloads.value += (download.request.id to download.toState())
                 }
 
                 override fun onDownloadRemoved(downloadManager: DownloadManager, download: Download) {
-                    _downloads.value = _downloads.value - download.request.id
+                    _downloads.value -= download.request.id
                 }
             },
         )
@@ -120,8 +119,7 @@ class DownloadTracker @Inject constructor(
                 if (active.isEmpty()) {
                     delay(5.seconds)
                 } else {
-                    _downloads.value = _downloads.value +
-                        active.associateBy({ it.request.id }, { it.toState() })
+                    _downloads.value += active.associateBy({ it.request.id }) { it.toState() }
                     delay(1.seconds)
                 }
             }
@@ -209,7 +207,7 @@ class DownloadTracker @Inject constructor(
     fun applyWifiOnlyPreference(wifiOnly: Boolean) {
         downloadManager.requirements = androidx.media3.exoplayer.scheduler.Requirements(
             if (wifiOnly) androidx.media3.exoplayer.scheduler.Requirements.NETWORK_UNMETERED
-            else androidx.media3.exoplayer.scheduler.Requirements.NETWORK
+            else androidx.media3.exoplayer.scheduler.Requirements.NETWORK,
         )
     }
 

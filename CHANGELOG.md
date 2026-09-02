@@ -1,3 +1,32 @@
+## 1.26.0 — 2026-09-02
+
+FrostGlass mais presente, avatares de canal gerados, guia de programação
+refeito, e a troca dublado/legendado no player **removida**.
+
+- **Troca Dublado ⇄ Legendado no player: removida.** Os metadados do
+  provedor eram inconsistentes demais para parear as duas cópias de um
+  título no aparelho de forma confiável. `getMovieAudioVariants`,
+  `AudioStreamVariant`, o segmento na barra do player e o `selectAudioVariant`
+  saíram. O que fica: o **catálogo mantém só a cópia dublada** e descarta a
+  legendada gêmea — agora **para filmes E séries** (`observeMovies` +
+  `observeSeries` + Busca). Continua não-destrutivo (o banco guarda tudo).
+- **FrostGlass mais visível.** O gradiente fosco inline (cartões, chips,
+  campo de busca) subiu para ~0,95→0,76 de opacidade com um tom mais claro
+  (`SurfaceHigh`), então cartão não some mais no fundo quase-preto. O caminho
+  com blur de fundo (barra de navegação, ⋮ do player) segue no alpha 170.
+- **FrostGlass em mais botões:** `AppButton` ("Assistir" etc.) agora é vidro
+  fosco com tom de destaque quando o efeito está ligado.
+- **Avatar de canal gerado** (`ChannelAvatar`): sem logo do provedor, o canal
+  ganha um badge com iniciais + gradiente derivado do nome (determinístico,
+  offline). Buscar logo na internet por nome não é confiável, então o badge é
+  o fallback. Usado na lista de Canais e no guia.
+- **Guia de programação refeito.** Linha vira cartão fosco: logo + nome lado
+  a lado num bloco de largura fixa (timelines alinhadas), "Sem programação"
+  virou texto discreto à direita, blocos de programa refinados com marcador
+  de "agora". Cabeçalho ganhou a data.
+- **Sem subtítulo nos canais.** A lista de Canais mostra só o nome (a busca
+  de EPG por linha durante o scroll também saiu).
+
 ## 1.25.17 — 2026-09-02
 
 Troca Dublado ⇄ Legendado no player: detecção do gêmeo muito mais tolerante.

@@ -42,15 +42,16 @@ fun AppButton(
     // sits on a dark/translucent surface and wants the accent ring instead.
     val visuals = rememberTvFocusVisuals(interactionSource, pressed = pressed)
 
+    val shape = RoundedCornerShape(12.dp)
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
         modifier = modifier
             .scale(visuals.scale)
             .then(if (fullWidth) Modifier.fillMaxWidth() else Modifier)
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.primary)
-            .border(2.dp, Color.White.copy(alpha = visuals.ringAlpha), RoundedCornerShape(12.dp))
+            // Frosted accent glass when FrostGlass is on; flat accent fill when off.
+            .frostSurface(shape, flat = MaterialTheme.colorScheme.primary, tint = MaterialTheme.colorScheme.primary)
+            .border(2.dp, Color.White.copy(alpha = visuals.ringAlpha), shape)
             .focusable(interactionSource = interactionSource)
             .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
             .padding(horizontal = 24.dp, vertical = 14.dp)

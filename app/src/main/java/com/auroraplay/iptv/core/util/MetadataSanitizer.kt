@@ -165,14 +165,6 @@ object MetadataSanitizer {
         }
     }
 
-    /** A short label for the [audioVariant] of a raw title, for the player's
-     * audio picker. */
-    fun audioVariantLabel(raw: String?): String = when (audioVariant(raw)) {
-        AudioVariant.DUBLADO -> "Dublado"
-        AudioVariant.LEGENDADO -> "Legendado (áudio original)"
-        AudioVariant.DESCONHECIDO -> "Original"
-    }
-
     // Trailing dub/sub/version tail used ONLY for the grouping key (never for
     // display), peeled aggressively so "Duna - LEG [HD]", "Duna LEGENDADO" and
     // "Duna" all reduce to the same base. The marker must sit behind a space,

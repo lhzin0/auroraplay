@@ -69,12 +69,23 @@ app/src/main/java/com/auroraplay/iptv/
 
 ## Versão atual
 
-**1.25.17** — `versionCode 69`. Troca Dublado ⇄ Legendado no player: a
-detecção do gêmeo ficou bem mais tolerante (base sem ano + poda agressiva de
-marca no fim do título), então o par é achado mesmo com metadados inconsistentes
-entre as duas cópias. Antes: playlist de teste no build de debug.
+**1.26.0** — `versionCode 70`. FrostGlass mais presente (cartões/chips/busca) e
+em mais botões, avatares de canal gerados quando não há logo, guia de
+programação refeito, subtítulo dos canais removido. A **troca dublado/legendado
+no player foi removida** (metadados do provedor inconsistentes demais); o
+catálogo mantém só a cópia dublada, agora para filmes **e** séries.
 
 ## Novidades desta revisão
+
+### 1.26.0 — 2026-09-02
+
+- **Troca dublado/legendado no player: removida** (não dava para parear as
+  cópias de forma confiável). O catálogo continua colapsando o par e mantendo
+  a **dublada** — agora para filmes e séries.
+- **FrostGlass** mais opaco/visível nos cartões inline; aplicado também ao
+  `AppButton`. Avatar de canal gerado (`ChannelAvatar`) quando falta logo.
+  Guia de programação refeito (cartões, alinhamento, "agora", data no
+  cabeçalho). Canais sem subtítulo.
 
 ### 1.25.17 — 2026-09-02
 

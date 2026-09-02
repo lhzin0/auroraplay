@@ -159,19 +159,12 @@ fun ChannelCard(
             .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
             .padding(10.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .size(52.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(AuroraColors.SurfaceHigh),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (logoUrl != null) {
-                AsyncImage(model = logoUrl, contentDescription = name, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize().padding(6.dp))
-            } else {
-                androidx.compose.material3.Icon(Icons.Default.LiveTv, contentDescription = null, tint = AuroraColors.TextTertiary)
-            }
-        }
+        ChannelAvatar(
+            name = name,
+            logoUrl = logoUrl,
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.size(52.dp),
+        )
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(name, style = MaterialTheme.typography.titleMedium, color = AuroraColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
