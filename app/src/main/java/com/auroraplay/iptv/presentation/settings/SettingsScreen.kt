@@ -178,6 +178,12 @@ fun SettingsScreen(
                         }
                         SettingsDivider()
                         SettingsSwitchRow(
+                            icon = Icons.Default.BlurOn,
+                            title = "Vidro fosco (FrostGlass)",
+                            checked = settings.frostGlass,
+                            onCheckedChange = { viewModel.setFrostGlass(it) },
+                        )
+                        SettingsSwitchRow(
                             icon = Icons.Default.Animation,
                             title = "Animações",
                             checked = settings.animationsEnabled,

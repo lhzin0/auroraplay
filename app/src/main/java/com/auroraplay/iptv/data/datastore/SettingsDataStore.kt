@@ -33,6 +33,7 @@ class SettingsDataStore @Inject constructor(
         val NOTIFY_NEW_EPISODES = booleanPreferencesKey("notify_new_episodes")
         val DOWNLOAD_WIFI_ONLY = booleanPreferencesKey("download_wifi_only")
         val SEEK_SECONDS = intPreferencesKey("seek_seconds")
+        val FROST_GLASS = booleanPreferencesKey("frost_glass")
     }
 
     val settingsFlow = context.dataStore.data.map { prefs ->
@@ -48,6 +49,7 @@ class SettingsDataStore @Inject constructor(
             notifyNewEpisodes = prefs[Keys.NOTIFY_NEW_EPISODES] ?: true,
             downloadWifiOnly = prefs[Keys.DOWNLOAD_WIFI_ONLY] ?: true,
             seekSeconds = prefs[Keys.SEEK_SECONDS]?.takeIf { it == 5 || it == 10 } ?: 10,
+            frostGlass = prefs[Keys.FROST_GLASS] ?: true,
         )
     }
 
@@ -103,6 +105,10 @@ class SettingsDataStore @Inject constructor(
 
     suspend fun updateSeekSeconds(seconds: Int) {
         context.dataStore.edit { it[Keys.SEEK_SECONDS] = if (seconds == 5) 5 else 10 }
+    }
+
+    suspend fun updateFrostGlass(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.FROST_GLASS] = enabled }
     }
 
     // Recent searches are keyed per profile (each profile browses differently)

@@ -15,6 +15,11 @@ data class AppSettings(
     val downloadWifiOnly: Boolean = true,
     /** How far the ±10s player buttons / double-tap jump — 10 or 5 seconds. */
     val seekSeconds: Int = 10,
+    /** Configurações › Interface. When on, the app's floating translucent
+     * panels (glass buttons, bottom nav, the player's ⋮ pop-over) render as a
+     * frosted graphite pane instead of a flat wash. Only swaps the material —
+     * off restores the exact previous look. */
+    val frostGlass: Boolean = true,
 )
 
 interface SettingsRepository {
@@ -30,6 +35,7 @@ interface SettingsRepository {
     suspend fun updateNotifyNewEpisodes(enabled: Boolean)
     suspend fun updateDownloadWifiOnly(enabled: Boolean)
     suspend fun updateSeekSeconds(seconds: Int)
+    suspend fun updateFrostGlass(enabled: Boolean)
     suspend fun clearCache()
     suspend fun restoreDefaults()
     fun recentSearches(profileId: String): Flow<List<String>>

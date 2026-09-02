@@ -69,12 +69,22 @@ app/src/main/java/com/auroraplay/iptv/
 
 ## Versão atual
 
-**1.25.10** — `versionCode 62`. Modo Cinema reescrito para amostrar o próprio
-`TextureView` do player (sem segundo decodificador — fim do crash), glifo de
-avanço "fantasma" após o toque duplo corrigido, e o toggle de Cinema volta
-para o modo Ajustar para o brilho ambiente ter onde aparecer.
+**1.25.11** — `versionCode 63`. FrostGlass: efeito de vidro fosco com toggle
+em Configurações › Interface (ligado por padrão), aplicado ao `GlassButton`,
+à barra de navegação e ao pop-over ⋮ do player. Antes: Modo Cinema reescrito
+sem segundo decodificador (fim do crash) e glifo "fantasma" do toque duplo
+corrigido.
 
 ## Novidades desta revisão
+
+### 1.25.11 — 2026-09-02
+
+- **FrostGlass.** Novo `LocalFrostGlass` + `Modifier.frostSurface`: painéis de
+  vidro flutuantes (botão de vidro, barra de navegação, pop-over ⋮ do player)
+  ganham um material grafite fosco (degradê, alpha 170) quando ligado; quando
+  desligado voltam ao visual chapado atual. Toggle em Configurações ›
+  Interface, ligado por padrão. Sem blur de fundo (compatível com todo
+  Android, sem conflito com gestos/Cinema).
 
 ### 1.25.10 — 2026-09-02
 

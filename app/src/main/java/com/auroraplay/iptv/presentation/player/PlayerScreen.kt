@@ -68,6 +68,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.auroraplay.iptv.core.theme.AuroraColors
+import com.auroraplay.iptv.core.theme.frostSurface
 import com.auroraplay.iptv.core.util.toTimeLabel
 import com.auroraplay.iptv.domain.model.ContentType
 import kotlinx.coroutines.delay
@@ -1405,9 +1406,13 @@ private fun PlayerSettingsSheet(
             Column(
                 modifier = Modifier
                     .width(200.dp)
-                    .clip(RoundedCornerShape(16.dp))
                     // Translucent "glass" — the video shows through faintly.
-                    .background(Color.Black.copy(alpha = 0.62f))
+                    // Follows the FrostGlass setting (flat black wash when off).
+                    .frostSurface(
+                        shape = RoundedCornerShape(16.dp),
+                        flat = Color.Black.copy(alpha = 0.62f),
+                        tint = AuroraColors.SurfaceDark,
+                    )
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,

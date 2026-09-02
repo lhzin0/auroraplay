@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import com.auroraplay.iptv.core.theme.AuroraColors
+import com.auroraplay.iptv.core.theme.frostSurface
 
 /** Primary call-to-action, filled with the accent color. Used for "Assistir". */
 @Composable
@@ -92,16 +93,22 @@ fun GlassButton(
     val pressed by interactionSource.collectIsPressedAsState()
     val visuals = rememberTvFocusVisuals(interactionSource, pressed = pressed)
 
-    val bg = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.22f) else AuroraColors.SurfaceGlass
     val contentColor = if (selected) MaterialTheme.colorScheme.primary else AuroraColors.TextPrimary
+
+    // "selected" keeps its flat accent wash; the neutral state is the glass
+    // surface that follows the FrostGlass setting.
+    val surface = if (selected) {
+        Modifier.clip(shape).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.22f))
+    } else {
+        Modifier.frostSurface(shape, flat = AuroraColors.SurfaceGlass)
+    }
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
         modifier = modifier
             .scale(visuals.scale)
-            .clip(shape)
-            .background(bg)
+            .then(surface)
             .border(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = visuals.ringAlpha), shape)
             .focusable(interactionSource = interactionSource)
             .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)

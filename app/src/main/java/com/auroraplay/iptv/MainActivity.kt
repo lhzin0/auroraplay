@@ -91,12 +91,20 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                 runCatching { Color(android.graphics.Color.parseColor(accentHex)) }
                     .getOrDefault(com.auroraplay.iptv.core.theme.AuroraColors.AccentDefault)
             }
+            // Same rationale as the accent hex above: observe only this flag so
+            // flipping it (rare) is the only setting that recomposes the root.
+            val frostGlass by remember {
+                settingsRepository.observeSettings().map { it.frostGlass }.distinctUntilChanged()
+            }.collectAsState(initial = com.auroraplay.iptv.domain.repository.AppSettings().frostGlass)
             // Assumed online until the real callback fires, so app launch
             // never flashes an "offline" banner for the one frame before
             // NetworkMonitor reports the actual state.
             val isOnline by networkMonitor.isOnline.collectAsState(initial = true)
 
             AuroraPlayTheme(accentColor = accent) {
+              androidx.compose.runtime.CompositionLocalProvider(
+                  com.auroraplay.iptv.core.theme.LocalFrostGlass provides frostGlass
+              ) {
                 Box(Modifier.fillMaxSize()) {
                     AuroraNavGraph(isTvDevice = isTvDevice)
 
@@ -123,6 +131,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                         }
                     }
                 }
+              }
             }
         }
     }

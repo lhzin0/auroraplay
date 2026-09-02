@@ -52,6 +52,7 @@ class SettingsViewModel @Inject constructor(
         downloadTracker.applyWifiOnlyPreference(enabled)
     }
     fun setSeekSeconds(seconds: Int) = viewModelScope.launch { settingsRepository.updateSeekSeconds(seconds) }
+    fun setFrostGlass(enabled: Boolean) = viewModelScope.launch { settingsRepository.updateFrostGlass(enabled) }
     fun clearCache() = viewModelScope.launch { settingsRepository.clearCache() }
     fun restoreDefaults() = viewModelScope.launch { settingsRepository.restoreDefaults() }
 }

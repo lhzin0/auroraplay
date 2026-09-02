@@ -27,6 +27,7 @@ class SettingsRepositoryImpl @Inject constructor(
     override suspend fun updateNotifyNewEpisodes(enabled: Boolean) = settingsDataStore.updateNotifyNewEpisodes(enabled)
     override suspend fun updateDownloadWifiOnly(enabled: Boolean) = settingsDataStore.updateDownloadWifiOnly(enabled)
     override suspend fun updateSeekSeconds(seconds: Int) = settingsDataStore.updateSeekSeconds(seconds)
+    override suspend fun updateFrostGlass(enabled: Boolean) = settingsDataStore.updateFrostGlass(enabled)
 
     override fun recentSearches(profileId: String): Flow<List<String>> = settingsDataStore.recentSearchesFlow(profileId)
     override suspend fun addRecentSearch(profileId: String, query: String) = settingsDataStore.addRecentSearch(profileId, query)

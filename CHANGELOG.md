@@ -1,3 +1,24 @@
+## 1.25.11 — 2026-09-02
+
+FrostGlass — efeito de vidro fosco com toggle (Configurações › Interface).
+
+- **Novo `LocalFrostGlass` + `Modifier.frostSurface(shape, flat, tint)`**
+  (`core/theme/FrostGlass.kt`). Ligado, as superfícies de vidro flutuantes
+  do app viram um painel grafite fosco: degradê com topo levemente
+  iluminado a ~67% de opacidade (alpha 170). Desligado, cada uma volta
+  exatamente ao preenchimento chapado de antes. Só troca o *material* —
+  forma, tamanho, padding, cor de texto e hierarquia intactos.
+- **Aplicado de forma consistente em:** `GlassButton` (usado no hero da
+  Home, detalhes de filme/série, telas de estado/erro), a **barra de
+  navegação inferior** flutuante e o **pop-over ⋮ do player**.
+- **Sem blur de fundo (RenderEffect):** é API 31+ e se comporta diferente
+  entre aparelhos; o fosco estilizado lê como vidro em todo Android e não
+  interage com as camadas de gesto/Cinema do player.
+- **Toggle** "Vidro fosco (FrostGlass)" em Configurações › Interface,
+  **ligado por padrão** (`AppSettings.frostGlass`, chave `frost_glass`).
+  `MainActivity` observa só essa flag (como faz com o accent) para o
+  root não recompor a cada ajuste não relacionado.
+
 ## 1.25.10 — 2026-09-02
 
 Player: fim do crash do Modo Cinema + glifo fantasma do toque duplo.

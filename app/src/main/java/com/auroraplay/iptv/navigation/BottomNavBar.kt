@@ -32,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.auroraplay.iptv.core.theme.AuroraColors
+import com.auroraplay.iptv.core.theme.frostSurface
 import com.auroraplay.iptv.presentation.components.Spacing
 
 private fun iconFor(tab: MainTab, selected: Boolean): ImageVector = when (tab) {
@@ -65,8 +66,10 @@ fun AuroraBottomNavBar(
         Row(
             modifier = Modifier
                 .align(Alignment.Center)
-                .clip(RoundedCornerShape(32.dp))
-                .background(AuroraColors.BackgroundElevated.copy(alpha = 0.98f))
+                .frostSurface(
+                    shape = RoundedCornerShape(32.dp),
+                    flat = AuroraColors.BackgroundElevated.copy(alpha = 0.98f),
+                )
                 .padding(horizontal = 6.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(2.dp),
             verticalAlignment = Alignment.CenterVertically,
