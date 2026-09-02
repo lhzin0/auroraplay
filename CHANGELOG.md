@@ -1,3 +1,20 @@
+## 1.27.1 — 2026-09-02
+
+- **Preview da timeline FUNCIONANDO.** O `ScrubPreviewEngine` da 1.27.0 tinha a
+  arquitetura certa mas não conseguia ler os frames do decoder. Causa: um
+  `ImageReader` RGBA entrega um buffer só de GPU cuja capacidade "mente" (lê
+  em memória não mapeada → SIGSEGV) e o `wrapHardwareBuffer` não aceita o
+  formato YUV que o decoder realmente produz. Agora o `ImageReader` usa
+  `YUV_420_888` (o formato nativo do decoder, com planos de verdade mapeados
+  na CPU) e a conversão YUV→RGB é feita já reduzida para 256px, lendo de
+  `ByteArray` no heap — sem passeio em `ByteBuffer`, sem crash. Testado no
+  emulador: o card mostra o frame real e acompanha o dedo, ficando mais denso
+  conforme a grade de pré-geração preenche o cache.
+- **Modo Cinema fica ligado até você desligar.** Virou um ajuste persistido
+  (`cinemaMode`): o botão no player é a única coisa que liga/desliga, e ele
+  continua ligado ao trocar de episódio, sair e voltar ao player, e reabrir o
+  app. (Antes, avançar de episódio recriava a tela e zerava para desligado.)
+
 ## 1.27.0 — 2026-09-02
 
 ### Preview da timeline reescrito

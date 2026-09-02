@@ -88,8 +88,20 @@ class PlayerViewModel @Inject constructor(
                 _seekSeconds.value = settings.seekSeconds
                 playerManager.seekIncrementMs = settings.seekSeconds * 1000L
                 autoPlayNextEnabled = settings.autoPlayNext
+                _cinemaMode.value = settings.cinemaMode
             }
         }
+    }
+
+    /** Player "Cinema" ambient glow — a sticky, persisted toggle. The in-player
+     * button is the only thing that flips it, and it holds across episode
+     * changes / re-opening the player / app restarts. */
+    private val _cinemaMode = MutableStateFlow(false)
+    val cinemaMode: StateFlow<Boolean> = _cinemaMode.asStateFlow()
+
+    fun setCinemaMode(enabled: Boolean) {
+        _cinemaMode.value = enabled
+        viewModelScope.launch { runCatching { settingsRepository.updateCinemaMode(enabled) } }
     }
 
     /** From Settings > Reprodução > "Próximo episódio automático". */

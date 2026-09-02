@@ -36,6 +36,7 @@ class SettingsDataStore @Inject constructor(
         val FROST_GLASS = booleanPreferencesKey("frost_glass")
         val AUTO_SYNC_HOURS = intPreferencesKey("auto_sync_hours")
         val PIP_ENABLED = booleanPreferencesKey("pip_enabled")
+        val CINEMA_MODE = booleanPreferencesKey("cinema_mode")
     }
 
     val settingsFlow = context.dataStore.data.map { prefs ->
@@ -54,6 +55,7 @@ class SettingsDataStore @Inject constructor(
             frostGlass = prefs[Keys.FROST_GLASS] ?: true,
             autoSyncHours = prefs[Keys.AUTO_SYNC_HOURS]?.takeIf { it in setOf(0, 12, 24, 168) } ?: 24,
             pipEnabled = prefs[Keys.PIP_ENABLED] ?: true,
+            cinemaMode = prefs[Keys.CINEMA_MODE] ?: false,
         )
     }
 
@@ -121,6 +123,10 @@ class SettingsDataStore @Inject constructor(
 
     suspend fun updatePipEnabled(enabled: Boolean) {
         context.dataStore.edit { it[Keys.PIP_ENABLED] = enabled }
+    }
+
+    suspend fun updateCinemaMode(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.CINEMA_MODE] = enabled }
     }
 
     // Recent searches are keyed per profile (each profile browses differently)

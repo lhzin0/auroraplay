@@ -145,7 +145,10 @@ fun PlayerScreen(
     val seekSeconds by viewModel.seekSeconds.collectAsState()
     val scrubThumbnail by viewModel.scrubThumbnail.collectAsState()
     val autoNextInSeconds by viewModel.autoNextInSeconds.collectAsState()
-    var cinematicModeEnabled by remember { mutableStateOf(value = false) }
+    // Sticky, persisted (see PlayerViewModel.cinemaMode): stays on until the
+    // user taps the button again — survives auto-advance to the next episode,
+    // leaving/re-opening the player, and app restarts.
+    val cinematicModeEnabled by viewModel.cinemaMode.collectAsState()
     // The on-screen video surface (a TextureView — see player_surface.xml) and
     // the latest ambient-glow sample taken from it. Kept here, not in the
     // ViewModel: capturing an already-rendered frame is a local, decoder-free
@@ -533,7 +536,7 @@ fun PlayerScreen(
                     cinematicModeEnabled = cinematicModeEnabled,
                     onToggleCinematicMode = {
                         val next = !cinematicModeEnabled
-                        cinematicModeEnabled = next
+                        viewModel.setCinemaMode(next)
                         // Explicit confirmation — the button is a small icon and
                         // the glow itself is subtle, so a tap with no feedback
                         // read as "nothing happened / it won't turn off".

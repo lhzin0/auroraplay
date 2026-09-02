@@ -30,6 +30,7 @@ class SettingsRepositoryImpl @Inject constructor(
     override suspend fun updateFrostGlass(enabled: Boolean) = settingsDataStore.updateFrostGlass(enabled)
     override suspend fun updateAutoSyncHours(hours: Int) = settingsDataStore.updateAutoSyncHours(hours)
     override suspend fun updatePipEnabled(enabled: Boolean) = settingsDataStore.updatePipEnabled(enabled)
+    override suspend fun updateCinemaMode(enabled: Boolean) = settingsDataStore.updateCinemaMode(enabled)
 
     override fun recentSearches(profileId: String): Flow<List<String>> = settingsDataStore.recentSearchesFlow(profileId)
     override suspend fun addRecentSearch(profileId: String, query: String) = settingsDataStore.addRecentSearch(profileId, query)

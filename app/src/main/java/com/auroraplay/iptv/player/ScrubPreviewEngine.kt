@@ -217,12 +217,10 @@ class ScrubPreviewEngine @Inject constructor(
                     consecutiveMisses = 0
                     put(target, bmp)
                     _cacheVersion.value = _cacheVersion.value + 1
-                    Log.i(TAG, "frame @${target}ms  cache=${synchronized(cacheLock) { cache.size }}")
                 } else {
                     consecutiveMisses++
-                    Log.i(TAG, "no frame @${target}ms (dur=$durationMs, miss=$consecutiveMisses)")
                     if (!everProducedFrame && consecutiveMisses >= 6) {
-                        Log.w(TAG, "preview decoder produced nothing for this video — giving up")
+                        Log.w(TAG, "preview decoder produced nothing for this video — disabling")
                         deadForThisVideo = true
                     }
                     delay(120)
@@ -286,18 +284,27 @@ class ScrubPreviewEngine @Inject constructor(
         var fallback: Bitmap? = null
         h.post {
             try {
-                // Drop any leftover frame from a previous grab.
-                while (true) (runCatching { r.acquireLatestImage() }.getOrNull() ?: break).close()
+                // Drain any stale frame(s) from a previous grab. Use
+                // acquireNextImage in a loop, NOT acquireLatestImage — the
+                // latter throws IllegalStateException once the queue is full,
+                // which then wedges the reader and starves the decoder (the
+                // "no frame" symptom).
+                while (true) (runCatching { r.acquireNextImage() }.getOrNull() ?: break).close()
                 r.setOnImageAvailableListener({ rr ->
-                    val img = runCatching { rr.acquireLatestImage() }.getOrNull()
-                        ?: return@setOnImageAvailableListener
-                    if (deferred.isCompleted) { img.close(); return@setOnImageAvailableListener }
-                    val bmp = runCatching { imageToBitmap(img) }.getOrNull()
-                    img.close()
+                    // Keep only the newest queued image; close the rest.
+                    var img: Image? = null
+                    while (true) {
+                        val next = runCatching { rr.acquireNextImage() }.getOrNull() ?: break
+                        img?.close()
+                        img = next
+                    }
+                    val frame = img ?: return@setOnImageAvailableListener
+                    if (deferred.isCompleted) { frame.close(); return@setOnImageAvailableListener }
+                    val bmp = runCatching { imageToBitmap(frame) }.getOrNull()
+                    frame.close()
                     if (bmp == null) return@setOnImageAvailableListener
                     if (brightnessScore(bmp) >= MIN_CONTENT_SCORE) {
                         if (!deferred.isCompleted) deferred.complete(bmp)
-                        runCatching { p.playWhenReady = false }
                     } else {
                         fallback = bmp
                     }
@@ -305,8 +312,15 @@ class ScrubPreviewEngine @Inject constructor(
                 p.setVideoSurface(r.surface)                        // re-assert every grab
                 p.setSeekParameters(SeekParameters.PREVIOUS_SYNC)   // nearest earlier keyframe: fastest, always resolvable
                 if (p.playbackState == Player.STATE_IDLE) p.prepare()
+                // A seek with a surface attached renders the target frame even
+                // while paused — that single frame is all we want, so DON'T
+                // start playback (continuous rendering exhausts the reader).
+                p.playWhenReady = false
                 p.seekTo(positionMs.coerceIn(0L, if (durationMs > 0) durationMs else Long.MAX_VALUE))
-                p.playWhenReady = true
+                // Fallback nudge: if no frame shows up quickly, briefly allow
+                // playback to force one out, then stop.
+                h.postDelayed({ if (!deferred.isCompleted) runCatching { p.play() } }, 700L)
+                h.postDelayed({ runCatching { p.pause() } }, 1_100L)
             } catch (t: Throwable) {
                 Log.w(TAG, "grab post failed", t)
                 deferred.complete(null)
@@ -328,28 +342,64 @@ class ScrubPreviewEngine @Inject constructor(
      * `copyPixelsFromBuffer` (reads exactly W*H*4 from offset 0 — never the
      * high, unmapped offsets the old `position(y*rowStride)` walk hit).
      */
-    private fun imageToBitmap(image: Image): Bitmap? {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            runCatching {
-                val hb: HardwareBuffer? = image.hardwareBuffer
-                if (hb != null) {
-                    hb.use { buffer ->
-                        Bitmap.wrapHardwareBuffer(buffer, null)?.let { hw ->
-                            return hw.copy(Bitmap.Config.ARGB_8888, false)
-                        }
-                    }
-                }
+    /**
+     * ONLY safe read path: [Bitmap.wrapHardwareBuffer] does the copy GPU-side,
+     * so there is no hand-rolled CPU walk of a DirectByteBuffer whose reported
+     * capacity lies (that walk SIGSEGVs natively — uncatchable). The decoder
+     * renders at the video's own resolution, so downscale to [W]x[H] before
+     * caching (a 1280x720 ARGB frame is 3.7 MB — x64 in the cache would be
+     * absurd).
+     */
+    private var loggedShape = false
+
+    /**
+     * YUV_420_888 -> a small RGB bitmap, sampled straight down to [W]x[H] so
+     * the per-pixel work is ~37k iterations, not 2M. Every read comes from a
+     * heap [ByteArray] (bounds-checked bulk `get`), so there is no unmapped
+     * DirectByteBuffer walk — the thing that SIGSEGV'd the old grabber.
+     */
+    private fun imageToBitmap(image: Image): Bitmap? = runCatching {
+        val srcW = image.width
+        val srcH = image.height
+        if (srcW <= 0 || srcH <= 0 || image.planes.size < 3) return null
+
+        val yP = image.planes[0]; val uP = image.planes[1]; val vP = image.planes[2]
+        val yRow = yP.rowStride
+        val uRow = uP.rowStride
+        val vRow = vP.rowStride
+        val uPix = uP.pixelStride
+        val vPix = vP.pixelStride
+        val yb = ByteArray(yP.buffer.remaining()).also { yP.buffer.get(it) }
+        val ub = ByteArray(uP.buffer.remaining()).also { uP.buffer.get(it) }
+        val vb = ByteArray(vP.buffer.remaining()).also { vP.buffer.get(it) }
+
+        if (!loggedShape) {
+            loggedShape = true
+            Log.i(TAG, "yuv ${srcW}x$srcH yRow=$yRow uRow=$uRow uPix=$uPix yLen=${yb.size} uLen=${ub.size}")
+        }
+
+        val outH = (W * srcH / srcW).coerceAtLeast(1)
+        val pixels = IntArray(W * outH)
+        for (dy in 0 until outH) {
+            val sy = dy * srcH / outH
+            val yBase = sy * yRow
+            val uvBase = (sy / 2) * uRow
+            for (dx in 0 until W) {
+                val sx = dx * srcW / W
+                val yIdx = yBase + sx
+                val uvIdx = uvBase + (sx / 2) * uPix
+                if (yIdx >= yb.size || uvIdx >= ub.size || uvIdx >= vb.size) continue
+                val Y = yb[yIdx].toInt() and 0xFF
+                val U = (ub[uvIdx].toInt() and 0xFF) - 128
+                val V = (vb[uvIdx].toInt() and 0xFF) - 128
+                val r = (Y + 1.402f * V).toInt().coerceIn(0, 255)
+                val g = (Y - 0.344f * U - 0.714f * V).toInt().coerceIn(0, 255)
+                val b = (Y + 1.772f * U).toInt().coerceIn(0, 255)
+                pixels[dy * W + dx] = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
             }
         }
-        return runCatching {
-            val plane = image.planes.firstOrNull() ?: return null
-            val buf = plane.buffer.duplicate().apply { rewind() }
-            val out = Bitmap.createBitmap(image.width, image.height, Bitmap.Config.ARGB_8888)
-            if (buf.remaining() < out.byteCount) return null
-            out.copyPixelsFromBuffer(buf)
-            out
-        }.getOrNull()
-    }
+        Bitmap.createBitmap(pixels, W, outH, Bitmap.Config.ARGB_8888)
+    }.onFailure { Log.w(TAG, "yuv convert failed", it) }.getOrNull()
 
     /** `min(mean luma, luma spread)` — rejects the black post-seek flush and
      * flat-colour fills without discarding a genuinely dark scene. */
@@ -387,10 +437,12 @@ class ScrubPreviewEngine @Inject constructor(
         val done = java.util.concurrent.CountDownLatch(1)
         h.post {
             try {
-                // No usage flag: this is the config the decoder actually
-                // renders RGBA frames into. The read path tries
-                // wrapHardwareBuffer first and falls back to copyPixelsFromBuffer.
-                val r = ImageReader.newInstance(W, H, PixelFormat.RGBA_8888, 4)
+                // YUV_420_888 is the decoder's native output and — unlike an
+                // RGBA ImageReader, whose plane buffer is GPU-only and whose
+                // reported capacity lies (native SIGSEGV) — its planes are
+                // genuinely CPU-mapped (default USAGE_CPU_READ_OFTEN), so a
+                // heap-copied read + manual YUV->RGB is completely safe.
+                val r = ImageReader.newInstance(W, H, android.graphics.ImageFormat.YUV_420_888, 4)
                 val http = DefaultHttpDataSource.Factory()
                     .setUserAgent("AuroraPlay/1.0 (Android)")
                     .setAllowCrossProtocolRedirects(true)

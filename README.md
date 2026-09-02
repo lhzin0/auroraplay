@@ -69,15 +69,28 @@ app/src/main/java/com/auroraplay/iptv/
 
 ## Versão atual
 
-**1.27.0** — `versionCode 81`. Preview da timeline reescrito
-(`ScrubPreviewEngine`): um decoder de preview persistente por vídeo + cache por
-posição + `nearest()` + pré-geração em grade + leitura via
-`wrapHardwareBuffer`; segue o dedo em tempo real, nunca bloqueia o player.
-Barra de progresso só em "Continuar assistindo". "Canais em destaque" virou
-"Canais recentes" (histórico real, máx. 10). Rádios removidas da playlist.
-Modo Cinema não pisca com o vídeo parado.
+**1.27.1** — `versionCode 82`. Preview da timeline **funcionando**: o
+`ScrubPreviewEngine` agora lê os frames via `ImageReader` `YUV_420_888` +
+conversão YUV→RGB reduzida no heap (o caminho RGBA/`wrapHardwareBuffer`
+crashava/retornava nulo). Modo Cinema virou ajuste persistido (`cinemaMode`) —
+só o botão do player liga/desliga, e fica assim entre episódios, telas e
+reinícios do app. (1.27.0: barra de progresso só em "Continuar assistindo";
+"Canais recentes"; rádios removidas.)
 
 ## Novidades desta revisão
+
+### 1.27.1 — 2026-09-02
+
+- **`ScrubPreviewEngine`:** `ImageReader.newInstance(W, H, ImageFormat.YUV_420_888, 4)`
+  no lugar de RGBA + `wrapHardwareBuffer`. `imageToBitmap` faz YUV→RGB
+  amostrando direto para `W`×`outH` a partir de `ByteArray`s (`plane.buffer.get`
+  bulk, bounds-checked) — nada de leitura de `DirectByteBuffer` cru.
+  `acquireNextImage` em loop (não `acquireLatestImage`, que trava o reader).
+  Auto-desliga (`deadForThisVideo`) se o decoder não render nada.
+- **Cinema persistido:** `AppSettings.cinemaMode` +
+  `SettingsDataStore.CINEMA_MODE` + `updateCinemaMode`; `PlayerViewModel.cinemaMode`
+  StateFlow + `setCinemaMode` (grava no DataStore); `PlayerScreen` lê
+  `viewModel.cinemaMode.collectAsState()` no lugar de um `remember` local.
 
 ### 1.27.0 — 2026-09-02
 

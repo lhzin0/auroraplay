@@ -26,6 +26,10 @@ data class AppSettings(
     /** Enter Picture-in-Picture when the user leaves the player (Home button)
      * while a video is playing. */
     val pipEnabled: Boolean = true,
+    /** Player "Cinema" ambient glow. Sticky: the in-player button is the only
+     * thing that turns it on or off, and it stays that way across episodes,
+     * videos and app restarts. */
+    val cinemaMode: Boolean = false,
 )
 
 interface SettingsRepository {
@@ -44,6 +48,7 @@ interface SettingsRepository {
     suspend fun updateFrostGlass(enabled: Boolean)
     suspend fun updateAutoSyncHours(hours: Int)
     suspend fun updatePipEnabled(enabled: Boolean)
+    suspend fun updateCinemaMode(enabled: Boolean)
     suspend fun clearCache()
     suspend fun restoreDefaults()
     fun recentSearches(profileId: String): Flow<List<String>>
