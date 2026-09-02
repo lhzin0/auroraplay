@@ -7,7 +7,9 @@ import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.EaseOutCubic
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -42,7 +44,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
@@ -139,11 +144,11 @@ fun PlayerScreen(
     // GPU read-back, and the previous ViewModel path (a 2nd ExoPlayer) is what
     // crashed the app.
     var videoTextureView by remember { mutableStateOf<TextureView?>(null) }
-    // Cinema mode drives an ambient *colour* (top + bottom of the frame), not a
-    // blurred copy of the frame — so a hard scene cut can only glide the glow,
-    // never swap it. Kept as an exponential moving average of the samples.
-    var cinemaTop by remember { mutableStateOf(Color.Transparent) }
-    var cinemaBottom by remember { mutableStateOf(Color.Transparent) }
+    // Cinema mode: a small copy of the current frame, drawn heavily blurred and
+    // stretched into the letterbox bars (YouTube "ambient/cinematic" look). The
+    // abrupt colour change people hated came from a short crossfade — this one
+    // is a long, linear cross-dissolve so a hard cut just melts over ~1.8s.
+    var cinemaFrame by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
     // Backdrop the ⋮ panel blurs (FrostGlass): the video surface is the source.
     val playerHaze = remember { HazeState() }
 
@@ -219,37 +224,20 @@ fun PlayerScreen(
     // the controls are shown so it can't linger into the next hide.
     LaunchedEffect(controlsVisible) { if (controlsVisible) hiddenSeekRipple = null }
 
-    // Cinema / ambient glow. Sample the on-screen video TextureView itself —
-    // frames that are already decoded and composited — instead of running a
-    // second decoder. `getBitmap` into a tiny target is a cheap read-back;
-    // we reduce it to an average colour for the top and bottom of the frame
-    // and feed those through an exponential moving average, so even a hard
-    // cut moves the glow ~40% and the render tween eases the rest. No image
-    // crossfade = no abrupt colour swap. Worst case is no glow, never a crash.
+    // Cinema mode. Sample the on-screen video TextureView itself — frames that
+    // are already decoded and composited — instead of running a second decoder.
+    // A tiny `getBitmap` is a cheap read-back; drawn upscaled + blurred it
+    // reads as a soft continuation of the scene. Don't recycle: the crossfade
+    // may still be drawing the previous frame. Worst case: no glow, no crash.
     LaunchedEffect(cinematicModeEnabled, videoTextureView) {
-        if (!cinematicModeEnabled) {
-            cinemaTop = Color.Transparent
-            cinemaBottom = Color.Transparent
-            return@LaunchedEffect
-        }
+        if (!cinematicModeEnabled) { cinemaFrame = null; return@LaunchedEffect }
         val tv = videoTextureView ?: return@LaunchedEffect
-        var seeded = false
         while (true) {
             val shot = runCatching {
-                if (tv.isAvailable && tv.width > 0 && tv.height > 0) tv.getBitmap(48, 27) else null
+                if (tv.isAvailable && tv.width > 0 && tv.height > 0) tv.getBitmap(96, 54) else null
             }.getOrNull()
-            if (shot != null) {
-                val t = averageRegionColor(shot, topHalf = true)
-                val b = averageRegionColor(shot, topHalf = false)
-                shot.recycle()
-                if (!seeded) {
-                    cinemaTop = t; cinemaBottom = b; seeded = true
-                } else {
-                    cinemaTop = androidx.compose.ui.graphics.lerp(cinemaTop, t, 0.4f)
-                    cinemaBottom = androidx.compose.ui.graphics.lerp(cinemaBottom, b, 0.4f)
-                }
-            }
-            delay(1200.milliseconds)
+            if (shot != null) cinemaFrame = shot
+            delay(1500.milliseconds)
         }
     }
 
@@ -355,13 +343,12 @@ fun PlayerScreen(
         // letterbox regions. This is important: placing it behind PlayerView
         // cannot work reliably with SurfaceView/TextureView because the video
         // surface may remain opaque. The video itself is never covered.
-        if (cinematicModeEnabled &&
-            (cinemaTop != Color.Transparent || cinemaBottom != Color.Transparent) &&
+        val cFrame = cinemaFrame
+        if (cinematicModeEnabled && cFrame != null && !cFrame.isRecycled && cFrame.width > 0 &&
             playbackState.videoWidth > 0 && playbackState.videoHeight > 0 &&
             loadState.resizeMode == androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT) {
             CinematicBarsOverlay(
-                topColor = cinemaTop,
-                bottomColor = cinemaBottom,
+                frame = cFrame,
                 videoWidth = playbackState.videoWidth,
                 videoHeight = playbackState.videoHeight,
             )
@@ -583,81 +570,64 @@ fun PlayerScreen(
     }
 }
 
-/** Average colour of the top or bottom half of a (tiny) frame. */
-private fun averageRegionColor(bmp: android.graphics.Bitmap, topHalf: Boolean): Color {
-    val w = bmp.width
-    val h = bmp.height
-    if (w <= 0 || h <= 0) return Color.Transparent
-    val y0 = if (topHalf) 0 else h / 2
-    val rows = ((if (topHalf) h / 2 else h) - y0).coerceAtLeast(1)
-    val px = IntArray(w * rows)
-    runCatching { bmp.getPixels(px, 0, w, 0, y0, w, rows) }.getOrElse { return Color.Transparent }
-    var r = 0L; var g = 0L; var b = 0L
-    for (p in px) {
-        r += (p shr 16) and 0xFF
-        g += (p shr 8) and 0xFF
-        b += p and 0xFF
-    }
-    val n = px.size.coerceAtLeast(1)
-    return Color((r / n).toInt(), (g / n).toInt(), (b / n).toInt())
-}
-
 /**
- * Ambient glow hugging all four edges of the screen — a soft colour bleeding
- * inward from every edge, sized to the real letterbox on that axis (with a
- * small minimum so the top/bottom always catch some light even when the video
- * fills that dimension). The colour is the frame's top/bottom average, tweened
- * on the way in on top of the sampler's moving average, so a hard cut just
- * glides the light. The video rectangle itself stays essentially untouched
- * (only the outermost few dp pick up a faint vignette).
+ * The frame, heavily blurred and oversized, painted into the real letterbox
+ * bars that FIT leaves — a soft, out-of-focus continuation of the scene, the
+ * way YouTube's ambient/cinematic mode works. Frames cross-dissolve over
+ * ~1.8s so a hard cut melts instead of flashing. The video rectangle is never
+ * covered; bars that don't exist (video fills that axis) aren't drawn.
  */
 @Composable
 private fun CinematicBarsOverlay(
-    topColor: Color,
-    bottomColor: Color,
+    frame: android.graphics.Bitmap,
     videoWidth: Int,
     videoHeight: Int,
 ) {
-    val animTop by androidx.compose.animation.animateColorAsState(
-        targetValue = topColor,
-        animationSpec = tween(1400, easing = androidx.compose.animation.core.LinearOutSlowInEasing),
-        label = "cinemaTop",
-    )
-    val animBottom by androidx.compose.animation.animateColorAsState(
-        targetValue = bottomColor,
-        animationSpec = tween(1400, easing = androidx.compose.animation.core.LinearOutSlowInEasing),
-        label = "cinemaBottom",
-    )
-    val glowTop = animTop.copy(alpha = 0.55f)
-    val glowBottom = animBottom.copy(alpha = 0.55f)
-    val glowSide = androidx.compose.ui.graphics.lerp(glowTop, glowBottom, 0.5f)
-
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val videoAspect = (videoWidth.toFloat() / videoHeight.toFloat()).coerceIn(0.2f, 5f)
-        // How big the video actually renders under FIT, and the leftover gap
-        // on each axis.
         val renderedW = minOf(maxWidth, maxHeight * videoAspect)
         val renderedH = minOf(maxHeight, maxWidth / videoAspect)
-        val minEdge = 16.dp
-        val barW = ((maxWidth - renderedW) / 2f).coerceAtLeast(0.dp).coerceAtLeast(minEdge)
-        val barH = ((maxHeight - renderedH) / 2f).coerceAtLeast(0.dp).coerceAtLeast(minEdge)
+        val barW = ((maxWidth - renderedW) / 2f).coerceAtLeast(0.dp)
+        val barH = ((maxHeight - renderedH) / 2f).coerceAtLeast(0.dp)
 
-        Box(
-            Modifier.align(Alignment.TopCenter).fillMaxWidth().height(barH)
-                .background(Brush.verticalGradient(listOf(glowTop, Color.Transparent)))
-        )
-        Box(
-            Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(barH)
-                .background(Brush.verticalGradient(listOf(Color.Transparent, glowBottom)))
-        )
-        Box(
-            Modifier.align(Alignment.CenterStart).fillMaxHeight().width(barW)
-                .background(Brush.horizontalGradient(listOf(glowSide, Color.Transparent)))
-        )
-        Box(
-            Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(barW)
-                .background(Brush.horizontalGradient(listOf(Color.Transparent, glowSide)))
-        )
+        if (barH > 2.dp) {
+            CinematicBarImage(frame, Modifier.align(Alignment.TopCenter).fillMaxWidth().height(barH), Alignment.TopCenter)
+            CinematicBarImage(frame, Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(barH), Alignment.BottomCenter)
+        }
+        if (barW > 2.dp) {
+            CinematicBarImage(frame, Modifier.align(Alignment.CenterStart).fillMaxHeight().width(barW), Alignment.CenterStart)
+            CinematicBarImage(frame, Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(barW), Alignment.CenterEnd)
+        }
+    }
+}
+
+@Composable
+private fun CinematicBarImage(
+    frame: android.graphics.Bitmap,
+    modifier: Modifier,
+    align: Alignment,
+) {
+    Box(modifier.clipToBounds()) {
+        Crossfade(
+            targetState = frame,
+            animationSpec = tween(1800, easing = LinearEasing),
+            label = "cinemaFrame",
+            modifier = Modifier.fillMaxSize(),
+        ) { f ->
+            Image(
+                bitmap = f.asImageBitmap(),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                alignment = align,
+                alpha = 0.9f,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .scale(1.35f)                       // hide the blurred edges
+                    .blur(44.dp, BlurredEdgeTreatment.Unbounded),
+            )
+        }
+        // Keep the video the focus.
+        Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = 0.25f)))
     }
 }
 

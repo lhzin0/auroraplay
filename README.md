@@ -69,13 +69,18 @@ app/src/main/java/com/auroraplay/iptv/
 
 ## Versão atual
 
-**1.26.5** — `versionCode 75`. Corrige o APK de debug que saía como `testOnly`
-(o Android recusava abrir) — caches do Gradle guardando config da IDE.
-Também: `[L]` no nome agora é reconhecido como "Legendado" (coluna
-`audioLabel`, migração 4→5), título de episódio limpo ("... (2026) [L] S01
-E01" → "..."), badges de canal mais arredondados.
+**1.26.6** — `versionCode 76`. Modo Cinema volta ao efeito borrado/esticado do
+frame (estilo YouTube ambient) em vez da cor chapada que parecia ambilight; a
+"troca brusca" foi resolvida com cross-dissolve linear de 1,8s. Antes (1.26.5):
+fix do APK `testOnly`, `[L]`=Legendado, título de episódio limpo.
 
 ## Novidades desta revisão
+
+### 1.26.6 — 2026-09-02
+
+- **Modo Cinema:** de volta ao frame borrado + esticado nas tarjas (não
+  degradê de cor). Amostra 96×54, `scale(1.35)` + `blur(44dp)`, tarja inteira.
+  Sem flicker: cross-dissolve **linear** de 1,8s entre amostras (1,5s).
 
 ### 1.26.5 — 2026-09-02
 

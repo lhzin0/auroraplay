@@ -1,3 +1,15 @@
+## 1.26.6 — 2026-09-02
+
+- **Modo Cinema de volta ao efeito "cinematográfico".** A versão de cor
+  chapada (1.26.1–1.26.5) parecia ambilight — "luzes saindo do canto". Voltou
+  a ser o frame **borrado e esticado** nas tarjas (estilo YouTube ambient):
+  amostra 96×54 da `TextureView`, desenhada `scale(1.35)` + `blur(44dp)` +
+  leve escurecimento, preenchendo a tarja inteira (não um degradê que some).
+  A "troca brusca de cor" que motivou a mudança anterior foi resolvida de
+  outro jeito: **cross-dissolve linear de 1,8s** entre amostras (a cada
+  1,5s), então um corte de cena derrete em vez de piscar. Só desenha a tarja
+  que existe de verdade (sem mínimo artificial de 16dp).
+
 ## 1.26.5 — 2026-09-02
 
 - **Corrige "app crashando sem nem abrir".** O APK de debug estava marcado
