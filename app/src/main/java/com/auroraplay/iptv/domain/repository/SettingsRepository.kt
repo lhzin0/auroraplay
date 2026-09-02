@@ -49,6 +49,8 @@ interface SettingsRepository {
     suspend fun updateAutoSyncHours(hours: Int)
     suspend fun updatePipEnabled(enabled: Boolean)
     suspend fun updateCinemaMode(enabled: Boolean)
+    /** Bulk-apply a restored settings snapshot (Auto Backup). */
+    suspend fun restoreFrom(settings: AppSettings)
     suspend fun clearCache()
     suspend fun restoreDefaults()
     fun recentSearches(profileId: String): Flow<List<String>>

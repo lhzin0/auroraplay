@@ -69,14 +69,30 @@ app/src/main/java/com/auroraplay/iptv/
 
 ## Versão atual
 
-**1.27.2** — `versionCode 83`. Preview da timeline funcionando **inclusive no
-S23 (Exynos)**: `ScrubPreviewEngine` agora lê frames por `SurfaceTexture` +
-EGL/GLES2 off-screen + `glReadPixels` (o `ImageReader`, RGBA ou YUV, crasha em
-decoder de HW Samsung — buffer só-GPU/ponteiro nulo). Modo Cinema é ajuste
-persistido (`cinemaMode`) — só o botão do player liga/desliga; fica assim
-entre episódios, telas e reinícios.
+**1.28.0** — `versionCode 84`. Backup automático no Google: perfis, playlists
+(sem senha), favoritos, histórico e ajustes num snapshot que o Auto Backup do
+Android sobe pra conta Google e restaura num aparelho novo (catálogo
+ressincroniza; senha do Xtream re-digitada por aparelho). Antes (1.27.2):
+preview da timeline via `SurfaceTexture` + GL `glReadPixels` (funciona no
+Exynos); Modo Cinema persistido.
 
 ## Novidades desta revisão
+
+### 1.28.0 — 2026-09-02
+
+- **`UserDataBackup`** (novo): `Snapshot` (profiles, connections sem senha,
+  favorites, watchProgress, `AppSettings` sem `tmdbApiKey`, `activeProfileId`)
+  → Gson → `filesDir/backup/user_data.json` (tmp+rename). `export()` com
+  debounce de 20 s chamado de `MainActivity.onStop`; `restoreIfEmpty()` em
+  `AuroraApplication.onCreate` (antes do `DebugConnectionSeeder`), só quando
+  `profileDao.observeAll().first().isEmpty()`; conexões restauradas ficam
+  `status = "OFFLINE"`.
+  - `WatchProgressDao.getAll()`, `SettingsRepository.restoreFrom(AppSettings)`
+    + `SettingsDataStore.restoreFrom` (um `edit{}` com todas as chaves).
+  - Manifesto: `allowBackup=true`, `fullBackupContent=@xml/backup_rules`,
+    `dataExtractionRules=@xml/data_extraction_rules` — incluem `file` `backup/`,
+    excluem `database`, `file` `datastore/` e `sharedpref`
+    `aurora_secure_credentials.xml`.
 
 ### 1.27.2 — 2026-09-02
 

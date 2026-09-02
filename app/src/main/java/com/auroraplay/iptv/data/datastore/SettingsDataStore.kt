@@ -129,6 +129,27 @@ class SettingsDataStore @Inject constructor(
         context.dataStore.edit { it[Keys.CINEMA_MODE] = enabled }
     }
 
+    /** Writes every persisted preference from a restored snapshot in one edit.
+     * `tmdbApiKey` comes from BuildConfig, not here — deliberately skipped. */
+    suspend fun restoreFrom(s: AppSettings) {
+        context.dataStore.edit { p ->
+            p[Keys.ACCENT_COLOR] = s.accentColorHex
+            p[Keys.CARD_SCALE] = s.cardSizeScale
+            p[Keys.ANIMATIONS_ENABLED] = s.animationsEnabled
+            p[Keys.AUTOPLAY_NEXT] = s.autoPlayNext
+            s.preferredAudioLang?.let { p[Keys.AUDIO_LANG] = it } ?: p.remove(Keys.AUDIO_LANG)
+            s.preferredSubtitleLang?.let { p[Keys.SUBTITLE_LANG] = it } ?: p.remove(Keys.SUBTITLE_LANG)
+            p[Keys.PLAYBACK_QUALITY] = s.playbackQuality
+            p[Keys.NOTIFY_NEW_EPISODES] = s.notifyNewEpisodes
+            p[Keys.DOWNLOAD_WIFI_ONLY] = s.downloadWifiOnly
+            p[Keys.SEEK_SECONDS] = s.seekSeconds
+            p[Keys.FROST_GLASS] = s.frostGlass
+            p[Keys.AUTO_SYNC_HOURS] = s.autoSyncHours
+            p[Keys.PIP_ENABLED] = s.pipEnabled
+            p[Keys.CINEMA_MODE] = s.cinemaMode
+        }
+    }
+
     // Recent searches are keyed per profile (each profile browses differently)
     // and stored as one delimited string rather than a stringSetPreferencesKey,
     // because a Set has no defined order — and "most recent first" is the

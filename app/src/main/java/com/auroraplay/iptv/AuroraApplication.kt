@@ -26,6 +26,7 @@ class AuroraApplication : Application(), Configuration.Provider {
     @Inject lateinit var debugConnectionSeeder: DebugConnectionSeeder
     @Inject lateinit var connectionRepository: ConnectionRepository
     @Inject lateinit var contentRepository: ContentRepository
+    @Inject lateinit var userDataBackup: com.auroraplay.iptv.data.backup.UserDataBackup
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
@@ -36,12 +37,13 @@ class AuroraApplication : Application(), Configuration.Provider {
         super.onCreate()
         NewEpisodeScheduler.schedule(this)
 
-        // DEBUG only: seed a test playlist on a fresh install (no-op in
-        // release — the BuildConfig.SEED_* fields are blank there).
-        if (BuildConfig.DEBUG) {
-            CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
-                runCatching { debugConnectionSeeder.seedIfEmpty() }
-            }
+        // Restore the user's own data (profiles, playlists, favourites, watch
+        // history, settings) from the Auto-Backup snapshot the first time the
+        // app runs on a new device — then let the debug seeder run, so a real
+        // restored playlist wins over the test one.
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            runCatching { userDataBackup.restoreIfEmpty() }
+            if (BuildConfig.DEBUG) runCatching { debugConnectionSeeder.seedIfEmpty() }
         }
 
         // DownloadManager.requirements resets to its Hilt-provided default

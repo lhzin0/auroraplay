@@ -1,3 +1,21 @@
+## 1.28.0 — 2026-09-02
+
+- **Backup no Google (automático).** O app agora salva seus **perfis, playlists
+  (sem a senha), favoritos, histórico assistido e ajustes** num arquivinho que
+  o backup automático do Android envia pra sua conta Google. Ao instalar num
+  celular novo (ou reinstalar), esses dados voltam sozinhos — o catálogo
+  (canais/filmes) ressincroniza da playlist. Como a senha do Xtream fica num
+  cofre cifrado que **não** vai no backup, a conexão volta marcada como
+  "offline" e você só re-digita a senha uma vez por aparelho.
+  - `UserDataBackup`: snapshot JSON em `files/backup/user_data.json` (só dados
+    do usuário, ~1 KB — nada de catálogo, que estouraria a cota de 25 MB).
+    Reescrito ao mandar o app pro segundo plano (`MainActivity.onStop`,
+    com *debounce*), restaurado em `AuroraApplication` quando a tabela de
+    perfis está vazia.
+  - Manifesto: `allowBackup=true` + `backup_rules.xml` /
+    `data_extraction_rules.xml` que incluem só `files/backup/` e **excluem** o
+    banco, o DataStore cru e `aurora_secure_credentials`.
+
 ## 1.27.2 — 2026-09-02
 
 - **Preview da timeline funcionando no S23 (Exynos) também.** O caminho

@@ -14,6 +14,10 @@ interface WatchProgressDao {
     @Query("SELECT * FROM watch_progress WHERE profileId = :profileId AND contentId = :contentId LIMIT 1")
     suspend fun get(profileId: String, contentId: String): WatchProgressEntity?
 
+    /** Every row — for the local Auto-Backup snapshot. */
+    @Query("SELECT * FROM watch_progress")
+    suspend fun getAll(): List<WatchProgressEntity>
+
     /** Recently-opened live channels, newest first — the "Canais recentes"
      * Home rail. Stored in the same table with type = 'LIVE' and a zero
      * position so it never leaks into "Continuar assistindo". */
