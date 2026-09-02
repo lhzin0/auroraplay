@@ -69,12 +69,20 @@ app/src/main/java/com/auroraplay/iptv/
 
 ## Versão atual
 
-**1.26.1** — `versionCode 71`. Modo Cinema não troca mais a cor de forma
-brusca: agora é uma cor média do frame com média móvel + tween de 1,4s, então
-a luz desliza mesmo num corte de cena. Antes (1.26.0): FrostGlass mais
-presente, avatares de canal gerados, guia de programação refeito.
+**1.26.2** — `versionCode 72`. Badges de canal refinados (monograma usa o
+número do canal quando há; paleta e tipografia melhores) e o botão de mudo
+inútil do banner da Home (que ficava atrás do "Assistir") removido. Antes
+(1.26.1): Modo Cinema com brilho de cor suave.
 
 ## Novidades desta revisão
+
+### 1.26.2 — 2026-09-02
+
+- **Badges de canal melhores** (`ChannelAvatar`): monograma usa o número do
+  canal quando o nome começa com número ("91 Rock" → "91R", "102 FM..." →
+  "102"); paleta mais suave, degradê + brilho + fio de luz na borda.
+- **Botão de mudo do hero removido** — não fazia nada e ficava sob o
+  "Assistir".
 
 ### 1.26.1 — 2026-09-02
 

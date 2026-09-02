@@ -15,8 +15,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.automirrored.filled.VolumeOff
-import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -256,29 +254,9 @@ private fun HeroSlide(
         // Info affordance moved out of the button row and up to the top-right
         // corner (where Prime Video / Disney+ put it), so the row below is
         // just the two pills sharing the width evenly and never has to clip a
-        // label to fit a third control.
-        // Standard trailer affordance: the preview is intentionally silent
-        // today because the catalogue supplies artwork rather than a trailer
-        // audio track. The control is still present and stateful so a real
-        // trailer video can be wired without redesigning the hero.
-        var previewMuted by remember { mutableStateOf(true) }
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(start = if (isLandscape) 18.dp else 12.dp, bottom = if (isLandscape) 18.dp else 12.dp)
-                .size(40.dp)
-                .background(Color.Black.copy(alpha = 0.58f), CircleShape)
-                .clickable { previewMuted = !previewMuted },
-            contentAlignment = Alignment.Center,
-        ) {
-            androidx.compose.material3.Icon(
-                imageVector = if (previewMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
-                contentDescription = if (previewMuted) "Ativar som da prévia" else "Desativar som da prévia",
-                tint = Color.White,
-                modifier = Modifier.size(21.dp),
-            )
-        }
-
+        // label to fit a third control. (The old muted-preview toggle that
+        // used to sit bottom-left was removed — it did nothing and overlapped
+        // the "Assistir" button.)
         Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)

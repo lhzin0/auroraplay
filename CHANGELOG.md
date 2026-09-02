@@ -1,3 +1,14 @@
+## 1.26.2 — 2026-09-02
+
+- **Botão de mudo do hero removido.** O toggle "silenciar prévia" no canto
+  inferior esquerdo do banner da Home não fazia nada (a prévia é uma imagem,
+  não vídeo) e ficava por baixo do botão "Assistir". Saiu.
+- **Badges de canal melhores** (`ChannelAvatar`). Monograma: canal que começa
+  com número usa o número ("91 Rock" → "91R", "102 FM Macapa" → "102",
+  "01 FM" → "01F") — que é como IPTV identifica canal; senão as primeiras
+  letras. Visual: paleta mais suave/dessaturada, degradê diagonal + brilho
+  no canto superior, fio de luz na borda, tipografia mais firme.
+
 ## 1.26.1 — 2026-09-02
 
 - **Modo Cinema sem troca brusca de cor.** Em vez de fazer *crossfade* entre

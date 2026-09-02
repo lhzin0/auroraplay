@@ -1,23 +1,25 @@
 package com.auroraplay.iptv.presentation.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.SubcomposeAsyncImage
 import kotlin.math.absoluteValue
 
@@ -25,9 +27,11 @@ import kotlin.math.absoluteValue
  * A channel's logo, with a generated fallback for the (very common) case of a
  * provider that ships no `logoUrl`. Fetching real logos off the internet by
  * name isn't reliable — there's no clean lookup and the matching is fuzzy — so
- * the fallback is a deterministic initials badge: a two-stop gradient picked
- * from the channel name, with 1–2 uppercase letters. Looks intentional, works
- * offline, stable across launches.
+ * the fallback is a monogram badge in the style contact / workspace apps use:
+ * a two-stop diagonal gradient picked deterministically from the name, a soft
+ * top-left highlight for depth, a hairline edge, and a tight bold monogram —
+ * the leading channel number when the name starts with one (that's how IPTV
+ * channels are identified), otherwise 1–2 letters.
  */
 @Composable
 fun ChannelAvatar(
@@ -38,64 +42,90 @@ fun ChannelAvatar(
 ) {
     Box(modifier.clip(shape)) {
         if (logoUrl.isNullOrBlank()) {
-            GeneratedBadge(name)
+            GeneratedBadge(name, shape)
         } else {
             SubcomposeAsyncImage(
                 model = logoUrl,
                 contentDescription = name,
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxSize().padding(6.dp),
-                loading = { GeneratedBadge(name) },
-                error = { GeneratedBadge(name) },
+                loading = { GeneratedBadge(name, shape) },
+                error = { GeneratedBadge(name, shape) },
             )
         }
     }
 }
 
 @Composable
-private fun GeneratedBadge(name: String) {
+private fun GeneratedBadge(name: String, shape: Shape) {
     val (top, bottom) = remember(name) { badgeColors(name) }
+    val label = remember(name) { monogramOf(name) }
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Brush.linearGradient(listOf(top, bottom))),
+            .background(Brush.linearGradient(listOf(top, bottom)))
+            // Soft light from the top-left for a little depth.
+            .background(
+                Brush.radialGradient(
+                    colors = listOf(Color.White.copy(alpha = 0.18f), Color.Transparent),
+                    center = Offset(0f, 0f),
+                    radius = 240f,
+                )
+            )
+            // Hairline edge so the badge separates cleanly from a dark card.
+            .border(0.75.dp, Color.White.copy(alpha = 0.14f), shape),
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = remember(name) { initialsOf(name) },
-            style = MaterialTheme.typography.titleMedium,
+            text = label,
+            fontSize = if (label.length >= 3) 13.sp else 16.sp,
+            lineHeight = 16.sp,
             fontWeight = FontWeight.Bold,
+            letterSpacing = (-0.5).sp,
             color = Color.White,
         )
     }
 }
 
+// Muted, desaturated pairs — reads as "brand colour", not neon.
 private val BADGE_PALETTE = listOf(
-    Color(0xFF6D5DF6) to Color(0xFF4B3BD6),
-    Color(0xFF2FB6C4) to Color(0xFF1D7F97),
-    Color(0xFF2ED47A) to Color(0xFF1E9E63),
-    Color(0xFFFFA53D) to Color(0xFFE0761F),
-    Color(0xFFFF5C8A) to Color(0xFFD63B77),
-    Color(0xFF5B8DEF) to Color(0xFF3A5FCC),
-    Color(0xFFB06AF2) to Color(0xFF8A3FD0),
-    Color(0xFFEF5350) to Color(0xFFC62828),
+    Color(0xFF5B6CF0) to Color(0xFF3B49C4),
+    Color(0xFF2FA9B8) to Color(0xFF1C7C8C),
+    Color(0xFF3FB477) to Color(0xFF248A56),
+    Color(0xFFE0913C) to Color(0xFFB86C22),
+    Color(0xFFD65C87) to Color(0xFFA83D66),
+    Color(0xFF7C6BF0) to Color(0xFF5340C4),
+    Color(0xFF4E80D6) to Color(0xFF345FB0),
+    Color(0xFF8E7CC3) to Color(0xFF6A5AA0),
 )
 
 private fun badgeColors(name: String): Pair<Color, Color> =
     BADGE_PALETTE[name.trim().lowercase().hashCode().absoluteValue % BADGE_PALETTE.size]
 
-/** 1–2 letters: first char of the first two "wordy" tokens, else the first two
- * alphanumerics of the name, else "?". Skips leading channel-number noise like
- * "01" when a real word follows. */
-private fun initialsOf(raw: String): String {
-    val tokens = raw.trim()
-        .split(Regex("[\\s._/|-]+"))
-        .filter { it.isNotBlank() }
-    val wordy = tokens.filter { it.any(Char::isLetter) }
-    val pick = (wordy.ifEmpty { tokens }).take(2)
-    val letters = pick.mapNotNull { t -> t.firstOrNull { it.isLetterOrDigit() }?.uppercaseChar() }
+/**
+ * IPTV channels lead with a number far more often than a word ("01 FM",
+ * "91 Rock", "102 FM Macapa"), and that number *is* the identity — so use it
+ * when present (up to 3 digits). Otherwise the first letters of the first one
+ * or two real words.
+ */
+private fun monogramOf(raw: String): String {
+    val trimmed = raw.trim()
+    Regex("^(\\d{1,3})\\s*(.*)").find(trimmed)?.let { m ->
+        val num = m.groupValues[1]
+        // 1–2 digit number + the next word's first letter ("91 Rock" -> "91R",
+        // "3 Palavrinhas" -> "3P"); a 3-digit number stands alone ("102").
+        if (num.length <= 2) {
+            val letter = m.groupValues[2].firstOrNull(Char::isLetter)?.uppercaseChar()
+            return if (letter != null) "$num$letter" else num
+        }
+        return num
+    }
+
+    val tokens = trimmed.split(Regex("[\\s._/|-]+")).filter { it.isNotBlank() }
+    val words = tokens.filter { it.any(Char::isLetter) }
     return when {
-        letters.isNotEmpty() -> letters.joinToString("")
-        else -> raw.filter { it.isLetterOrDigit() }.take(2).uppercase().ifBlank { "?" }
+        words.size >= 2 -> words.take(2).mapNotNull { it.firstOrNull(Char::isLetter)?.uppercaseChar() }.joinToString("")
+        words.size == 1 -> words[0].filter(Char::isLetter).take(2).uppercase()
+        else -> trimmed.filter { it.isLetterOrDigit() }.take(2).uppercase().ifBlank { "•" }
     }
 }
