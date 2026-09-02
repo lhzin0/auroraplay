@@ -91,7 +91,12 @@ fun AuroraNavGraph(
                 },
                 onAddProfile = { navController.navigate(Screen.AddProfile.route) },
                 onEditProfile = { id -> navController.navigate(Screen.EditProfile.createRoute(id)) },
+                onOpenBackup = { navController.navigate(Screen.Backup.route) },
             )
+        }
+
+        composable(Screen.Backup.route) {
+            com.auroraplay.iptv.presentation.settings.FileBackupScreen(onBack = { navController.popBackStack() })
         }
 
         composable(Screen.AddProfile.route) {

@@ -1,107 +1,105 @@
 package com.auroraplay.iptv.data.backup
 
 import android.content.Context
-import android.util.Log
+import android.net.Uri
+import androidx.room.withTransaction
 import com.auroraplay.iptv.data.database.AppDatabase
-import com.auroraplay.iptv.data.database.entity.ConnectionEntity
-import com.auroraplay.iptv.data.database.entity.FavoriteEntity
-import com.auroraplay.iptv.data.database.entity.ProfileEntity
-import com.auroraplay.iptv.data.database.entity.WatchProgressEntity
 import com.auroraplay.iptv.data.datastore.SettingsDataStore
-import com.auroraplay.iptv.domain.repository.AppSettings
+import com.auroraplay.iptv.data.datastore.SecureCredentialStore
 import com.auroraplay.iptv.domain.repository.SettingsRepository
-import com.google.gson.Gson
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
-import java.io.File
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * Small JSON snapshot of the user's own data — profiles, playlists (metadata
- * only, no passwords), favourites, watch history and settings — written to a
- * single file that Android Auto Backup uploads to the user's Google account.
- *
- * The catalog itself (channels / 40k+ VOD rows) is NOT backed up: it re-syncs
- * from the provider on the new device, and a full DB dump would blow Auto
- * Backup's 25 MB quota. Xtream passwords stay in EncryptedSharedPreferences,
- * which is deliberately excluded from backup (the key doesn't travel), so the
- * user re-enters the playlist password once per device.
- */
+/** Explicit user-data snapshot. Never traverses storage or reads the download database. */
 @Singleton
 class UserDataBackup @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val db: AppDatabase,
     private val settingsRepository: SettingsRepository,
     private val settingsDataStore: SettingsDataStore,
+    private val credentials: SecureCredentialStore,
 ) {
-    private val gson = Gson()
-    private val file: File get() = File(context.filesDir, "backup/user_data.json")
-
-    @Volatile private var lastExportAt = 0L
-
-    private data class Snapshot(
-        val version: Int = 1,
-        val savedAt: Long = 0L,
-        val activeProfileId: String? = null,
-        val profiles: List<ProfileEntity> = emptyList(),
-        val connections: List<ConnectionEntity> = emptyList(),
-        val favorites: List<FavoriteEntity> = emptyList(),
-        val watchProgress: List<WatchProgressEntity> = emptyList(),
-        val settings: AppSettings? = null,
-    )
-
-    /** Rewrites the snapshot. Debounced — safe to call on every app-to-background. */
-    suspend fun export() {
-        val now = System.currentTimeMillis()
-        if (now - lastExportAt < 20_000L) return
-        lastExportAt = now
-        runCatching {
-            val snap = Snapshot(
-                savedAt = now,
-                activeProfileId = settingsDataStore.activeProfileIdFlow.first(),
-                profiles = db.profileDao().observeAll().first(),
-                connections = db.connectionDao().observeAll().first(),
-                favorites = collectFavorites(),
-                watchProgress = db.watchProgressDao().getAll(),
-                // tmdbApiKey comes from BuildConfig — no need to store it.
-                settings = settingsRepository.observeSettings().first().copy(tmdbApiKey = null),
-            )
-            file.parentFile?.mkdirs()
-            val tmp = File(file.parentFile, "user_data.json.tmp")
-            tmp.writeText(gson.toJson(snap))
-            if (!tmp.renameTo(file)) { file.delete(); tmp.renameTo(file) }
-        }.onFailure { Log.w("UserDataBackup", "export failed", it) }
-    }
-
-    /** Favourites across every profile (FavoriteDao only exposes a per-profile query). */
-    private suspend fun collectFavorites(): List<FavoriteEntity> =
-        db.profileDao().observeAll().first().flatMap { p ->
-            db.favoriteDao().observe(p.id, null).first()
+    private val mutex = Mutex()
+    suspend fun saveToDocument(uri: Uri) = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            // Capture and validate before opening the user-selected destination.
+            val bytes = capture().toByteArray(Charsets.UTF_8)
+            val stream = context.contentResolver.openOutputStream(uri, "wt")
+                ?: throw IOException("Não foi possível abrir o arquivo para gravação.")
+            stream.use { it.write(bytes); it.flush() }
         }
-
-    /**
-     * If this install has no profiles yet and a snapshot is present (a fresh
-     * install on a new device that Auto Backup just restored), load it. Runs
-     * once — after it, the profiles table isn't empty so it's a no-op.
-     */
-    suspend fun restoreIfEmpty() {
-        runCatching {
-            if (db.profileDao().observeAll().first().isNotEmpty()) return
-            if (!file.exists()) return
-            val snap = gson.fromJson(file.readText(), Snapshot::class.java) ?: return
-
-            snap.profiles.forEach { db.profileDao().upsert(it) }
-            // Restored connections carry no password — the user re-enters it in
-            // "Minhas conexões"; mark them OFFLINE so that's obvious.
-            snap.connections.forEach { db.connectionDao().upsert(it.copy(status = "OFFLINE", lastSyncMillis = null)) }
-            snap.favorites.forEach { db.favoriteDao().insert(it) }
-            snap.watchProgress.forEach { db.watchProgressDao().upsert(it) }
-            snap.settings?.let { settingsRepository.restoreFrom(it) }
-            snap.activeProfileId
-                ?.takeIf { id -> snap.profiles.any { it.id == id } }
-                ?.let { settingsDataStore.setActiveProfileId(it) }
-            Log.i("UserDataBackup", "restored ${snap.profiles.size} profiles, ${snap.watchProgress.size} progress rows")
-        }.onFailure { Log.w("UserDataBackup", "restore failed", it) }
     }
+
+    suspend fun restoreFromDocument(uri: Uri) = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val stream = context.contentResolver.openInputStream(uri)
+                ?: throw IOException("Não foi possível abrir o backup.")
+            val json = stream.use { it.readBytesBounded(BackupSnapshotCodec.MAX_BYTES).toString(Charsets.UTF_8) }
+            // Validate the entire file before making any database changes.
+            restore(BackupSnapshotCodec.decode(json))
+        }
+    }
+
+    private suspend fun capture(): String {
+        val settings = settingsRepository.observeSettings().first()
+        val activeId = settingsDataStore.activeProfileIdFlow.first()
+        val snapshot = db.withTransaction {
+            val profiles = db.profileDao().observeAll().first()
+            val profileIds = profiles.map { it.id }.toSet()
+            BackupSnapshot(
+                savedAt = System.currentTimeMillis(), activeProfileId = activeId,
+                profiles = profiles,
+                connections = db.connectionDao().observeAll().first().map {
+                    it.copy(profileId = it.profileId?.takeIf { id -> id in profileIds })
+                },
+                favorites = profiles.flatMap { db.favoriteDao().observe(it.id, null).first() },
+                watchProgress = db.watchProgressDao().getAll().filter { it.profileId in profileIds }, settings = settings,
+            )
+        }
+        val passwords = snapshot.connections.mapNotNull { connection ->
+            credentials.getPassword(connection.id)?.let { connection.id to it }
+        }.toMap()
+        return BackupSnapshotCodec.encode(snapshot.copy(connectionPasswords = passwords))
+    }
+
+    /** Merge without deleting local records; keep newer local playback positions. */
+    private suspend fun restore(snapshot: BackupSnapshot) {
+        db.mergeBackup(snapshot)
+        // Never pair an imported password with a different local server or login.
+        // Existing passwords win; missing ones can be filled on a retried restore.
+        val matchingPasswords = snapshot.connections.mapNotNull { connection ->
+            val local = db.connectionDao().getById(connection.id)
+            val password = snapshot.connectionPasswords[connection.id]
+            if (password != null && local != null && local.serverUrl == connection.serverUrl && local.username == connection.username) {
+                connection.id to password
+            } else null
+        }.toMap()
+        credentials.restoreMissingPasswords(matchingPasswords)
+        // Room and DataStore are separate stores. The merge is idempotent so an
+        // interrupted restore can safely be retried without deleting local data.
+        snapshot.settings?.let { settingsRepository.restoreFrom(it) }
+        if (settingsDataStore.activeProfileIdFlow.first() == null) {
+            snapshot.activeProfileId?.takeIf { id -> snapshot.profiles.any { it.id == id } }
+                ?.let { settingsDataStore.setActiveProfileId(it) }
+        }
+    }
+}
+
+internal fun java.io.InputStream.readBytesBounded(limit: Int): ByteArray {
+    val output = java.io.ByteArrayOutputStream()
+    val buffer = ByteArray(8192)
+    while (true) {
+        val count = read(buffer)
+        if (count < 0) break
+        require(output.size().toLong() + count <= limit) { "Backup maior que 20 MB." }
+        output.write(buffer, 0, count)
+    }
+    return output.toByteArray()
 }

@@ -26,7 +26,6 @@ class AuroraApplication : Application(), Configuration.Provider {
     @Inject lateinit var debugConnectionSeeder: DebugConnectionSeeder
     @Inject lateinit var connectionRepository: ConnectionRepository
     @Inject lateinit var contentRepository: ContentRepository
-    @Inject lateinit var userDataBackup: com.auroraplay.iptv.data.backup.UserDataBackup
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
@@ -36,13 +35,14 @@ class AuroraApplication : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
         NewEpisodeScheduler.schedule(this)
-
-        // Restore the user's own data (profiles, playlists, favourites, watch
-        // history, settings) from the Auto-Backup snapshot the first time the
-        // app runs on a new device — then let the debug seeder run, so a real
-        // restored playlist wins over the test one.
+        // Retire work persisted by 1.29.0 when upgrading to manual file backups.
+        // Keep existing backup files; only discard the obsolete local account selection.
+        androidx.work.WorkManager.getInstance(this).apply {
+            cancelUniqueWork("drive_backup_daily")
+            cancelUniqueWork("drive_backup_pending")
+        }
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
-            runCatching { userDataBackup.restoreIfEmpty() }
+            runCatching { java.io.File(filesDir, "datastore/drive_backup.preferences_pb").delete() }
             if (BuildConfig.DEBUG) runCatching { debugConnectionSeeder.seedIfEmpty() }
         }
 

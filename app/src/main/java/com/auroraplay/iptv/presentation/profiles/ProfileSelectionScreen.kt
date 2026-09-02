@@ -54,6 +54,7 @@ fun ProfileSelectionScreen(
     onProfileSelected: () -> Unit,
     onAddProfile: () -> Unit,
     onEditProfile: (String) -> Unit = {},
+    onOpenBackup: () -> Unit = {},
     viewModel: ProfileViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -278,6 +279,11 @@ fun ProfileSelectionScreen(
             }
 
             Spacer(Modifier.height(Spacing.sm))
+            if (state.profiles.isEmpty() && !state.isLoading) {
+                TextButton(onClick = onOpenBackup) {
+                    Text("Restaurar backup de arquivo", color = MaterialTheme.colorScheme.primary)
+                }
+            }
             TextButton(onClick = { manageMode = !manageMode }) {
                 Icon(
                     if (manageMode) Icons.Default.Check else Icons.Default.Edit,

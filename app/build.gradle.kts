@@ -15,12 +15,13 @@ android {
         applicationId = "com.auroraplay.iptv"
         minSdk = 24
         targetSdk = 36
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Versioning convention:
         //   x.x.PATCH  -> bug fixes only
         //   x.MINOR.x  -> larger updates (new features, redesigns)
         // versionCode increments monotonically on every release.
-        versionCode = 84
-        versionName = "1.28.0"
+        versionCode = 87
+        versionName = "1.31.0"
         // Default application credential for automatic metadata and official
         // trailers. It is intentionally kept out of the settings UI.
         buildConfigField("String", "TMDB_API_KEY", "\"b89b1d7fe6f14b4825f390e3db639b16\"")
@@ -157,6 +158,7 @@ dependencies {
     // Testing
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:runner:1.6.2")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")

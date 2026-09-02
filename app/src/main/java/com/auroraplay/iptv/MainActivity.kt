@@ -58,9 +58,6 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
     @javax.inject.Inject
     lateinit var playerManager: PlayerManager
 
-    @javax.inject.Inject
-    lateinit var userDataBackup: com.auroraplay.iptv.data.backup.UserDataBackup
-
     @Volatile private var pipEnabledSetting: Boolean = true
 
     // Registered as a property (not inside onCreate) since it must exist
@@ -215,13 +212,5 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         playerManager.pipActive.value = isInPip
     }
 
-    override fun onStop() {
-        super.onStop()
-        // Refresh the local Auto-Backup snapshot whenever the app goes to the
-        // background. Debounced inside; Android uploads it later, on Wi-Fi.
-        lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            runCatching { userDataBackup.export() }
-        }
-    }
 }
 

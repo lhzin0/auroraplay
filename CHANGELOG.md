@@ -1,3 +1,37 @@
+## 1.31.0 — 2026-09-02
+
+- Seletor de salvar/restaurar permite provedores de nuvem, como Google Drive,
+  além de pastas locais, SD e USB. A disponibilidade depende dos apps instalados
+  e das contas conectadas; nenhuma configuração OAuth própria é necessária.
+- Backup v2 inclui link, login e senha das playlists. Na restauração, as senhas
+  vão para o armazenamento cifrado do app; senhas já existentes são preservadas
+  e credenciais não são aplicadas a conexões com outro servidor/login.
+- Arquivos v1 permanecem legíveis, sem senhas. Downloads continuam excluídos.
+  A interface informa que o arquivo JSON inclui as senhas em texto legível.
+
+## 1.30.0 — 2026-09-02
+
+- Backup manual em arquivo JSON com escolha de pasta pelo seletor do Android,
+  incluindo cartão SD/USB quando disponibilizado pelo aparelho. Restauração
+  validada e confirmada antes da importação, também disponível sem perfil.
+- Downloads, vídeos baixados, fila de downloads, catálogo e cache são excluídos;
+  preservados perfis, conexões sem senha, favoritos, histórico e ajustes.
+- Removidos API Drive, autorização OAuth, dependências e envios automáticos.
+  Agendamentos antigos são cancelados na atualização; backups existentes não
+  são apagados. Auto Backup do Android e transferência automática são desativados.
+- Instruções em [docs/backup-em-arquivo.md](docs/backup-em-arquivo.md).
+
+## 1.29.0 — 2026-09-02 (substituído na 1.30.0)
+
+- Backup automático no Google Drive com escolha de conta e apenas o escopo
+  `drive.appdata`, sem acesso aos demais arquivos. Agendamento diário e após
+  o uso, status do último envio, envio manual e desconexão nas Configurações.
+- Recuperação disponível antes de criar um perfil. Cada aparelho preserva o
+  backup dos demais; a importação combina dados e mantém o histórico mais
+  recente. Senhas continuam locais e podem ser informadas na conexão restaurada.
+- Snapshot validado, escrita atômica, regras R8 para Gson e testes de privacidade,
+  API e restauração. A configuração OAuth foi removida na versão 1.30.0.
+
 ## 1.28.0 — 2026-09-02
 
 - **Backup no Google (automático).** O app agora salva seus **perfis, playlists

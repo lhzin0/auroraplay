@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.auroraplay.iptv.core.util.Constants
+import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -28,12 +29,24 @@ class SecureCredentialStore @Inject constructor(
         EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
     )
 
+    @Synchronized
     fun savePassword(connectionId: String, password: String) {
         prefs.edit().putString(connectionId, password).apply()
     }
 
     fun getPassword(connectionId: String): String? = prefs.getString(connectionId, null)
 
+    /** Persist imported passwords before reporting restoration success. Call on an IO thread. */
+    @Synchronized
+    fun restoreMissingPasswords(passwords: Map<String, String>) {
+        val missing = passwords.filterKeys { prefs.getString(it, null) == null }
+        if (missing.isEmpty()) return
+        val editor = prefs.edit()
+        missing.forEach { (id, password) -> editor.putString(id, password) }
+        if (!editor.commit()) throw IOException("Não foi possível gravar as senhas restauradas.")
+    }
+
+    @Synchronized
     fun deletePassword(connectionId: String) {
         prefs.edit().remove(connectionId).apply()
     }

@@ -15,13 +15,10 @@ servidores pré-embutidos.
    Também funciona em Android TV (detecta automaticamente via
    `UiModeManager` e troca a navegação inferior por um rail lateral).
 
-> Este projeto foi escrito e revisado neste ambiente sem acesso ao Android
-> SDK/Gradle real (sandbox sem rede), então a validação foi estática —
-> balanceamento de chaves/parênteses, assinaturas de composables e bindings
-> do Hilt foram conferidos manualmente, mas recomendo rodar
-> `./gradlew assembleDebug` no Android Studio antes de considerar definitivo.
-> É comum sobrarem 1–2 ajustes pequenos de import em um projeto deste
-> tamanho gerado de uma vez.
+Os testes do backup podem ser executados com `./gradlew testDebugUnitTest`
+e, com um emulador conectado, `./gradlew connectedDebugAndroidTest`.
+O backup é um arquivo salvo manualmente na pasta escolhida pelo usuário:
+[como salvar e restaurar](docs/backup-em-arquivo.md).
 
 ## Versionamento
 
@@ -69,14 +66,15 @@ app/src/main/java/com/auroraplay/iptv/
 
 ## Versão atual
 
-**1.28.0** — `versionCode 84`. Backup automático no Google: perfis, playlists
-(sem senha), favoritos, histórico e ajustes num snapshot que o Auto Backup do
-Android sobe pra conta Google e restaura num aparelho novo (catálogo
-ressincroniza; senha do Xtream re-digitada por aparelho). Antes (1.27.2):
-preview da timeline via `SurfaceTexture` + GL `glReadPixels` (funciona no
-Exynos); Modo Cinema persistido.
+**1.31.0** — `versionCode 87`. Backup manual em arquivo JSON com playlists
+completas (link, login e senha). O seletor do Android permite pastas locais,
+armazenamento externo e serviços de nuvem instalados, como o Google Drive.
+Restauração nas Configurações ou antes de criar um perfil. Downloads, catálogo
+e fotos locais ficam fora do arquivo. O JSON contém senhas em texto legível.
+Não há integração OAuth própria nem envio automático:
+[uso e testes do backup](docs/backup-em-arquivo.md).
 
-## Novidades desta revisão
+## Histórico de revisões
 
 ### 1.28.0 — 2026-09-02
 

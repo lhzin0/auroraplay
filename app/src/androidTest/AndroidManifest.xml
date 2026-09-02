@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Test-APK only: a document provider for synthetic JSON fixtures. -->
+        <provider
+            android:name="com.auroraplay.iptv.data.backup.BackupTestProvider"
+            android:authorities="com.auroraplay.iptv.backup.test.files"
+            android:exported="true" />
+    </application>
+</manifest>

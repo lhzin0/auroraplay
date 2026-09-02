@@ -41,6 +41,8 @@ fun ConnectionsScreen(
 
     var showExportWarning by remember { mutableStateOf(false) }
     var pendingExportJson by remember { mutableStateOf<String?>(null) }
+    var passwordConnection by remember { mutableStateOf<XtreamConnection?>(null) }
+    var restoredPassword by remember { mutableStateOf("") }
 
     val createDocumentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         val json = pendingExportJson
@@ -135,6 +137,7 @@ fun ConnectionsScreen(
                         connection = connection,
                         onSetDefault = { viewModel.setDefault(connection.id) },
                         onDelete = { viewModel.delete(connection.id) },
+                        onEnterPassword = { passwordConnection = connection; restoredPassword = "" },
                         onTest = {
                             viewModel.testConnection(connection.id) { success, error ->
                                 scope.launch {
@@ -157,6 +160,36 @@ fun ConnectionsScreen(
                 }
             }
         }
+    }
+
+    passwordConnection?.let { connection ->
+        AlertDialog(
+            onDismissRequest = { passwordConnection = null; restoredPassword = "" },
+            title = { Text("Senha de ${connection.name}") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("A senha fica protegida neste aparelho e não é enviada ao backup automático.")
+                    OutlinedTextField(
+                        value = restoredPassword,
+                        onValueChange = { restoredPassword = it },
+                        label = { Text("Senha Xtream") },
+                        singleLine = true,
+                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Password),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = restoredPassword.isNotBlank(), onClick = {
+                    viewModel.savePassword(connection, restoredPassword) { message ->
+                        scope.launch { snackbarHostState.showSnackbar(message) }
+                    }
+                    passwordConnection = null
+                    restoredPassword = ""
+                }) { Text("Salvar senha") }
+            },
+            dismissButton = { TextButton(onClick = { passwordConnection = null; restoredPassword = "" }) { Text("Cancelar") } },
+        )
     }
 
     if (showExportWarning) {
@@ -202,6 +235,7 @@ private fun ConnectionRow(
     onDelete: () -> Unit,
     onTest: () -> Unit,
     onSync: () -> Unit,
+    onEnterPassword: () -> Unit,
 ) {
     var showActions by remember { mutableStateOf(false) }
     val statusColor = when (connection.status) {
@@ -247,8 +281,9 @@ private fun ConnectionRow(
 
         if (showActions) {
             Spacer(Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 ActionChip("Testar", Icons.Default.NetworkCheck, onTest)
+                ActionChip("Senha", Icons.Default.Key, onEnterPassword)
                 ActionChip("Atualizar", Icons.Default.Sync, onSync)
                 if (!connection.isDefault) ActionChip("Padrão", Icons.Default.Star, onSetDefault)
                 ActionChip("Excluir", Icons.Default.Delete, onDelete, danger = true)

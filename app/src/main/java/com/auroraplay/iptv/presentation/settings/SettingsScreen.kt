@@ -124,6 +124,8 @@ fun SettingsScreen(
                     }
                 }
 
+                item { FileBackupSection() }
+
                 item {
                     SettingsSection(title = "Reprodução") {
                         SettingsSwitchRow(
@@ -495,7 +497,7 @@ private fun SettingsHero() {
 /** Rounded graphite groups keep related controls visually compact while the
  * page itself stays quiet and cinematic. */
 @Composable
-private fun SettingsSection(title: String, content: @Composable ColumnScope.() -> Unit) {
+internal fun SettingsSection(title: String, content: @Composable ColumnScope.() -> Unit) {
     Column {
         Text(
             title,

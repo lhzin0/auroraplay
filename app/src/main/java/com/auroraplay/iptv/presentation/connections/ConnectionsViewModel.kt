@@ -47,6 +47,18 @@ class ConnectionsViewModel @Inject constructor(
     fun setDefault(id: String) = viewModelScope.launch { connectionRepository.setDefault(id) }
     fun delete(id: String) = viewModelScope.launch { connectionRepository.deleteConnection(id) }
 
+    /** Preserve the restored connection ID, so its favorites/history still match after syncing. */
+    fun savePassword(connection: XtreamConnection, password: String, onResult: (String) -> Unit) = viewModelScope.launch {
+        try {
+            connectionRepository.updateConnection(connection, password)
+            onResult("Senha salva neste aparelho. Toque em Atualizar para sincronizar o catálogo.")
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            onResult("Não foi possível salvar a senha. Tente novamente.")
+        }
+    }
+
     fun testConnection(id: String, onResult: (Boolean, String?) -> Unit) {
         viewModelScope.launch {
             connectionRepository.testConnection(id).collect { resource ->
