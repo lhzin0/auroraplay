@@ -2,16 +2,19 @@ package com.auroraplay.iptv.player
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.PixelFormat
-import android.hardware.HardwareBuffer
-import android.media.Image
-import android.media.ImageReader
-import android.os.Build
+import android.graphics.SurfaceTexture
+import android.opengl.EGL14
+import android.opengl.EGLConfig
+import android.opengl.EGLContext
+import android.opengl.EGLDisplay
+import android.opengl.EGLSurface
+import android.opengl.GLES11Ext
+import android.opengl.GLES20
 import android.os.Handler
 import android.os.HandlerThread
 import android.util.Log
+import android.view.Surface
 import androidx.annotation.OptIn
-import androidx.annotation.RequiresApi
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
@@ -32,6 +35,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.nio.FloatBuffer
 import java.util.TreeMap
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -40,23 +46,21 @@ import kotlin.math.abs
 /**
  * Timeline scrub-preview source.
  *
- * Design goals (why this replaces the old per-move `ExoFrameGrabber`):
- *
  *  - **One** persistent, headless [ExoPlayer] per video, `prepare()`d once —
  *    never one-per-scrub, never `prepare()` per thumbnail.
- *  - The visible scrub position and the time label are owned by the UI and
- *    never wait on this class.
- *  - During a drag the caller just pushes the *latest* target position
- *    ([requestAt]); older targets are discarded, there is no queue and no
- *    Mutex serialising requests.
+ *  - The visible scrub position / time label never wait on this class.
+ *  - During a drag the caller pushes only the *latest* target ([requestAt]);
+ *    older targets are dropped, no queue, no Mutex.
  *  - Frames land in a position-keyed cache; [nearest] returns the closest one
- *    instantly, so the preview always shows *something* and only sharpens as
- *    the decoder catches up (Netflix / YouTube feel).
- *  - Background pre-generation fills a coarse grid across the whole video when
- *    idle, and the region around the finger is always prioritised.
- *  - Frames are read via [Bitmap.wrapHardwareBuffer] (API 29+) — no manual
- *    `ByteBuffer` stride math, which is what crashed natively on Samsung.
- *    Below API 29 the preview is simply unavailable (the bar shows the time).
+ *    instantly, so the card always shows *something* and only sharpens as the
+ *    decoder catches up. Background pre-generation fills a coarse grid.
+ *
+ * **How frames are read.** The decoder renders into a [SurfaceTexture]; a tiny
+ * off-screen EGL/GLES2 context samples that external texture into a WxH FBO and
+ * `glReadPixels` copies it into a buffer *we* allocated. This is the same
+ * GPU-side read-back `TextureView.getBitmap` uses, and the only path that works
+ * on hardware decoders whose `ImageReader` planes are GPU-only / null-backed
+ * (Exynos): reading those by hand SIGSEGVs or JNI-aborts.
  */
 @Singleton
 @OptIn(UnstableApi::class)
@@ -65,30 +69,24 @@ class ScrubPreviewEngine @Inject constructor(
 ) {
     private companion object {
         const val TAG = "ScrubPreview"
-        const val W = 256
-        const val H = 144
+        const val W = 320
+        const val H = 180
         const val MAX_CACHE = 64
-        /** A cached frame within this distance of a target counts as "done". */
         const val CACHE_TOLERANCE_MS = 1_500L
-        /** Remote-MP4 range seeks can be slow; give them room. */
-        const val GRAB_TIMEOUT_MS = 2_600L
-        /** Grace after the seek settles before the first frame is accepted. */
-        const val SETTLE_MS = 120L
+        const val GRAB_TIMEOUT_MS = 3_000L
         const val MIN_CONTENT_SCORE = 8
     }
 
-    /** True where hardware-buffer frame reads are available. */
-    val available: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+    /** Always attempt it; a per-video watchdog disables it if nothing renders. */
+    val available: Boolean = true
 
-    /** Bumped whenever a new frame enters the cache — collectors re-query
-     * [nearest] for the finger's current position. */
     private val _cacheVersion = MutableStateFlow(0)
     val cacheVersion: StateFlow<Int> = _cacheVersion
 
     private var thread: HandlerThread? = null
     private var handler: Handler? = null
     private var player: ExoPlayer? = null
-    private var reader: ImageReader? = null
+    private var gl: GlReader? = null
 
     private var currentUrl: String? = null
     @Volatile private var durationMs: Long = 0L
@@ -103,19 +101,17 @@ class ScrubPreviewEngine @Inject constructor(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var worker: Job? = null
 
-    // If the preview decoder never manages to render a frame for this video
-    // (some IPTV streams / codecs just won't), stop trying — the scrub bar
-    // falls back to the time label and we stop burning a decoder + a second
-    // network connection for nothing.
     @Volatile private var deadForThisVideo = false
     private var consecutiveMisses = 0
     private var everProducedFrame = false
 
-    // --- public API -------------------------------------------------------
+    /** Completed by the SurfaceTexture's frame-available callback. */
+    @Volatile private var frameSignal: CompletableDeferred<Unit>? = null
 
-    /** Prepare the preview decoder for [url] (once). Safe to call repeatedly. */
+    // --- public API -----------------------------------------------------
+
     fun open(url: String) {
-        if (!available || url.isBlank()) return
+        if (url.isBlank()) return
         if (url == currentUrl && player != null) { idle = false; ensureWorker(); return }
         ensureStarted()
         val h = handler ?: return
@@ -132,28 +128,23 @@ class ScrubPreviewEngine @Inject constructor(
                 val p = player ?: return@post
                 p.setMediaItem(MediaItem.fromUri(url))
                 p.prepare()
-                Log.i(TAG, "open: prepared $url")
             }.onFailure { Log.w(TAG, "open failed", it) }
         }
         ensureWorker()
     }
 
-    /** Push the latest desired preview position. Only the newest matters. */
     fun requestAt(positionMs: Long) {
-        if (!available) return
         lastRequestedPos = positionMs.coerceAtLeast(0L)
         priorityTarget = lastRequestedPos
         idle = false
         ensureWorker()
     }
 
-    /** Finger lifted: stop targeted work (grid pre-gen also parks). */
     fun setIdle() {
         priorityTarget = null
         idle = true
     }
 
-    /** Closest cached frame to [positionMs], or null if the cache is empty. */
     fun nearest(positionMs: Long): Bitmap? = synchronized(cacheLock) {
         if (cache.isEmpty()) return null
         val lo = cache.floorEntry(positionMs)
@@ -166,16 +157,11 @@ class ScrubPreviewEngine @Inject constructor(
         }
     }
 
-    /** Tear down for the current video. */
     fun close() {
-        worker?.cancel()
-        worker = null
-        val h = handler
-        if (h != null) {
-            h.post {
-                runCatching { player?.stop() }
-                runCatching { player?.clearMediaItems() }
-            }
+        worker?.cancel(); worker = null
+        handler?.post {
+            runCatching { player?.stop() }
+            runCatching { player?.clearMediaItems() }
         }
         currentUrl = null
         priorityTarget = null
@@ -183,17 +169,13 @@ class ScrubPreviewEngine @Inject constructor(
         clearCache()
     }
 
-    /** Full shutdown (app / player screen leaving). */
     fun release() {
         worker?.cancel(); worker = null
-        val h = handler
-        if (h != null) {
-            h.post {
-                runCatching { player?.release() }
-                runCatching { reader?.close() }
-                player = null
-                reader = null
-            }
+        handler?.post {
+            runCatching { player?.release() }
+            runCatching { gl?.release() }
+            player = null
+            gl = null
         }
         thread?.quitSafely()
         thread = null
@@ -202,7 +184,7 @@ class ScrubPreviewEngine @Inject constructor(
         clearCache()
     }
 
-    // --- worker ----------------------------------------------------------
+    // --- worker -------------------------------------------------------
 
     private fun ensureWorker() {
         if (worker?.isActive == true) return
@@ -229,16 +211,11 @@ class ScrubPreviewEngine @Inject constructor(
         }
     }
 
-    /** The next position worth decoding: the finger first, then the nearest
-     * still-missing grid slot; nothing while idle with a covered finger. */
     private fun nextTarget(): Long? {
         priorityTarget?.let { p -> if (!hasNear(p)) return p }
         if (idle) return null
-        // Populate the grid lazily once the decoder knows the duration.
         if (grid.isEmpty() && durationMs > 0L) buildGrid()
-        return grid
-            .filter { !hasNear(it) }
-            .minByOrNull { abs(it - lastRequestedPos) }
+        return grid.filter { !hasNear(it) }.minByOrNull { abs(it - lastRequestedPos) }
     }
 
     private fun buildGrid() {
@@ -266,153 +243,63 @@ class ScrubPreviewEngine @Inject constructor(
 
     private fun clearCache() = synchronized(cacheLock) { cache.clear() }
 
-    // --- frame grab (coroutine drives, Looper does the work) -------------
+    // --- frame grab -------------------------------------------------
 
     private suspend fun grabFrame(positionMs: Long): Bitmap? {
         val h = handler ?: return null
         val p = player ?: return null
-        val r = reader ?: return null
-        // Learn duration as soon as it's known so the grid can populate.
+        val g = gl ?: return null
+
         if (durationMs <= 0L) {
             val d = runCatching { awaitOnHandler(h) { player?.duration ?: 0L } }.getOrDefault(0L)
             if (d > 0L) durationMs = d
         }
 
-        val deferred = CompletableDeferred<Bitmap?>()
-        // Backstop: if only black/flush frames ever arrive, take the last one
-        // rather than time out with nothing.
-        var fallback: Bitmap? = null
-        h.post {
-            try {
-                // Drain any stale frame(s) from a previous grab. Use
-                // acquireNextImage in a loop, NOT acquireLatestImage — the
-                // latter throws IllegalStateException once the queue is full,
-                // which then wedges the reader and starves the decoder (the
-                // "no frame" symptom).
-                while (true) (runCatching { r.acquireNextImage() }.getOrNull() ?: break).close()
-                r.setOnImageAvailableListener({ rr ->
-                    // Keep only the newest queued image; close the rest.
-                    var img: Image? = null
-                    while (true) {
-                        val next = runCatching { rr.acquireNextImage() }.getOrNull() ?: break
-                        img?.close()
-                        img = next
-                    }
-                    val frame = img ?: return@setOnImageAvailableListener
-                    if (deferred.isCompleted) { frame.close(); return@setOnImageAvailableListener }
-                    val bmp = runCatching { imageToBitmap(frame) }.getOrNull()
-                    frame.close()
-                    if (bmp == null) return@setOnImageAvailableListener
-                    if (brightnessScore(bmp) >= MIN_CONTENT_SCORE) {
-                        if (!deferred.isCompleted) deferred.complete(bmp)
-                    } else {
-                        fallback = bmp
-                    }
-                }, h)
-                p.setVideoSurface(r.surface)                        // re-assert every grab
-                p.setSeekParameters(SeekParameters.PREVIOUS_SYNC)   // nearest earlier keyframe: fastest, always resolvable
+        val signal = CompletableDeferred<Unit>()
+        frameSignal = signal
+        runCatching {
+            awaitOnHandler(h) {
+                g.drainPendingFrames()
+                p.setVideoSurface(g.surface)
+                p.setSeekParameters(SeekParameters.PREVIOUS_SYNC)
                 if (p.playbackState == Player.STATE_IDLE) p.prepare()
-                // A seek with a surface attached renders the target frame even
-                // while paused — that single frame is all we want, so DON'T
-                // start playback (continuous rendering exhausts the reader).
                 p.playWhenReady = false
                 p.seekTo(positionMs.coerceIn(0L, if (durationMs > 0) durationMs else Long.MAX_VALUE))
-                // Fallback nudge: if no frame shows up quickly, briefly allow
-                // playback to force one out, then stop.
-                h.postDelayed({ if (!deferred.isCompleted) runCatching { p.play() } }, 700L)
-                h.postDelayed({ runCatching { p.pause() } }, 1_100L)
-            } catch (t: Throwable) {
-                Log.w(TAG, "grab post failed", t)
-                deferred.complete(null)
+            }
+        }
+        // A paused seek with a surface attached should render the target frame.
+        // If it doesn't within ~700ms, nudge playback briefly to force one out.
+        h.postDelayed({ if (frameSignal != null) runCatching { p.play() } }, 700L)
+        h.postDelayed({ runCatching { p.pause() } }, 1_150L)
+
+        var best: Bitmap? = null
+        withTimeoutOrNull(GRAB_TIMEOUT_MS) {
+            // Take up to 4 frames; the first after a seek is often the flush
+            // frame, so keep going for a bit and return the last good one.
+            for (i in 0 until 4) {
+                (frameSignal ?: break).await()
+                frameSignal = CompletableDeferred()
+                val bmp = runCatching { awaitOnHandler(h) { g.renderCurrentFrame() } }.getOrNull() ?: continue
+                if (brightnessScore(bmp) >= MIN_CONTENT_SCORE) {
+                    best = bmp
+                    if (i >= 1) break   // a non-first non-black frame is good enough
+                }
             }
         }
 
-        val result = withTimeoutOrNull(GRAB_TIMEOUT_MS) { deferred.await() } ?: fallback
-        h.post {
-            runCatching { p.playWhenReady = false }
-            runCatching { r.setOnImageAvailableListener(null, null) }
-        }
-        return result
+        frameSignal = null
+        h.post { runCatching { p.playWhenReady = false } }
+        return best
     }
-
-    /**
-     * Frame read WITHOUT the hand-rolled per-byte buffer walk that crashed
-     * natively on Exynos. Preferred path: wrap the GPU buffer directly. If the
-     * buffer isn't GPU-sampleable, fall back to a single bounds-checked bulk
-     * `copyPixelsFromBuffer` (reads exactly W*H*4 from offset 0 — never the
-     * high, unmapped offsets the old `position(y*rowStride)` walk hit).
-     */
-    /**
-     * ONLY safe read path: [Bitmap.wrapHardwareBuffer] does the copy GPU-side,
-     * so there is no hand-rolled CPU walk of a DirectByteBuffer whose reported
-     * capacity lies (that walk SIGSEGVs natively — uncatchable). The decoder
-     * renders at the video's own resolution, so downscale to [W]x[H] before
-     * caching (a 1280x720 ARGB frame is 3.7 MB — x64 in the cache would be
-     * absurd).
-     */
-    private var loggedShape = false
-
-    /**
-     * YUV_420_888 -> a small RGB bitmap, sampled straight down to [W]x[H] so
-     * the per-pixel work is ~37k iterations, not 2M. Every read comes from a
-     * heap [ByteArray] (bounds-checked bulk `get`), so there is no unmapped
-     * DirectByteBuffer walk — the thing that SIGSEGV'd the old grabber.
-     */
-    private fun imageToBitmap(image: Image): Bitmap? = runCatching {
-        val srcW = image.width
-        val srcH = image.height
-        if (srcW <= 0 || srcH <= 0 || image.planes.size < 3) return null
-
-        val yP = image.planes[0]; val uP = image.planes[1]; val vP = image.planes[2]
-        val yRow = yP.rowStride
-        val uRow = uP.rowStride
-        val vRow = vP.rowStride
-        val uPix = uP.pixelStride
-        val vPix = vP.pixelStride
-        val yb = ByteArray(yP.buffer.remaining()).also { yP.buffer.get(it) }
-        val ub = ByteArray(uP.buffer.remaining()).also { uP.buffer.get(it) }
-        val vb = ByteArray(vP.buffer.remaining()).also { vP.buffer.get(it) }
-
-        if (!loggedShape) {
-            loggedShape = true
-            Log.i(TAG, "yuv ${srcW}x$srcH yRow=$yRow uRow=$uRow uPix=$uPix yLen=${yb.size} uLen=${ub.size}")
-        }
-
-        val outH = (W * srcH / srcW).coerceAtLeast(1)
-        val pixels = IntArray(W * outH)
-        for (dy in 0 until outH) {
-            val sy = dy * srcH / outH
-            val yBase = sy * yRow
-            val uvBase = (sy / 2) * uRow
-            for (dx in 0 until W) {
-                val sx = dx * srcW / W
-                val yIdx = yBase + sx
-                val uvIdx = uvBase + (sx / 2) * uPix
-                if (yIdx >= yb.size || uvIdx >= ub.size || uvIdx >= vb.size) continue
-                val Y = yb[yIdx].toInt() and 0xFF
-                val U = (ub[uvIdx].toInt() and 0xFF) - 128
-                val V = (vb[uvIdx].toInt() and 0xFF) - 128
-                val r = (Y + 1.402f * V).toInt().coerceIn(0, 255)
-                val g = (Y - 0.344f * U - 0.714f * V).toInt().coerceIn(0, 255)
-                val b = (Y + 1.772f * U).toInt().coerceIn(0, 255)
-                pixels[dy * W + dx] = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
-            }
-        }
-        Bitmap.createBitmap(pixels, W, outH, Bitmap.Config.ARGB_8888)
-    }.onFailure { Log.w(TAG, "yuv convert failed", it) }.getOrNull()
 
     /** `min(mean luma, luma spread)` — rejects the black post-seek flush and
      * flat-colour fills without discarding a genuinely dark scene. */
     private fun brightnessScore(bmp: Bitmap): Int {
-        val cols = 10
-        val rows = 6
-        var sum = 0
-        var min = 255
-        var max = 0
-        for (gy in 0 until rows) {
-            val y = (bmp.height * (gy * 2 + 1)) / (rows * 2)
-            for (gx in 0 until cols) {
-                val x = (bmp.width * (gx * 2 + 1)) / (cols * 2)
+        var sum = 0; var min = 255; var max = 0
+        for (gy in 0 until 6) {
+            val y = (bmp.height * (gy * 2 + 1)) / 12
+            for (gx in 0 until 10) {
+                val x = (bmp.width * (gx * 2 + 1)) / 20
                 val c = bmp.getPixel(x, y)
                 val luma = ((c ushr 16 and 0xFF) * 30 + (c ushr 8 and 0xFF) * 59 + (c and 0xFF) * 11) / 100
                 sum += luma
@@ -420,15 +307,14 @@ class ScrubPreviewEngine @Inject constructor(
                 if (luma > max) max = luma
             }
         }
-        val mean = sum / (cols * rows)
-        return minOf(mean, max - min)
+        return minOf(sum / 60, max - min)
     }
 
-    // --- lifecycle -----------------------------------------------------
+    // --- lifecycle ------------------------------------------------
 
     @Synchronized
     private fun ensureStarted() {
-        if (player != null && reader != null) return
+        if (player != null && gl != null) return
         val t = HandlerThread("aurora-scrub").apply {
             start()
             setUncaughtExceptionHandler { _, e -> Log.w(TAG, "worker thread error", e) }
@@ -437,12 +323,10 @@ class ScrubPreviewEngine @Inject constructor(
         val done = java.util.concurrent.CountDownLatch(1)
         h.post {
             try {
-                // YUV_420_888 is the decoder's native output and — unlike an
-                // RGBA ImageReader, whose plane buffer is GPU-only and whose
-                // reported capacity lies (native SIGSEGV) — its planes are
-                // genuinely CPU-mapped (default USAGE_CPU_READ_OFTEN), so a
-                // heap-copied read + manual YUV->RGB is completely safe.
-                val r = ImageReader.newInstance(W, H, android.graphics.ImageFormat.YUV_420_888, 4)
+                val reader = GlReader(W, H)
+                reader.setup()
+                reader.surfaceTexture.setOnFrameAvailableListener({ frameSignal?.complete(Unit) }, h)
+
                 val http = DefaultHttpDataSource.Factory()
                     .setUserAgent("AuroraPlay/1.0 (Android)")
                     .setAllowCrossProtocolRedirects(true)
@@ -450,12 +334,12 @@ class ScrubPreviewEngine @Inject constructor(
                     .setReadTimeoutMs(15_000)
                 val p = ExoPlayer.Builder(context)
                     .setMediaSourceFactory(DefaultMediaSourceFactory(context).setDataSourceFactory(http))
-                    .setSeekParameters(SeekParameters.CLOSEST_SYNC)
+                    .setSeekParameters(SeekParameters.PREVIOUS_SYNC)
                     .build()
                     .apply {
                         playWhenReady = false
                         volume = 0f
-                        setVideoSurface(r.surface)
+                        setVideoSurface(reader.surface)
                         addListener(object : Player.Listener {
                             override fun onPlaybackStateChanged(state: Int) {
                                 if (state == Player.STATE_READY && durationMs <= 0L) {
@@ -468,18 +352,19 @@ class ScrubPreviewEngine @Inject constructor(
                             }
                         })
                     }
-                reader = r
+                gl = reader
                 player = p
-            } catch (t2: Throwable) {
-                Log.w(TAG, "scrub engine init failed; preview disabled this session", t2)
+            } catch (e: Throwable) {
+                Log.w(TAG, "scrub engine init failed; preview disabled", e)
                 runCatching { player?.release() }
+                runCatching { gl?.release() }
                 player = null
-                reader = null
+                gl = null
             } finally {
                 done.countDown()
             }
         }
-        done.await(3, java.util.concurrent.TimeUnit.SECONDS)
+        done.await(4, java.util.concurrent.TimeUnit.SECONDS)
         thread = t
         handler = h
     }
@@ -488,5 +373,198 @@ class ScrubPreviewEngine @Inject constructor(
         val d = CompletableDeferred<T>()
         h.post { runCatching { d.complete(block()) }.onFailure { d.completeExceptionally(it) } }
         return d.await()
+    }
+
+    // -----------------------------------------------------------------
+    //  Off-screen EGL/GLES2 read-back. All methods run on the engine's
+    //  HandlerThread, where the EGL context is current.
+    // -----------------------------------------------------------------
+    private class GlReader(private val w: Int, private val h: Int) {
+        lateinit var surfaceTexture: SurfaceTexture; private set
+        lateinit var surface: Surface; private set
+
+        private var eglDisplay: EGLDisplay = EGL14.EGL_NO_DISPLAY
+        private var eglContext: EGLContext = EGL14.EGL_NO_CONTEXT
+        private var eglSurface: EGLSurface = EGL14.EGL_NO_SURFACE
+        private var oesTex = 0
+        private var fbo = 0
+        private var fboTex = 0
+        private var program = 0
+        private var aPos = 0
+        private var aTex = 0
+        private var uStMatrix = 0
+        private val stMatrix = FloatArray(16)
+        private val pixels: ByteBuffer =
+            ByteBuffer.allocateDirect(w * h * 4).order(ByteOrder.nativeOrder())
+
+        // Full-screen triangle strip. Tex-Y is flipped so glReadPixels
+        // (bottom-up) yields a top-down bitmap.
+        private val quadPos: FloatBuffer = floatBuf(
+            -1f, -1f, 1f, -1f, -1f, 1f, 1f, 1f,
+        )
+        private val quadTex: FloatBuffer = floatBuf(
+            0f, 1f, 1f, 1f, 0f, 0f, 1f, 0f,
+        )
+
+        fun setup() {
+            eglDisplay = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY)
+            val ver = IntArray(2)
+            check(EGL14.eglInitialize(eglDisplay, ver, 0, ver, 1)) { "eglInitialize" }
+            val cfgAttrs = intArrayOf(
+                EGL14.EGL_RENDERABLE_TYPE, EGL14.EGL_OPENGL_ES2_BIT,
+                EGL14.EGL_SURFACE_TYPE, EGL14.EGL_PBUFFER_BIT,
+                EGL14.EGL_RED_SIZE, 8, EGL14.EGL_GREEN_SIZE, 8,
+                EGL14.EGL_BLUE_SIZE, 8, EGL14.EGL_ALPHA_SIZE, 8,
+                EGL14.EGL_NONE,
+            )
+            val cfgs = arrayOfNulls<EGLConfig>(1)
+            val n = IntArray(1)
+            check(EGL14.eglChooseConfig(eglDisplay, cfgAttrs, 0, cfgs, 0, 1, n, 0) && n[0] > 0) { "eglChooseConfig" }
+            eglContext = EGL14.eglCreateContext(
+                eglDisplay, cfgs[0], EGL14.EGL_NO_CONTEXT,
+                intArrayOf(EGL14.EGL_CONTEXT_CLIENT_VERSION, 2, EGL14.EGL_NONE), 0,
+            )
+            eglSurface = EGL14.eglCreatePbufferSurface(
+                eglDisplay, cfgs[0], intArrayOf(EGL14.EGL_WIDTH, 1, EGL14.EGL_HEIGHT, 1, EGL14.EGL_NONE), 0,
+            )
+            check(EGL14.eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext)) { "eglMakeCurrent" }
+
+            val t = IntArray(1)
+            GLES20.glGenTextures(1, t, 0)
+            oesTex = t[0]
+            GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, oesTex)
+            GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
+            GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
+            GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE)
+            GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE)
+
+            surfaceTexture = SurfaceTexture(oesTex).apply { setDefaultBufferSize(1280, 720) }
+            surface = Surface(surfaceTexture)
+
+            // FBO + colour texture we read back from.
+            GLES20.glGenTextures(1, t, 0)
+            fboTex = t[0]
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, fboTex)
+            GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGBA, w, h, 0, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, null)
+            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
+            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
+            GLES20.glGenFramebuffers(1, t, 0)
+            fbo = t[0]
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, fbo)
+            GLES20.glFramebufferTexture2D(GLES20.GL_FRAMEBUFFER, GLES20.GL_COLOR_ATTACHMENT0, GLES20.GL_TEXTURE_2D, fboTex, 0)
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
+
+            program = buildProgram()
+            aPos = GLES20.glGetAttribLocation(program, "aPos")
+            aTex = GLES20.glGetAttribLocation(program, "aTex")
+            uStMatrix = GLES20.glGetUniformLocation(program, "uSTMatrix")
+        }
+
+        /** Consume + discard whatever is already queued on the SurfaceTexture. */
+        fun drainPendingFrames() {
+            repeat(4) { runCatching { surfaceTexture.updateTexImage() }.getOrNull() ?: return }
+        }
+
+        /** Pull the newest frame off the SurfaceTexture, draw it into the FBO,
+         *  read it back into an ARGB_8888 bitmap. */
+        fun renderCurrentFrame(): Bitmap? = runCatching {
+            surfaceTexture.updateTexImage()
+            surfaceTexture.getTransformMatrix(stMatrix)
+
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, fbo)
+            GLES20.glViewport(0, 0, w, h)
+            GLES20.glClearColor(0f, 0f, 0f, 1f)
+            GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
+
+            GLES20.glUseProgram(program)
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
+            GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, oesTex)
+            GLES20.glUniformMatrix4fv(uStMatrix, 1, false, stMatrix, 0)
+
+            quadPos.position(0)
+            GLES20.glVertexAttribPointer(aPos, 2, GLES20.GL_FLOAT, false, 0, quadPos)
+            GLES20.glEnableVertexAttribArray(aPos)
+            quadTex.position(0)
+            GLES20.glVertexAttribPointer(aTex, 2, GLES20.GL_FLOAT, false, 0, quadTex)
+            GLES20.glEnableVertexAttribArray(aTex)
+
+            GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
+            GLES20.glDisableVertexAttribArray(aPos)
+            GLES20.glDisableVertexAttribArray(aTex)
+            GLES20.glFinish()
+
+            pixels.rewind()
+            GLES20.glReadPixels(0, 0, w, h, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, pixels)
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
+
+            val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+            pixels.rewind()
+            bmp.copyPixelsFromBuffer(pixels)
+            bmp
+        }.getOrNull()
+
+        fun release() {
+            runCatching { surface.release() }
+            runCatching { surfaceTexture.release() }
+            if (eglDisplay != EGL14.EGL_NO_DISPLAY) {
+                EGL14.eglMakeCurrent(eglDisplay, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_CONTEXT)
+                if (eglSurface != EGL14.EGL_NO_SURFACE) EGL14.eglDestroySurface(eglDisplay, eglSurface)
+                if (eglContext != EGL14.EGL_NO_CONTEXT) EGL14.eglDestroyContext(eglDisplay, eglContext)
+                EGL14.eglTerminate(eglDisplay)
+            }
+            eglDisplay = EGL14.EGL_NO_DISPLAY
+            eglContext = EGL14.EGL_NO_CONTEXT
+            eglSurface = EGL14.EGL_NO_SURFACE
+        }
+
+        private fun buildProgram(): Int {
+            val vs = compile(
+                GLES20.GL_VERTEX_SHADER,
+                """
+                attribute vec2 aPos;
+                attribute vec2 aTex;
+                uniform mat4 uSTMatrix;
+                varying vec2 vTex;
+                void main() {
+                    gl_Position = vec4(aPos, 0.0, 1.0);
+                    vTex = (uSTMatrix * vec4(aTex, 0.0, 1.0)).xy;
+                }
+                """.trimIndent(),
+            )
+            val fs = compile(
+                GLES20.GL_FRAGMENT_SHADER,
+                """
+                #extension GL_OES_EGL_image_external : require
+                precision mediump float;
+                varying vec2 vTex;
+                uniform samplerExternalOES sTex;
+                void main() { gl_FragColor = texture2D(sTex, vTex); }
+                """.trimIndent(),
+            )
+            val prog = GLES20.glCreateProgram()
+            GLES20.glAttachShader(prog, vs)
+            GLES20.glAttachShader(prog, fs)
+            GLES20.glLinkProgram(prog)
+            val status = IntArray(1)
+            GLES20.glGetProgramiv(prog, GLES20.GL_LINK_STATUS, status, 0)
+            check(status[0] == GLES20.GL_TRUE) { "link: " + GLES20.glGetProgramInfoLog(prog) }
+            GLES20.glDeleteShader(vs)
+            GLES20.glDeleteShader(fs)
+            return prog
+        }
+
+        private fun compile(type: Int, src: String): Int {
+            val s = GLES20.glCreateShader(type)
+            GLES20.glShaderSource(s, src)
+            GLES20.glCompileShader(s)
+            val status = IntArray(1)
+            GLES20.glGetShaderiv(s, GLES20.GL_COMPILE_STATUS, status, 0)
+            check(status[0] == GLES20.GL_TRUE) { "compile: " + GLES20.glGetShaderInfoLog(s) }
+            return s
+        }
+
+        private fun floatBuf(vararg values: Float): FloatBuffer =
+            ByteBuffer.allocateDirect(values.size * 4).order(ByteOrder.nativeOrder())
+                .asFloatBuffer().apply { put(values); position(0) }
     }
 }

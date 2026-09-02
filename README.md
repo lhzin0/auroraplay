@@ -69,15 +69,24 @@ app/src/main/java/com/auroraplay/iptv/
 
 ## Versão atual
 
-**1.27.1** — `versionCode 82`. Preview da timeline **funcionando**: o
-`ScrubPreviewEngine` agora lê os frames via `ImageReader` `YUV_420_888` +
-conversão YUV→RGB reduzida no heap (o caminho RGBA/`wrapHardwareBuffer`
-crashava/retornava nulo). Modo Cinema virou ajuste persistido (`cinemaMode`) —
-só o botão do player liga/desliga, e fica assim entre episódios, telas e
-reinícios do app. (1.27.0: barra de progresso só em "Continuar assistindo";
-"Canais recentes"; rádios removidas.)
+**1.27.2** — `versionCode 83`. Preview da timeline funcionando **inclusive no
+S23 (Exynos)**: `ScrubPreviewEngine` agora lê frames por `SurfaceTexture` +
+EGL/GLES2 off-screen + `glReadPixels` (o `ImageReader`, RGBA ou YUV, crasha em
+decoder de HW Samsung — buffer só-GPU/ponteiro nulo). Modo Cinema é ajuste
+persistido (`cinemaMode`) — só o botão do player liga/desliga; fica assim
+entre episódios, telas e reinícios.
 
 ## Novidades desta revisão
+
+### 1.27.2 — 2026-09-02
+
+- **`ScrubPreviewEngine` → GL read-back.** `GlReader` interno: EGL14 pbuffer +
+  contexto GLES2, textura externa OES + `SurfaceTexture` como `setVideoSurface`
+  do `ExoPlayer` headless, FBO 320×180, shader `samplerExternalOES`,
+  `glReadPixels(GL_RGBA)` para um `ByteBuffer.allocateDirect` próprio →
+  `Bitmap.copyPixelsFromBuffer`. Sem `ImageReader`, sem leitura de plano cru.
+  `SurfaceTexture.OnFrameAvailableListener` → `CompletableDeferred` por grab;
+  pega o 2º frame não-preto pós-seek.
 
 ### 1.27.1 — 2026-09-02
 

@@ -1,3 +1,16 @@
+## 1.27.2 — 2026-09-02
+
+- **Preview da timeline funcionando no S23 (Exynos) também.** O caminho
+  `ImageReader` (RGBA *ou* YUV) não serve em decoders de hardware Samsung: o
+  buffer dos planos ou é só-GPU com capacidade que "mente" (SIGSEGV) ou vem
+  com ponteiro nulo (JNI abort) — o app fechava ao arrastar a timeline. Novo
+  caminho: o decoder renderiza numa `SurfaceTexture` e um contexto EGL/GLES2
+  minúsculo fora de tela amostra essa textura para um FBO de 320×180 e faz
+  `glReadPixels` para um buffer **nosso** — a mesma leitura GPU que o
+  `TextureView.getBitmap` usa, e a única que funciona nesses decoders.
+  Testado no S23: o card mostra o frame real, cor e orientação corretas, sem
+  crash mesmo arrastando rápido de ponta a ponta várias vezes.
+
 ## 1.27.1 — 2026-09-02
 
 - **Preview da timeline FUNCIONANDO.** O `ScrubPreviewEngine` da 1.27.0 tinha a
