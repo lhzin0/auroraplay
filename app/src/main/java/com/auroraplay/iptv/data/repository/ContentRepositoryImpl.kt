@@ -73,13 +73,22 @@ class ContentRepositoryImpl @Inject constructor(
 
             // --- Live channels ---
             emit(Resource.Success(SyncStage.CHANNELS))
-            val liveCategories = runCatching { api.getLiveCategories(urlBuilder.liveCategories()) }.getOrNull()
+            // Radio is dropped at the source: providers ship 1000+ "RÁDIO"
+            // entries that only bloat the catalog and clutter the TV lists.
+            val allLiveCategories = runCatching { api.getLiveCategories(urlBuilder.liveCategories()) }.getOrNull()
+            val radioCategoryIds = allLiveCategories
+                ?.filter { MetadataSanitizer.isRadioCategory(it.categoryName) }
+                ?.map { it.categoryId }
+                ?.toSet()
+                .orEmpty()
+            val liveCategories = allLiveCategories?.filterNot { it.categoryId in radioCategoryIds }
             if (!liveCategories.isNullOrEmpty()) {
                 categoryDao.replace(connectionId, ContentType.LIVE.name, liveCategories.map { it.toEntity(connectionId, ContentType.LIVE) })
             }
             val liveCategoryNameById = liveCategories?.associate { it.categoryId to it.categoryName }
                 ?: categoryDao.getAll(connectionId, ContentType.LIVE.name).associate { it.id to it.name }
             val liveStreams = runCatching { api.getLiveStreams(urlBuilder.liveStreams()) }.getOrNull()
+                ?.filterNot { it.categoryId in radioCategoryIds || MetadataSanitizer.isRadioCategory(liveCategoryNameById[it.categoryId]) }
             if (!liveStreams.isNullOrEmpty()) {
                 channelDao.replace(
                     connectionId,
@@ -146,11 +155,20 @@ class ContentRepositoryImpl @Inject constructor(
         .flowOn(Dispatchers.IO)
 
     override fun observeCategories(connectionId: String, type: ContentType): Flow<List<Category>> =
-        categoryDao.observe(connectionId, type.name).map { list -> list.map { it.toDomain() } }
+        categoryDao.observe(connectionId, type.name)
+            .map { list ->
+                list.asSequence()
+                    .filterNot { type == ContentType.LIVE && MetadataSanitizer.isRadioCategory(it.name) }
+                    .map { it.toDomain() }
+                    .toList()
+            }
             .flowOn(Dispatchers.Default)
 
     override fun observeChannels(connectionId: String, categoryId: String?): Flow<List<Channel>> =
-        channelDao.observe(connectionId, categoryId).map { list -> list.map { it.toDomain() } }
+        channelDao.observe(connectionId, categoryId)
+            // Also hide radio rows that a pre-filter build already stored, so
+            // the change takes effect without waiting for a re-sync.
+            .map { list -> list.asSequence().filterNot { MetadataSanitizer.isRadioCategory(it.categoryName) }.map { it.toDomain() }.toList() }
             .flowOn(Dispatchers.Default)
 
     override fun observeMovies(connectionId: String, categoryId: String?): Flow<List<Movie>> =
@@ -326,7 +344,9 @@ class ContentRepositoryImpl @Inject constructor(
             emit(SearchResults(emptyList(), emptyList(), emptyList()))
             return@flow
         }
-        val channels = channelDao.search(connectionId, query).map { it.toDomain() }
+        val channels = channelDao.search(connectionId, query)
+            .filterNot { MetadataSanitizer.isRadioCategory(it.categoryName) }
+            .map { it.toDomain() }
         val movies = movieDao.search(connectionId, query)
             .collapseAudioVariants({ it.name }, { it.year }, { it.categoryName }).map { it.toDomain() }
         val series = seriesDao.search(connectionId, query)

@@ -195,11 +195,13 @@ fun HomeScreen(
                                             currentProgram = (item as? MediaItem.ChannelItem)?.channel?.currentProgram?.title,
                                             onClick = { openItem(item) },
                                         )
+                                        // No progress bar on the genre rails —
+                                        // the watch-progress bar lives only in
+                                        // "Continuar assistindo".
                                         SectionLayout.POSTER -> MovieCard(
                                             title = item.title,
                                             imageUrl = item.imageUrl,
                                             onClick = { openItem(item) },
-                                            progress = content.resumeByItemId[item.id]?.fraction,
                                         )
                                     }
                                 }

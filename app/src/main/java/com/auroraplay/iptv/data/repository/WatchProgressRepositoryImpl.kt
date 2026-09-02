@@ -1,6 +1,7 @@
 package com.auroraplay.iptv.data.repository
 
 import com.auroraplay.iptv.data.database.dao.WatchProgressDao
+import com.auroraplay.iptv.data.database.entity.WatchProgressEntity
 import com.auroraplay.iptv.data.mapper.toDomain
 import com.auroraplay.iptv.data.mapper.toEntity
 import com.auroraplay.iptv.domain.model.ContentType
@@ -26,4 +27,23 @@ class WatchProgressRepositoryImpl @Inject constructor(
 
     override suspend fun removeProgress(profileId: String, contentId: String, type: ContentType) =
         dao.delete(profileId, contentId, type.name)
+
+    override fun observeChannelHistory(profileId: String): Flow<List<WatchProgress>> =
+        dao.observeChannelHistory(profileId).map { list -> list.map { it.toDomain() } }
+
+    override suspend fun recordChannelWatch(profileId: String, channelId: String) {
+        dao.upsert(
+            WatchProgressEntity(
+                contentId = channelId,
+                type = ContentType.LIVE.name,
+                profileId = profileId,
+                positionMillis = 0L,
+                durationMillis = 0L,
+                seasonNumber = null,
+                episodeNumber = null,
+                lastWatchedMillis = System.currentTimeMillis(),
+            )
+        )
+        dao.trimChannelHistory(profileId)
+    }
 }

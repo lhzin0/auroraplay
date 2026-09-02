@@ -232,6 +232,12 @@ object MetadataSanitizer {
      * (search by genre: "acao" must match "AÇÃO", "romance" a "Romance" tag). */
     fun fold(s: String): String = foldAccents(s.lowercase()).trim()
 
+    /** A radio (not TV) category. IPTV providers label these explicitly —
+     * "RÁDIOS", "RÁDIO FM", "WEB RÁDIO" — so a folded "radio" substring is a
+     * precise match with essentially no false positives on real TV channels. */
+    fun isRadioCategory(categoryName: String?): Boolean =
+        categoryName != null && "radio" in fold(categoryName)
+
     /** Treats blank/"null"/"N/A" server strings as genuinely absent. */
     fun text(raw: String?): String? {
         val value = raw?.trim().orEmpty()

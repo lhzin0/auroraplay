@@ -37,10 +37,13 @@ class GetHomeContentUseCase @Inject constructor(
         contentRepository.observeChannels(connectionId),
         contentRepository.observeMovies(connectionId),
         contentRepository.observeSeries(connectionId),
-        watchProgressRepository.observeContinueWatching(profileId),
+        combine(
+            watchProgressRepository.observeContinueWatching(profileId),
+            watchProgressRepository.observeChannelHistory(profileId),
+        ) { progress, channelHistory -> progress to channelHistory },
         favoriteRepository.observeFavorites(profileId),
-    ) { channels, movies, series, progress, favorites ->
-        build(channels, movies, series, progress, favorites, isKids)
+    ) { channels, movies, series, (progress, channelHistory), favorites ->
+        build(channels, movies, series, progress, channelHistory, favorites, isKids)
     }
         // build() maps/filters the whole catalog into carousels — during a
         // pull-to-refresh the Room flows re-emit in bursts as sync writes
@@ -56,6 +59,7 @@ class GetHomeContentUseCase @Inject constructor(
         rawMovies: List<Movie>,
         rawSeries: List<Series>,
         progress: List<WatchProgress>,
+        channelHistory: List<WatchProgress>,
         favorites: List<Favorite>,
         isKids: Boolean,
     ): HomeContent {
@@ -132,15 +136,17 @@ class GetHomeContentUseCase @Inject constructor(
             sections += HomeSection(rail.id, rail.title, rail.items.map { MediaItem.SeriesItem(it) })
         }
 
-        // --- Canais em destaque ---
-        // A taste of Live TV on Home — favorited channels first, then
-        // whatever else is available — without turning Home into the Live
-        // tab; "Canais" remains the full, dedicated place to browse.
-        val channelHighlights = (channels.filter { favoriteIds.contains(it.id) } + channels.filterNot { favoriteIds.contains(it.id) })
+        // --- Canais recentes ---
+        // The last channels this profile actually opened (max 10), newest
+        // first — a genuine history, not a generic "featured" list. Nothing
+        // shows here until the person has watched a channel.
+        val channelById = channels.associateBy { it.id }
+        val recentChannels = channelHistory
+            .mapNotNull { channelById[it.contentId] }
             .distinctBy { it.id }
-            .take(15)
-        if (channelHighlights.isNotEmpty()) {
-            sections += HomeSection("channels_highlight", "Canais em destaque", channelHighlights.map { MediaItem.ChannelItem(it) }, SectionLayout.CHANNEL)
+            .take(10)
+        if (recentChannels.isNotEmpty()) {
+            sections += HomeSection("channels_recent", "Canais recentes", recentChannels.map { MediaItem.ChannelItem(it) }, SectionLayout.CHANNEL)
         }
 
         // Prefer a title with real artwork + synopsis for the hero.

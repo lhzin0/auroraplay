@@ -1,3 +1,50 @@
+## 1.27.0 — 2026-09-02
+
+### Preview da timeline reescrito
+
+A prévia da timeline foi refeita do zero. O modelo antigo fazia `seek` +
+decode de um frame a cada movimento do dedo num `ExoPlayer` headless
+sequencial (`Mutex`), com balde de 3s e `delay` fixo — daí o atraso, o
+congelamento e a sensação de não acompanhar o dedo.
+
+Agora (`ScrubPreviewEngine`):
+
+- **Um** decoder de preview persistente por vídeo, `prepare()` uma única vez —
+  nunca um por movimento, nunca `prepare()` por thumbnail.
+- A posição visual e o horário do card são da UI e **nunca** esperam o
+  decoder.
+- Durante o arraste só se registra a posição mais recente; posições antigas
+  são descartadas, sem fila e sem `Mutex`.
+- Os frames entram num cache por posição (`TreeMap`, LRU de 64) e o card
+  mostra **na hora** o frame mais próximo já disponível — vai ficando nítido
+  conforme o decoder alcança (comportamento tipo Netflix/YouTube).
+- Pré-geração em segundo plano: uma grade de frames ao longo do vídeo é
+  preenchida quando ocioso, e a região perto do dedo tem prioridade.
+- Leitura de frame via `Bitmap.wrapHardwareBuffer` (API 29+) — **sem**
+  aritmética manual de buffer, que era a causa do `SIGSEGV` nativo. Abaixo do
+  Android 10 a prévia fica indisponível (a barra mostra só o horário).
+- Ao soltar a timeline: um único `seek` real do player principal, o decoder de
+  preview para. O player principal nunca é bloqueado.
+- `ThumbnailPreviewGenerator` e `ExoFrameGrabber` removidos.
+
+### Também
+
+- **Barra de progresso só em "Continuar assistindo".** Os cards das trilhas de
+  gênero (Ação, Comédia…) não mostram mais a barrinha de tempo.
+- **"Canais em destaque" → "Canais recentes".** Agora é o histórico real dos
+  últimos 10 canais que você abriu, do mais recente ao mais antigo. Não
+  aparece nada até você assistir a um canal. (guardado em `watch_progress`
+  com `type = 'LIVE'`, sem migração de banco.)
+- **Rádios removidas.** Categorias de rádio ("RÁDIOS", "RÁDIO FM", "WEB
+  RÁDIO"…) e seus canais são descartados na sincronização e também filtrados
+  na leitura, então somem sem precisar re-sincronizar. (No teste eram 1393 de
+  ~2500 "canais".)
+- **Modo Cinema não pisca mais com o vídeo parado.** O loop de amostragem
+  agora para quando a reprodução está pausada (mostra um frame fixo), e o
+  multiplicador `0.9` de opacidade — que fazia as duas camadas somarem *mais
+  claro* no meio do fade e voltarem a cada ciclo — foi removido: agora é um
+  crossfade linear de brilho constante.
+
 ## 1.26.10 — 2026-09-02
 
 - **Crash nativo ao mexer na timeline / ao reabrir o app.** A prévia de

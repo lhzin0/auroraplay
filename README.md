@@ -69,14 +69,34 @@ app/src/main/java/com/auroraplay/iptv/
 
 ## Versão atual
 
-**1.26.10** — `versionCode 80`. Fim do crash nativo (`SIGSEGV`) do extrator de
-miniatura da timeline em aparelhos Samsung — a extração de frame no aparelho
-foi desligada. `clear()`+`upsertAll()` da sincronização agora é atômico
-(`@Transaction`), então a lista de canais nunca pisca vazia no meio de uma
-atualização. Filtros da Busca ocupam a largura da barra. Ícone no estilo
-OneDark 3D (plaquinha escura fosca).
+**1.27.0** — `versionCode 81`. Preview da timeline reescrito
+(`ScrubPreviewEngine`): um decoder de preview persistente por vídeo + cache por
+posição + `nearest()` + pré-geração em grade + leitura via
+`wrapHardwareBuffer`; segue o dedo em tempo real, nunca bloqueia o player.
+Barra de progresso só em "Continuar assistindo". "Canais em destaque" virou
+"Canais recentes" (histórico real, máx. 10). Rádios removidas da playlist.
+Modo Cinema não pisca com o vídeo parado.
 
 ## Novidades desta revisão
+
+### 1.27.0 — 2026-09-02
+
+- **`ScrubPreviewEngine`** (novo) substitui `ThumbnailPreviewGenerator` +
+  `ExoFrameGrabber` (removidos). `ExoPlayer` headless único por vídeo →
+  `ImageReader` RGBA → `Bitmap.wrapHardwareBuffer` (API 29+). Worker único
+  (sem `Mutex`), `priorityTarget` só com a última posição, `TreeMap` cache LRU
+  64, grade de pré-geração priorizada pela distância ao dedo,
+  `cacheVersion: StateFlow`, `nearest(pos)`. `PlayerViewModel`:
+  `requestScrubThumbnail` sem balde/`delay`, coletor de `cacheVersion` empurra
+  `nearest(scrubTargetMillis)`.
+- **Home:** `MovieCard` das trilhas de gênero sem `progress`; nova
+  `HomeSection("channels_recent", "Canais recentes", …)` a partir de
+  `WatchProgressDao.observeChannelHistory` (`type='LIVE'`, `LIMIT 10`);
+  `PlayerViewModel.recordChannelHistory` em `loadLive`/`switchChannel`.
+- **Rádio:** `MetadataSanitizer.isRadioCategory`; filtrado em `syncConnection`
+  (categorias + streams) e em `observeChannels`/`observeCategories`/`search`.
+- **Cinema:** loop de amostragem com key `isPlaying` (para quando pausado);
+  `CinematicLayer` sem o `* 0.9f`.
 
 ### 1.26.10 — 2026-09-02
 

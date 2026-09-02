@@ -242,23 +242,35 @@ fun PlayerScreen(
     // Cinema mode. Sample the on-screen video TextureView itself — frames that
     // are already decoded and composited — instead of running a second decoder.
     // A tiny `getBitmap` is a cheap read-back; drawn upscaled + blurred it
-    // reads as a soft continuation of the scene. Each new sample fades in over
-    // the last (2s, linear) so scene cuts melt. ~2.7s cadence. Don't recycle:
-    // both layers may still be on screen. Worst case: no glow, no crash.
-    LaunchedEffect(cinematicModeEnabled, videoTextureView) {
+    // reads as a soft continuation of the scene. Each new sample crossfades
+    // over the settled one (2s, linear) so scene cuts melt.
+    //
+    // Keyed on isPlaying too: while the video is PAUSED the picture isn't
+    // changing, so re-running the fade every cycle just made the bars pulse
+    // ("piscando"). Paused -> take one steady sample and stop.
+    LaunchedEffect(cinematicModeEnabled, videoTextureView, playbackState.isPlaying) {
         if (!cinematicModeEnabled) { cinemaPrev = null; cinemaCur = null; return@LaunchedEffect }
         val tv = videoTextureView ?: return@LaunchedEffect
+        fun grab() = runCatching {
+            if (tv.isAvailable && tv.width > 0 && tv.height > 0) tv.getBitmap(96, 54) else null
+        }.getOrNull()
+
+        // Fresh steady frame on entry (covers the play<->pause transition).
+        grab()?.let { shot ->
+            cinemaPrev = shot
+            cinemaCur = shot
+            cinemaFade.snapTo(1f)
+        }
+        if (!playbackState.isPlaying) return@LaunchedEffect  // hold it, no re-fading
+
         while (true) {
-            val shot = runCatching {
-                if (tv.isAvailable && tv.width > 0 && tv.height > 0) tv.getBitmap(96, 54) else null
-            }.getOrNull()
-            if (shot != null) {
-                cinemaPrev = cinemaCur ?: shot
-                cinemaCur = shot
-                cinemaFade.snapTo(0f)
-                cinemaFade.animateTo(1f, tween(2000, easing = LinearEasing))
-            }
-            delay(700.milliseconds)
+            delay(900.milliseconds)
+            val shot = grab() ?: continue
+            cinemaPrev = cinemaCur ?: shot   // settled layer stays fully opaque underneath
+            cinemaCur = shot
+            cinemaFade.snapTo(0f)
+            cinemaFade.animateTo(1f, tween(2000, easing = LinearEasing))
+            cinemaPrev = shot                // promote: the new frame is now the settled one
         }
     }
 
@@ -666,7 +678,13 @@ private fun CinematicLayer(bitmap: android.graphics.Bitmap, align: Alignment, al
         contentDescription = null,
         contentScale = ContentScale.Crop,
         alignment = align,
-        alpha = (alpha * 0.9f).coerceIn(0f, 1f),
+        // The settled layer is fully opaque and the incoming one fades 0->1
+        // on top of it: a true linear crossfade with constant total
+        // brightness. The old 0.9 multiplier left the settled layer
+        // translucent, so the two stacked layers summed *brighter* mid-fade
+        // and snapped back each cycle — that was the flicker. Darkening is
+        // handled by the 0.25 black scrim in CinematicBarImage.
+        alpha = alpha.coerceIn(0f, 1f),
         modifier = Modifier
             .fillMaxSize()
             .scale(1.35f)                       // hide the blurred edges

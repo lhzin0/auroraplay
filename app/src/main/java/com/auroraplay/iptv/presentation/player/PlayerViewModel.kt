@@ -20,7 +20,7 @@ import com.auroraplay.iptv.domain.repository.WatchProgressRepository
 import com.auroraplay.iptv.domain.usecase.SaveWatchProgressUseCase
 import com.auroraplay.iptv.domain.usecase.ToggleFavoriteUseCase
 import com.auroraplay.iptv.player.PlayerManager
-import com.auroraplay.iptv.player.ThumbnailPreviewGenerator
+import com.auroraplay.iptv.player.ScrubPreviewEngine
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -32,7 +32,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.seconds
-import kotlin.time.Duration.Companion.milliseconds
 
 data class PlayerLoadState(
     val title: String = "",
@@ -65,7 +64,7 @@ class PlayerViewModel @Inject constructor(
     private val watchProgressRepository: WatchProgressRepository,
     private val saveWatchProgressUseCase: SaveWatchProgressUseCase,
     private val toggleFavoriteUseCase: ToggleFavoriteUseCase,
-    private val thumbnailPreviewGenerator: ThumbnailPreviewGenerator,
+    private val scrubPreview: ScrubPreviewEngine,
     private val settingsRepository: com.auroraplay.iptv.domain.repository.SettingsRepository,
 ) : ViewModel() {
 
@@ -162,8 +161,11 @@ class PlayerViewModel @Inject constructor(
     // on every drag pixel and has nothing to do with what content is loaded.
     private val _scrubThumbnail = MutableStateFlow<android.graphics.Bitmap?>(null)
     val scrubThumbnail: StateFlow<android.graphics.Bitmap?> = _scrubThumbnail.asStateFlow()
-    private var scrubJob: Job? = null
-    private var lastScrubBucket: Long = Long.MIN_VALUE
+    // The position the finger is at right now. The preview is always the frame
+    // nearest to THIS — so a decode that lands late can never show an old spot,
+    // it just fills in around wherever the finger currently is.
+    @Volatile private var scrubTargetMillis: Long? = null
+    private var scrubCollector: Job? = null
 
     /** Full-day schedule for the channel currently playing, fetched on demand
      * when the "Programação" sheet opens (get_short_epg with a larger limit). */
@@ -217,10 +219,12 @@ class PlayerViewModel @Inject constructor(
                     error("O conteúdo não possui um endereço de reprodução válido.")
                 }
 
-                // Warm only valid VOD/episode URLs. Never let a preview decoder
-                // failure crash the player screen.
+                // Prepare the scrub-preview decoder once for this VOD/episode.
+                // Never lets a preview failure disturb playback.
                 if (!_loadState.value.isLive) {
-                    runCatching { thumbnailPreviewGenerator.prewarm(url) }
+                    runCatching { scrubPreview.open(url) }
+                } else {
+                    runCatching { scrubPreview.close() }
                 }
                 startProgressLoop()
             }.onFailure { error ->
@@ -255,6 +259,15 @@ class PlayerViewModel @Inject constructor(
             currentProgramLabel = current?.title,
             programProgress = current?.progressFraction(),
         )
+        recordChannelHistory(channel.id)
+    }
+
+    /** "Canais recentes" on Home — fire-and-forget, never blocks playback. */
+    private fun recordChannelHistory(channelId: String) {
+        val profileId = activeProfileId ?: return
+        viewModelScope.launch {
+            runCatching { watchProgressRepository.recordChannelWatch(profileId, channelId) }
+        }
     }
 
     private suspend fun loadMovie(connectionId: String, contentId: String, profileId: String?) {
@@ -348,6 +361,7 @@ class PlayerViewModel @Inject constructor(
             currentProgramLabel = null,
             programProgress = null,
         )
+        recordChannelHistory(channel.id)
         viewModelScope.launch {
             val id = _loadState.value.contentId
             // Reuses whatever connection loaded this session — the channel
@@ -456,44 +470,40 @@ class PlayerViewModel @Inject constructor(
     // switch between at playback time.
 
     // NOTE: the "Cinema" ambient glow no longer lives here. It used to spin up
-    // a second headless ExoPlayer (via ThumbnailPreviewGenerator) to decode
-    // background frames — a MediaCodec instance running alongside the main one,
-    // which is exactly what crashed the app on devices with a small decoder
-    // pool. The player screen now samples the on-screen video TextureView
-    // directly (a cheap GPU read-back, no extra decoder), so there is nothing
+    // a second headless ExoPlayer to decode background frames — a MediaCodec
+    // instance running alongside the main one, which is exactly what crashed
+    // the app on devices with a small decoder pool. The player screen now
+    // samples the on-screen video TextureView directly (a cheap GPU
+    // read-back, no extra decoder), so there is nothing
     // to drive from the ViewModel.
 
     /**
-     * Requests a scrubbing-preview frame near [positionMillis]. Cancelling
-     * any in-flight request before starting a new one means a fast drag
-     * only ever updates the thumbnail to the *last* position asked for,
-     * instead of frames finishing out of order and flickering backwards.
+     * Called continuously while dragging the timeline. Cheap: it just records
+     * where the finger is and shows the nearest already-decoded frame right
+     * away. [ScrubPreviewEngine] decodes around that position asynchronously
+     * and never blocks this call or the main player.
      */
     fun requestScrubThumbnail(positionMillis: Long) {
-        val url = _loadState.value.streamUrl ?: return
-        val bucket = positionMillis / 3000L
-        if (bucket == lastScrubBucket && _scrubThumbnail.value != null) return
-        lastScrubBucket = bucket
+        if (_loadState.value.isLive || !scrubPreview.available) return
+        scrubTargetMillis = positionMillis
+        scrubPreview.requestAt(positionMillis)
+        _scrubThumbnail.value = scrubPreview.nearest(positionMillis) ?: _scrubThumbnail.value
 
-        // Do not start a decoder seek for every pixel of a drag. Keep only the
-        // latest target and give the finger a tiny settling window; this avoids
-        // a queue of expensive ExoPlayer seeks while keeping the preview quick.
-        scrubJob?.cancel()
-        scrubJob = viewModelScope.launch(Dispatchers.Default) {
-            delay(70.milliseconds)
-            val frame = runCatching {
-                thumbnailPreviewGenerator.frameAt(url, positionMillis)
-            }.getOrNull()
-            if (frame != null && _loadState.value.streamUrl == url) {
-                _scrubThumbnail.value = frame
+        if (scrubCollector?.isActive != true) {
+            scrubCollector = viewModelScope.launch(Dispatchers.Default) {
+                scrubPreview.cacheVersion.collect {
+                    val target = scrubTargetMillis ?: return@collect
+                    scrubPreview.nearest(target)?.let { _scrubThumbnail.value = it }
+                }
             }
         }
     }
 
     fun clearScrubThumbnail() {
-        scrubJob?.cancel()
-        scrubJob = null
-        lastScrubBucket = Long.MIN_VALUE
+        scrubTargetMillis = null
+        scrubCollector?.cancel()
+        scrubCollector = null
+        scrubPreview.setIdle()
         _scrubThumbnail.value = null
     }
 
@@ -537,7 +547,8 @@ class PlayerViewModel @Inject constructor(
         super.onCleared()
         persistProgressNow()
         playerManager.stop()
-        thumbnailPreviewGenerator.release()
+        scrubCollector?.cancel()
+        scrubPreview.release()
     }
 
     private companion object {
