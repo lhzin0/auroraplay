@@ -1,3 +1,14 @@
+## 1.26.1 — 2026-09-02
+
+- **Modo Cinema sem troca brusca de cor.** Em vez de fazer *crossfade* entre
+  cópias borradas do frame (que "pisca" num corte de cena), agora ele reduz
+  cada amostra da `TextureView` a uma **cor média** do topo e da base do
+  frame, passa por uma média móvel exponencial (um corte seco só move o
+  brilho ~40%) e ainda anima a cor final com um `tween` de 1,4s. Resultado:
+  a luz **desliza**, nunca troca de repente. As tarjas viram um degradê da
+  cor sangrando da borda da tela para o vídeo (nada de segunda imagem).
+  Amostragem a cada 1,2s; intensidade limitada a um brilho sutil.
+
 ## 1.26.0 — 2026-09-02
 
 FrostGlass mais presente, avatares de canal gerados, guia de programação

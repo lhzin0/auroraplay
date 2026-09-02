@@ -69,13 +69,19 @@ app/src/main/java/com/auroraplay/iptv/
 
 ## Versão atual
 
-**1.26.0** — `versionCode 70`. FrostGlass mais presente (cartões/chips/busca) e
-em mais botões, avatares de canal gerados quando não há logo, guia de
-programação refeito, subtítulo dos canais removido. A **troca dublado/legendado
-no player foi removida** (metadados do provedor inconsistentes demais); o
-catálogo mantém só a cópia dublada, agora para filmes **e** séries.
+**1.26.1** — `versionCode 71`. Modo Cinema não troca mais a cor de forma
+brusca: agora é uma cor média do frame com média móvel + tween de 1,4s, então
+a luz desliza mesmo num corte de cena. Antes (1.26.0): FrostGlass mais
+presente, avatares de canal gerados, guia de programação refeito.
 
 ## Novidades desta revisão
+
+### 1.26.1 — 2026-09-02
+
+- **Modo Cinema suave.** Sem crossfade de imagem borrada (que piscava num
+  corte). Cada amostra da `TextureView` vira cor média (topo/base) → média
+  móvel exponencial → `tween` 1,4s. As tarjas são um degradê dessa cor
+  sangrando da borda; brilho sutil, amostra a cada 1,2s.
 
 ### 1.26.0 — 2026-09-02
 
