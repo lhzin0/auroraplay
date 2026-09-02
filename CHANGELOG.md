@@ -1,3 +1,10 @@
+## 1.26.3 — 2026-09-02
+
+- **Badges de canal: cantos mais arredondados** (10→16dp) e **FrostGlass**.
+  Com o efeito ligado, o badge vira "vidro colorido fosco": mesma cor puxada
+  para ~80% (o cartão escuro aparece através), brilho de topo mais forte,
+  borda um pouco mais clara. Desligado, continua o badge sólido.
+
 ## 1.26.2 — 2026-09-02
 
 - **Botão de mudo do hero removido.** O toggle "silenciar prévia" no canto

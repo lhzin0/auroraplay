@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.SubcomposeAsyncImage
+import com.auroraplay.iptv.core.theme.LocalFrostGlass
 import kotlin.math.absoluteValue
 
 /**
@@ -38,7 +39,7 @@ fun ChannelAvatar(
     name: String,
     logoUrl: String?,
     modifier: Modifier = Modifier,
-    shape: Shape = RoundedCornerShape(12.dp),
+    shape: Shape = RoundedCornerShape(16.dp),
 ) {
     Box(modifier.clip(shape)) {
         if (logoUrl.isNullOrBlank()) {
@@ -60,20 +61,26 @@ fun ChannelAvatar(
 private fun GeneratedBadge(name: String, shape: Shape) {
     val (top, bottom) = remember(name) { badgeColors(name) }
     val label = remember(name) { monogramOf(name) }
+    // With FrostGlass on, the badge is *frosted coloured glass*: the same hue,
+    // pulled back to ~80% so the dark card reads through it, with a stronger
+    // top sheen. Off = the solid badge. Either way the corners are rounded.
+    val frosted = LocalFrostGlass.current
+    val fillAlpha = if (frosted) 0.80f else 1f
+    val sheenAlpha = if (frosted) 0.28f else 0.18f
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Brush.linearGradient(listOf(top, bottom)))
-            // Soft light from the top-left for a little depth.
+            .background(Brush.linearGradient(listOf(top.copy(alpha = fillAlpha), bottom.copy(alpha = fillAlpha))))
+            // Soft light from the top-left for a little depth / glass sheen.
             .background(
                 Brush.radialGradient(
-                    colors = listOf(Color.White.copy(alpha = 0.18f), Color.Transparent),
+                    colors = listOf(Color.White.copy(alpha = sheenAlpha), Color.Transparent),
                     center = Offset(0f, 0f),
                     radius = 240f,
                 )
             )
             // Hairline edge so the badge separates cleanly from a dark card.
-            .border(0.75.dp, Color.White.copy(alpha = 0.14f), shape),
+            .border(0.75.dp, Color.White.copy(alpha = if (frosted) 0.22f else 0.14f), shape),
         contentAlignment = Alignment.Center,
     ) {
         Text(

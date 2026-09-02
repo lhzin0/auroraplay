@@ -162,7 +162,7 @@ fun ChannelCard(
         ChannelAvatar(
             name = name,
             logoUrl = logoUrl,
-            shape = RoundedCornerShape(10.dp),
+            shape = RoundedCornerShape(16.dp),
             modifier = Modifier.size(52.dp),
         )
         Spacer(Modifier.width(12.dp))
