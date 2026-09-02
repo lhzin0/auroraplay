@@ -48,6 +48,10 @@ data class PlayerLoadState(
     val resizeMode: Int = AspectRatioFrameLayout.RESIZE_MODE_FIT,
     val currentProgramLabel: String? = null,
     val programProgress: Float? = null,
+    /** Dubbed/subtitled sibling streams of the current movie (provider split
+     * "DUBLADO" / "LEGENDADO" into separate entries). 0–1 items = nothing to
+     * switch between; the player's audio picker shows them when there are ≥2. */
+    val audioVariants: List<com.auroraplay.iptv.domain.model.AudioStreamVariant> = emptyList(),
     val loadError: String? = null,
 )
 
@@ -250,6 +254,7 @@ class PlayerViewModel @Inject constructor(
             isFavorite = isFav,
             currentProgramLabel = current?.title,
             programProgress = current?.progressFraction(),
+            audioVariants = emptyList(),
         )
     }
 
@@ -273,7 +278,19 @@ class PlayerViewModel @Inject constructor(
             nextEpisode = null,
             resumePositionMillis = saved?.positionMillis ?: 0L,
             isFavorite = isFav,
+            audioVariants = emptyList(),
         )
+
+        // Best-effort: offer the dubbed/subtitled twin as an in-player audio
+        // choice. A failure here must never break playback.
+        runCatching { contentRepository.getMovieAudioVariants(connectionId, movie.id) }
+            .getOrNull()
+            ?.takeIf { it.size >= 2 }
+            ?.let { variants ->
+                if (_loadState.value.contentId == movie.id) {
+                    _loadState.value = _loadState.value.copy(audioVariants = variants)
+                }
+            }
     }
 
     private suspend fun loadSeries(connectionId: String, contentId: String, profileId: String?) {
@@ -311,6 +328,7 @@ class PlayerViewModel @Inject constructor(
             nextEpisode = next,
             resumePositionMillis = saved?.positionMillis ?: 0L,
             isFavorite = isFav,
+            audioVariants = emptyList(),
         )
     }
 
@@ -422,6 +440,26 @@ class PlayerViewModel @Inject constructor(
         playerManager.selectSubtitleTrack(option)
         val lang = option.language
         if (lang != null) viewModelScope.launch { settingsRepository.updatePreferredSubtitleLang(lang) }
+    }
+
+    /**
+     * Switches to a dubbed/subtitled sibling stream ("DUBLADO" ⇄ "LEGENDADO")
+     * without leaving playback. Only the stream URL + resume point change;
+     * [PlayerScreenContent] re-prepares the player from there, so playback
+     * resumes at the same spot on the other audio.
+     */
+    fun selectAudioVariant(variant: com.auroraplay.iptv.domain.model.AudioStreamVariant) {
+        val state = _loadState.value
+        if (variant.streamUrl.isBlank() || variant.streamUrl == state.streamUrl) return
+        persistProgressNow()
+        val position = playerManager.currentPosition().coerceAtLeast(0L)
+        autoAdvancedForUrl = null
+        autoNextCancelledForUrl = null
+        _autoNextInSeconds.value = null
+        _loadState.value = state.copy(
+            streamUrl = variant.streamUrl,
+            resumePositionMillis = position,
+        )
     }
 
     // NOTE: the "Cinema" ambient glow no longer lives here. It used to spin up

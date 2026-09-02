@@ -19,6 +19,13 @@ interface ContentRepository {
     suspend fun getSeriesDetail(connectionId: String, seriesId: String): Series?
     suspend fun getMovieDetail(connectionId: String, movieId: String): Movie?
 
+    /**
+     * The dubbed/subtitled sibling streams of [movieId] (the "DUBLADO" /
+     * "LEGENDADO" twins a provider lists separately). Includes the given movie
+     * itself. Fewer than two entries means there is nothing to switch between.
+     */
+    suspend fun getMovieAudioVariants(connectionId: String, movieId: String): List<com.auroraplay.iptv.domain.model.AudioStreamVariant>
+
     suspend fun getLastSyncMillis(connectionId: String): Long?
 
     fun search(connectionId: String, query: String): Flow<SearchResults>

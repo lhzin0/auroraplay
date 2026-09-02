@@ -6,66 +6,97 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.auroraplay.iptv.core.theme.AuroraColors
+import com.auroraplay.iptv.domain.model.AudioStreamVariant
 import com.auroraplay.iptv.player.TrackOption
 
-/** Bottom sheet listing selectable audio tracks. */
+/**
+ * One sheet for both audio and subtitles — the two were separate before and
+ * the subtitle one had no way to be opened. "Áudio" gathers, in order:
+ *  - the dubbed/subtitled sibling streams a provider split apart
+ *    ("Dublado" / "Legendado (áudio original)"), and
+ *  - the real embedded audio tracks of the current stream.
+ * "Legendas" lists "Desativado" plus every embedded subtitle track.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AudioTrackSheet(
-    tracks: List<TrackOption>,
-    onSelect: (TrackOption) -> Unit,
+fun AudioAndSubtitlesSheet(
+    audioVariants: List<AudioStreamVariant>,
+    currentStreamUrl: String?,
+    onSelectVariant: (AudioStreamVariant) -> Unit,
+    audioTracks: List<TrackOption>,
+    onSelectAudio: (TrackOption) -> Unit,
+    subtitleTracks: List<TrackOption>,
+    subtitlesEnabled: Boolean,
+    onSelectSubtitle: (TrackOption) -> Unit,
+    onDisableSubtitles: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = AuroraColors.BackgroundElevated) {
-        Text("Áudio", style = MaterialTheme.typography.titleLarge, color = AuroraColors.TextPrimary, modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 8.dp))
-        if (tracks.isEmpty()) {
-            Text("Somente uma faixa de áudio disponível.", color = AuroraColors.TextSecondary, modifier = Modifier.padding(20.dp))
-        }
-        LazyColumn {
-            items(tracks) { track ->
-                OptionRow(label = track.label, selected = track.isSelected, onClick = { onSelect(track); onDismiss() })
+        LazyColumn(contentPadding = PaddingValues(bottom = 28.dp)) {
+            item { SheetHeader("Áudio") }
+
+            val hasVariants = audioVariants.size >= 2
+            if (hasVariants) {
+                items(audioVariants) { v ->
+                    OptionRow(
+                        label = v.label,
+                        selected = v.streamUrl == currentStreamUrl,
+                        onClick = { onSelectVariant(v); onDismiss() },
+                    )
+                }
+            }
+            if (audioTracks.size > 1) {
+                if (hasVariants) item { SheetSubHeader("Faixas deste stream") }
+                items(audioTracks) { track ->
+                    OptionRow(track.label, track.isSelected) { onSelectAudio(track); onDismiss() }
+                }
+            } else if (!hasVariants) {
+                item { SheetNote("Somente uma faixa de áudio disponível.") }
+            }
+
+            item { SheetHeader("Legendas") }
+            item { OptionRow("Desativado", !subtitlesEnabled) { onDisableSubtitles(); onDismiss() } }
+            items(subtitleTracks) { track ->
+                OptionRow(track.label, subtitlesEnabled && track.isSelected) { onSelectSubtitle(track); onDismiss() }
+            }
+            if (subtitleTracks.isEmpty()) {
+                item { SheetNote("Este conteúdo não possui legendas incorporadas.") }
             }
         }
-        Spacer(Modifier.height(24.dp))
     }
 }
 
-/** Bottom sheet listing selectable subtitle tracks, plus a "Desativado" option. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SubtitleTrackSheet(
-    tracks: List<TrackOption>,
-    subtitlesEnabled: Boolean,
-    onSelect: (TrackOption) -> Unit,
-    onDisable: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = AuroraColors.BackgroundElevated) {
-        Text("Legendas", style = MaterialTheme.typography.titleLarge, color = AuroraColors.TextPrimary, modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 8.dp))
-        LazyColumn {
-            item {
-                OptionRow(label = "Desativado", selected = !subtitlesEnabled, onClick = { onDisable(); onDismiss() })
-            }
-            items(tracks) { track ->
-                OptionRow(label = track.label, selected = subtitlesEnabled && track.isSelected, onClick = { onSelect(track); onDismiss() })
-            }
-        }
-        if (tracks.isEmpty()) {
-            Row(Modifier.padding(20.dp)) {
-                Icon(Icons.Default.Subtitles, contentDescription = null, tint = AuroraColors.TextTertiary)
-                Spacer(Modifier.width(8.dp))
-                Text("Este conteúdo não possui legendas incorporadas.", color = AuroraColors.TextSecondary)
-            }
-        }
-        Spacer(Modifier.height(24.dp))
-    }
+private fun SheetHeader(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.titleLarge,
+        color = AuroraColors.TextPrimary,
+        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 8.dp),
+    )
+}
+
+@Composable
+private fun SheetSubHeader(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelMedium,
+        color = AuroraColors.TextTertiary,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 10.dp, bottom = 4.dp),
+    )
+}
+
+@Composable
+private fun SheetNote(text: String) {
+    Text(text, color = AuroraColors.TextSecondary, modifier = Modifier.padding(20.dp))
 }
 
 private val speedOptions = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f)

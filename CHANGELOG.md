@@ -1,3 +1,31 @@
+## 1.25.12 — 2026-09-02
+
+Dublado/Legendado unificado — catálogo + seletor no player.
+
+- **Dedup no catálogo (não destrutivo).** `MetadataSanitizer` ganhou
+  `stripAudioMarkers`, `audioVariant`, `audioVariantLabel` e `variantKey`
+  (nome-base sem marcador/ano, sem acento, `[a-z0-9]` + ano). Em
+  `ContentRepositoryImpl.observeMovies` e `search`, cópias "DUBLADO" e
+  "LEGENDADO" do mesmo filme colapsam numa linha só (fica a dublada quando
+  existe, senão a primeira), preservando a ordem. Só junta quando **ambas**
+  estão marcadas — dois filmes diferentes de mesmo nome sem ano nunca são
+  escondidos. O banco mantém todas as linhas: favorito/"continuar
+  assistindo" no gêmeo oculto ainda abre. Home, grade de Filmes e Busca
+  herdam o efeito (todos passam por `observeMovies`).
+- **Nome limpo.** `MovieEntity.toDomain`/`SeriesEntity.toDomain` removem o
+  sufixo "- DUBLADO" / "(Legendado)" / "[L]" do nome exibido; a linha
+  guardada no banco mantém o marcador (o dedup e o player precisam dele).
+- **Seletor no player.** Novo `AudioAndSubtitlesSheet` (uma folha só —
+  a de legendas antes era inalcançável). Seção **Áudio**: primeiro as
+  faixas-irmãs de stream ("Dublado" / "Legendado (áudio original)"),
+  depois as faixas de áudio embutidas; seção **Legendas**: "Desativado" +
+  faixas embutidas. `PlayerViewModel.selectAudioVariant` troca a URL do
+  stream mantendo a posição (via `resumePositionMillis`, o
+  `PlayerScreenContent` reprepara dali). Ação "Áudio" na barra aparece
+  quando há faixas extras, legendas OU um gêmeo dublado/legendado.
+- `ContentRepository.getMovieAudioVariants` resolve os gêmeos por
+  `variantKey` (busca LIKE limitada pela palavra mais longa do título).
+
 ## 1.25.11 — 2026-09-02
 
 FrostGlass — efeito de vidro fosco com toggle (Configurações › Interface).

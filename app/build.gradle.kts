@@ -19,8 +19,8 @@ android {
         //   x.x.PATCH  -> bug fixes only
         //   x.MINOR.x  -> larger updates (new features, redesigns)
         // versionCode increments monotonically on every release.
-        versionCode = 63
-        versionName = "1.25.11"
+        versionCode = 64
+        versionName = "1.25.12"
         // Default application credential for automatic metadata and official
         // trailers. It is intentionally kept out of the settings UI.
         buildConfigField("String", "TMDB_API_KEY", "\"b89b1d7fe6f14b4825f390e3db639b16\"")
@@ -54,7 +54,10 @@ android {
     }
     kotlinOptions {
         jvmTarget = "17"
-        freeCompilerArgs = freeCompilerArgs + "-opt-in=kotlin.RequiresOptIn"
+        freeCompilerArgs = freeCompilerArgs + listOf(
+            "-opt-in=kotlin.RequiresOptIn",
+            "-Xannotation-default-target=param-property"
+        )
     }
 
     packaging {

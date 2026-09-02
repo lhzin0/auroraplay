@@ -79,7 +79,9 @@ fun VodStreamDto.toEntity(connectionId: String, categoryName: String, urlBuilder
 fun MovieEntity.toDomain() = Movie(
     id = id,
     connectionId = connectionId,
-    name = name,
+    // The stored name keeps any "- DUBLADO" / "(Legendado)" tag (the catalog
+    // dedup and the player's audio picker need it); the display name drops it.
+    name = MetadataSanitizer.stripAudioMarkers(name),
     posterUrl = posterUrl,
     backdropUrl = backdropUrl,
     categoryId = categoryId,
@@ -111,7 +113,7 @@ fun SeriesDto.toEntity(connectionId: String, categoryName: String) = SeriesEntit
 fun SeriesEntity.toDomain() = Series(
     id = id,
     connectionId = connectionId,
-    name = name,
+    name = MetadataSanitizer.stripAudioMarkers(name),
     posterUrl = posterUrl,
     backdropUrl = backdropUrl,
     categoryId = categoryId,

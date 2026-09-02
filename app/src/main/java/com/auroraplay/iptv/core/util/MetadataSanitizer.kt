@@ -93,6 +93,77 @@ object MetadataSanitizer {
         return value.ifEmpty { raw?.trim().orEmpty() }
     }
 
+    // ---- Dubbed / subtitled variant handling -------------------------------
+    //
+    // Xtream providers routinely list the *same* movie twice, once dubbed and
+    // once subtitled, tagging the title: "Duna - DUBLADO" / "Duna LEG",
+    // "Oppenheimer (Legendado)", "Wonka [D]". The catalog collapses these to
+    // one tile and the player offers the twin as a "Dublado / Legendado"
+    // audio choice.
+
+    enum class AudioVariant { DUBLADO, LEGENDADO, DESCONHECIDO }
+
+    // Unambiguous full words — safe to strip even when only space-separated
+    // ("Duna Dublado", "Wonka Legendado").
+    private const val STRONG_MARKER = "dublado|dublada|dublagem|legendado|legendada|dual\\s?[aá]udio|dual\\s?audio"
+    // Short abbreviations / common words — only stripped when bracketed or
+    // after a real separator, so a genuine title word ("Break a Leg", "Hino
+    // Nacional", "Nightclub", initials) is never eaten.
+    private const val WEAK_MARKER = "dub|leg|legenda|sub|subbed|dual|nacional|nac|l|d"
+
+    // Trailing-only on purpose: a leading/median match risks a false positive.
+    private val TRAILING_AUDIO_MARKER = Regex(
+        "(?i)(?:" +
+            "\\s*[\\[({|/–-]+\\s*($STRONG_MARKER|$WEAK_MARKER)\\s*[\\])}|/–-]*" +
+            "|\\s+($STRONG_MARKER)" +
+            ")\\s*$"
+    )
+    private val DUB_TOKENS = setOf("dublado", "dublada", "dublagem", "dub", "dual", "dualaudio", "nacional", "nac", "d")
+
+    /** Removes a trailing "- DUBLADO" / "(Legendado)" / "[L]"-style tag (up to two). */
+    fun stripAudioMarkers(raw: String?): String {
+        var value = raw?.trim().orEmpty()
+        repeat(2) {
+            val stripped = value.replace(TRAILING_AUDIO_MARKER, "").trim(' ', '-', '–', '|', '/', '.', ':')
+            if (stripped == value || stripped.isEmpty()) return@repeat
+            value = stripped
+        }
+        return value.ifEmpty { raw?.trim().orEmpty() }
+    }
+
+    /** Classifies a raw provider title as dubbed / subtitled / unknown. */
+    fun audioVariant(raw: String?): AudioVariant {
+        val m = TRAILING_AUDIO_MARKER.find(raw?.trim().orEmpty()) ?: return AudioVariant.DESCONHECIDO
+        val token = m.groupValues[1].ifBlank { m.groupValues[2] }
+            .lowercase().replace(" ", "").replace("á", "a")
+        return if (token in DUB_TOKENS) AudioVariant.DUBLADO else AudioVariant.LEGENDADO
+    }
+
+    /** A short label for the [audioVariant] of a raw title, for the player's
+     * audio picker. */
+    fun audioVariantLabel(raw: String?): String = when (audioVariant(raw)) {
+        AudioVariant.DUBLADO -> "Dublado"
+        AudioVariant.LEGENDADO -> "Legendado (áudio original)"
+        AudioVariant.DESCONHECIDO -> "Original"
+    }
+
+    /**
+     * Identity key that is equal for the dubbed and subtitled copies of one
+     * title: sanitized base name (markers + year removed), accent-folded and
+     * reduced to [a-z0-9], plus the year when known.
+     */
+    fun variantKey(raw: String?, year: String?): String {
+        val base = stripAudioMarkers(title(raw))
+            .lowercase()
+            .let { foldAccents(it) }
+            .replace(Regex("[^a-z0-9]+"), "")
+        return base + "|" + (year?.trim().orEmpty())
+    }
+
+    private fun foldAccents(s: String): String =
+        java.text.Normalizer.normalize(s, java.text.Normalizer.Form.NFD)
+            .replace(Regex("\\p{Mn}+"), "")
+
     /** Treats blank/"null"/"N/A" server strings as genuinely absent. */
     fun text(raw: String?): String? {
         val value = raw?.trim().orEmpty()

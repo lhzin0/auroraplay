@@ -10,6 +10,7 @@ import com.auroraplay.iptv.data.database.dao.ConnectionDao
 import com.auroraplay.iptv.data.database.dao.EpisodeDao
 import com.auroraplay.iptv.data.database.dao.MovieDao
 import com.auroraplay.iptv.data.database.dao.SeriesDao
+import com.auroraplay.iptv.data.database.entity.MovieEntity
 import com.auroraplay.iptv.data.datastore.SecureCredentialStore
 import com.auroraplay.iptv.data.mapper.toDomain
 import com.auroraplay.iptv.data.mapper.toEntity
@@ -17,6 +18,7 @@ import com.auroraplay.iptv.domain.model.Category
 import com.auroraplay.iptv.domain.model.Channel
 import com.auroraplay.iptv.domain.model.ContentType
 import com.auroraplay.iptv.domain.model.Episode
+import com.auroraplay.iptv.domain.model.AudioStreamVariant
 import com.auroraplay.iptv.domain.model.Movie
 import com.auroraplay.iptv.domain.model.Season
 import com.auroraplay.iptv.domain.model.Series
@@ -124,8 +126,47 @@ class ContentRepositoryImpl @Inject constructor(
             .flowOn(Dispatchers.Default)
 
     override fun observeMovies(connectionId: String, categoryId: String?): Flow<List<Movie>> =
-        movieDao.observe(connectionId, categoryId).map { list -> list.map { it.toDomain() } }
+        movieDao.observe(connectionId, categoryId)
+            .map { list -> list.collapseAudioVariants().map { it.toDomain() } }
             .flowOn(Dispatchers.Default)
+
+    /**
+     * Collapses a provider's dubbed + subtitled copies of one movie ("Duna
+     * DUBLADO" / "Duna LEG") to a single row — keeps the dubbed one when
+     * present, else the first seen — preserving the original ordering. Only
+     * merges rows that are *both* explicitly dub/sub-tagged, so two genuinely
+     * different films sharing a title (and lacking a year to disambiguate) are
+     * never hidden. Non-destructive: every row still exists in the DB, so a
+     * favourite / "continuar assistindo" entry on the hidden twin still opens.
+     */
+    private fun List<MovieEntity>.collapseAudioVariants(): List<MovieEntity> {
+        if (size < 2) return this
+        val slotOf = HashMap<String, Int>()
+        val out = ArrayList<MovieEntity>(size)
+        for (movie in this) {
+            val key = MetadataSanitizer.variantKey(movie.name, movie.year)
+            val slot = slotOf[key]
+            if (slot == null) {
+                slotOf[key] = out.size
+                out += movie
+                continue
+            }
+            val keptTag = MetadataSanitizer.audioVariant(out[slot].name)
+            val tag = MetadataSanitizer.audioVariant(movie.name)
+            if (tag == MetadataSanitizer.AudioVariant.DESCONHECIDO ||
+                keptTag == MetadataSanitizer.AudioVariant.DESCONHECIDO
+            ) {
+                out += movie
+                continue
+            }
+            if (keptTag != MetadataSanitizer.AudioVariant.DUBLADO &&
+                tag == MetadataSanitizer.AudioVariant.DUBLADO
+            ) {
+                out[slot] = movie
+            }
+        }
+        return out
+    }
 
     override fun observeSeries(connectionId: String, categoryId: String?): Flow<List<Series>> =
         seriesDao.observe(connectionId, categoryId).map { list -> list.map { it.toDomain() } }
@@ -215,6 +256,29 @@ class ContentRepositoryImpl @Inject constructor(
         return entity.toDomain()
     }
 
+    override suspend fun getMovieAudioVariants(connectionId: String, movieId: String): List<AudioStreamVariant> {
+        val movie = movieDao.getById(connectionId, movieId) ?: return emptyList()
+        val key = MetadataSanitizer.variantKey(movie.name, movie.year)
+        // Bound the candidate set with a LIKE on the longest base-title word,
+        // then keep only exact variantKey matches.
+        val probe = MetadataSanitizer.stripAudioMarkers(movie.name)
+            .split(Regex("\\s+")).maxByOrNull { it.length }?.takeIf { it.length >= 3 } ?: movie.name
+        val group = (runCatching { movieDao.search(connectionId, probe) }.getOrDefault(emptyList()) + movie)
+            .distinctBy { it.id }
+            .filter { MetadataSanitizer.variantKey(it.name, it.year) == key }
+        if (group.size < 2) return emptyList()
+        return group
+            .map {
+                AudioStreamVariant(
+                    label = MetadataSanitizer.audioVariantLabel(it.name),
+                    streamUrl = it.streamUrl,
+                    variant = MetadataSanitizer.audioVariant(it.name),
+                )
+            }
+            .distinctBy { it.streamUrl }
+            .sortedBy { it.variant.ordinal }
+    }
+
     override suspend fun getLastSyncMillis(connectionId: String): Long? =
         connectionDao.getById(connectionId)?.lastSyncMillis
 
@@ -224,7 +288,7 @@ class ContentRepositoryImpl @Inject constructor(
             return@flow
         }
         val channels = channelDao.search(connectionId, query).map { it.toDomain() }
-        val movies = movieDao.search(connectionId, query).map { it.toDomain() }
+        val movies = movieDao.search(connectionId, query).collapseAudioVariants().map { it.toDomain() }
         val series = seriesDao.search(connectionId, query).map { it.toDomain() }
         emit(SearchResults(channels, movies, series))
     }

@@ -29,7 +29,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -134,7 +133,7 @@ fun PlayerScreen(
     val seekSeconds by viewModel.seekSeconds.collectAsState()
     val scrubThumbnail by viewModel.scrubThumbnail.collectAsState()
     val autoNextInSeconds by viewModel.autoNextInSeconds.collectAsState()
-    var cinematicModeEnabled by remember { mutableStateOf(false) }
+    var cinematicModeEnabled by remember { mutableStateOf(value = false) }
     // The on-screen video surface (a TextureView — see player_surface.xml) and
     // the latest ambient-glow sample taken from it. Kept here, not in the
     // ViewModel: capturing an already-rendered frame is a local, decoder-free
@@ -147,8 +146,9 @@ fun PlayerScreen(
     var isLocked by remember { mutableStateOf(false) }
     var showChannelList by remember { mutableStateOf(false) }
     var showChannelEpg by remember { mutableStateOf(false) }
-    var showAudioSheet by remember { mutableStateOf(false) }
-    var showSubtitleSheet by remember { mutableStateOf(false) }
+    // One combined Áudio + Legendas sheet (the subtitle one used to be
+    // unreachable). Also carries the Dublado/Legendado stream switch.
+    var showAudioSubsSheet by remember { mutableStateOf(false) }
     var showSpeedSheet by remember { mutableStateOf(false) }
     // Three-dots panel with the secondary settings (speed, aspect).
     var showSettingsSheet by remember { mutableStateOf(false) }
@@ -224,10 +224,10 @@ fun PlayerScreen(
         val tv = videoTextureView ?: return@LaunchedEffect
         while (true) {
             val shot = runCatching {
-                if (tv.isAvailable && tv.width > 0 && tv.height > 0) tv.getBitmap(192, 108) else null
+                if (tv.isAvailable && (tv.width > 0 && tv.height > 0)) tv.getBitmap(192, 108) else null
             }.getOrNull()
             if (shot != null) cinematicFrame = shot
-            delay(900)
+            delay(900.milliseconds)
         }
     }
 
@@ -257,7 +257,7 @@ fun PlayerScreen(
 
                         val x = offset.x / size.width.coerceAtLeast(1)
                         val y = offset.y / size.height.coerceAtLeast(1)
-                        if (y < 0.22f || y > 0.78f) return@detectTapGestures
+                        if (y !in 0.22f..0.78f) return@detectTapGestures
 
                         val forward = when {
                             x >= 0.75f -> true
@@ -280,6 +280,7 @@ fun PlayerScreen(
                     pinchAccumulator *= zoom
                     when {
                         pinchAccumulator > 1.25f -> {
+                            @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
                             viewModel.setResizeMode(androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM)
                             toastLabel = "Preenchendo a tela"
                             pinchAccumulator = 1f
@@ -333,7 +334,7 @@ fun PlayerScreen(
         // surface may remain opaque. The video itself is never covered.
         val frame = cinematicFrame
         val frameUsable = frame != null && !frame.isRecycled && frame.width > 0 && frame.height > 0
-        if (cinematicModeEnabled && frameUsable && frame != null &&
+        if (cinematicModeEnabled && frameUsable &&
             playbackState.videoWidth > 0 && playbackState.videoHeight > 0 &&
             loadState.resizeMode == androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT) {
             CinematicBarsOverlay(
@@ -448,7 +449,9 @@ fun PlayerScreen(
                     isCasting = playbackState.isCasting,
                     castDeviceName = playbackState.castDeviceName,
                     hasNextEpisode = loadState.nextEpisode != null,
-                    hasMultipleAudio = playbackState.availableAudioTracks.size > 1,
+                    hasAudioMenu = playbackState.availableAudioTracks.size > 1 ||
+                        playbackState.availableSubtitleTracks.isNotEmpty() ||
+                        loadState.audioVariants.size >= 2,
                     currentProgramLabel = loadState.currentProgramLabel,
                     programProgress = loadState.programProgress,
                     seekSeconds = seekSeconds,
@@ -491,7 +494,7 @@ fun PlayerScreen(
                             androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
                         )
                     },
-                    onOpenAudio = { showAudioSheet = true },
+                    onOpenAudio = { showAudioSubsSheet = true },
                     onSkipIntro = { viewModel.playerManager.skipIntro() },
                 )
             }
@@ -515,20 +518,18 @@ fun PlayerScreen(
             )
         }
 
-        if (showAudioSheet) {
-            AudioTrackSheet(
-                tracks = playbackState.availableAudioTracks,
-                onSelect = { viewModel.selectAudioTrack(it) },
-                onDismiss = { showAudioSheet = false },
-            )
-        }
-        if (showSubtitleSheet) {
-            SubtitleTrackSheet(
-                tracks = playbackState.availableSubtitleTracks,
+        if (showAudioSubsSheet) {
+            AudioAndSubtitlesSheet(
+                audioVariants = loadState.audioVariants,
+                currentStreamUrl = loadState.streamUrl,
+                onSelectVariant = { viewModel.selectAudioVariant(it) },
+                audioTracks = playbackState.availableAudioTracks,
+                onSelectAudio = { viewModel.selectAudioTrack(it) },
+                subtitleTracks = playbackState.availableSubtitleTracks,
                 subtitlesEnabled = playbackState.subtitlesEnabled,
-                onSelect = { viewModel.selectSubtitleTrack(it) },
-                onDisable = { viewModel.playerManager.disableSubtitles() },
-                onDismiss = { showSubtitleSheet = false },
+                onSelectSubtitle = { viewModel.selectSubtitleTrack(it) },
+                onDisableSubtitles = { viewModel.playerManager.disableSubtitles() },
+                onDismiss = { showAudioSubsSheet = false },
             )
         }
         if (showSpeedSheet) {
@@ -640,10 +641,10 @@ private fun CinematicBarImage(
  * current level reads at a glance and there is an obvious thing to drag. */
 @Composable
 private fun VerticalMiniSlider(
+    modifier: Modifier = Modifier,
     value: Float,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     onDrag: (delta: Float) -> Unit,
-    modifier: Modifier = Modifier,
     width: androidx.compose.ui.unit.Dp = 52.dp,
     height: androidx.compose.ui.unit.Dp = 200.dp,
 ) {
@@ -714,7 +715,7 @@ private fun PlayerControlsOverlay(
     isCasting: Boolean,
     castDeviceName: String?,
     hasNextEpisode: Boolean,
-    hasMultipleAudio: Boolean,
+    hasAudioMenu: Boolean,
     currentProgramLabel: String?,
     programProgress: Float?,
     isFavorite: Boolean,
@@ -869,7 +870,7 @@ private fun PlayerControlsOverlay(
                                 ) {
                                     val frame = scrubThumbnail
                                     if (frame != null) {
-                                        androidx.compose.foundation.Image(
+                                        Image(
                                             bitmap = frame.asImageBitmap(),
                                             contentDescription = null,
                                             contentScale = ContentScale.Crop,
@@ -986,7 +987,7 @@ private fun PlayerControlsOverlay(
                 // landscape navigation/cutout insets.
                 val actionCount =
                     (if (isLive) 3 else 0) +
-                    (if (hasMultipleAudio) 1 else 0) +
+                    (if (hasAudioMenu) 1 else 0) +
                     1 + // Bloquear
                     1 + // Cinema
                     (if (hasNextEpisode) 1 else 0)
@@ -1015,7 +1016,7 @@ private fun PlayerControlsOverlay(
                             PlayerBottomAction(Icons.AutoMirrored.Filled.ViewList, "Canais", onClick = onShowChannelList, modifier = slot)
                             PlayerBottomAction(Icons.Default.CalendarMonth, "Programação", onClick = onShowEpg, modifier = slot)
                         }
-                        if (hasMultipleAudio) {
+                        if (hasAudioMenu) {
                             PlayerBottomAction(Icons.Default.Audiotrack, "Áudio", onClick = onOpenAudio, modifier = slot)
                         }
                         PlayerBottomAction(Icons.Default.Lock, "Bloquear", onClick = onLock, modifier = slot)
@@ -1483,7 +1484,11 @@ private fun PlayerBottomAction(
 private const val SKIP_INTRO_WINDOW_MILLIS = 5 * 60_000L
 
 @Composable
-private fun ControlPill(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
+private fun ControlPill(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit,
+    text: String = "Pular introdução",
+) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
