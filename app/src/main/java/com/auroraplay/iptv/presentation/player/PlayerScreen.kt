@@ -603,11 +603,13 @@ private fun averageRegionColor(bmp: android.graphics.Bitmap, topHalf: Boolean): 
 }
 
 /**
- * Ambient glow drawn only inside the letterbox area created by FIT — a soft
- * gradient built from the frame's top/bottom average colour, bleeding in from
- * the screen edge toward the video. Both colours are tweened on the way in, so
- * on top of the sampler's moving average nothing about it can jump: a hard cut
- * just glides the light over ~1.5s. The video rectangle is never covered.
+ * Ambient glow hugging all four edges of the screen — a soft colour bleeding
+ * inward from every edge, sized to the real letterbox on that axis (with a
+ * small minimum so the top/bottom always catch some light even when the video
+ * fills that dimension). The colour is the frame's top/bottom average, tweened
+ * on the way in on top of the sampler's moving average, so a hard cut just
+ * glides the light. The video rectangle itself stays essentially untouched
+ * (only the outermost few dp pick up a faint vignette).
  */
 @Composable
 private fun CinematicBarsOverlay(
@@ -626,47 +628,36 @@ private fun CinematicBarsOverlay(
         animationSpec = tween(1400, easing = androidx.compose.animation.core.LinearOutSlowInEasing),
         label = "cinemaBottom",
     )
-    // Cap the intensity so the glow stays a hint, never a second picture.
     val glowTop = animTop.copy(alpha = 0.55f)
     val glowBottom = animBottom.copy(alpha = 0.55f)
+    val glowSide = androidx.compose.ui.graphics.lerp(glowTop, glowBottom, 0.5f)
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val videoAspect = videoWidth.toFloat() / videoHeight.toFloat().coerceAtLeast(1f)
-        val screenAspect = maxWidth.value / maxHeight.value.coerceAtLeast(1f)
-        val topBottomBars = videoAspect > screenAspect
+        val videoAspect = (videoWidth.toFloat() / videoHeight.toFloat()).coerceIn(0.2f, 5f)
+        // How big the video actually renders under FIT, and the leftover gap
+        // on each axis.
+        val renderedW = minOf(maxWidth, maxHeight * videoAspect)
+        val renderedH = minOf(maxHeight, maxWidth / videoAspect)
+        val minEdge = 16.dp
+        val barW = ((maxWidth - renderedW) / 2f).coerceAtLeast(0.dp).coerceAtLeast(minEdge)
+        val barH = ((maxHeight - renderedH) / 2f).coerceAtLeast(0.dp).coerceAtLeast(minEdge)
 
-        if (topBottomBars) {
-            val renderedVideoHeight = maxWidth / videoAspect
-            val barHeight = ((maxHeight - renderedVideoHeight) / 2f).coerceAtLeast(0.dp)
-            Column(Modifier.fillMaxSize()) {
-                Box(
-                    Modifier.fillMaxWidth().height(barHeight)
-                        .background(Brush.verticalGradient(listOf(glowTop, Color.Transparent)))
-                )
-                Spacer(Modifier.fillMaxWidth().weight(1f))
-                Box(
-                    Modifier.fillMaxWidth().height(barHeight)
-                        .background(Brush.verticalGradient(listOf(Color.Transparent, glowBottom)))
-                )
-            }
-        } else {
-            val renderedVideoWidth = maxHeight * videoAspect
-            val barWidth = ((maxWidth - renderedVideoWidth) / 2f).coerceAtLeast(0.dp)
-            // Side bars mirror the frame's vertical colour split, fading toward
-            // the video edge.
-            val leftBrush = Brush.verticalGradient(listOf(glowTop, glowBottom))
-            Row(Modifier.fillMaxSize()) {
-                Box(
-                    Modifier.fillMaxHeight().width(barWidth).background(leftBrush)
-                        .background(Brush.horizontalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.28f))))
-                )
-                Spacer(Modifier.fillMaxHeight().weight(1f))
-                Box(
-                    Modifier.fillMaxHeight().width(barWidth).background(leftBrush)
-                        .background(Brush.horizontalGradient(listOf(Color.Black.copy(alpha = 0.28f), Color.Transparent)))
-                )
-            }
-        }
+        Box(
+            Modifier.align(Alignment.TopCenter).fillMaxWidth().height(barH)
+                .background(Brush.verticalGradient(listOf(glowTop, Color.Transparent)))
+        )
+        Box(
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(barH)
+                .background(Brush.verticalGradient(listOf(Color.Transparent, glowBottom)))
+        )
+        Box(
+            Modifier.align(Alignment.CenterStart).fillMaxHeight().width(barW)
+                .background(Brush.horizontalGradient(listOf(glowSide, Color.Transparent)))
+        )
+        Box(
+            Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(barW)
+                .background(Brush.horizontalGradient(listOf(Color.Transparent, glowSide)))
+        )
     }
 }
 

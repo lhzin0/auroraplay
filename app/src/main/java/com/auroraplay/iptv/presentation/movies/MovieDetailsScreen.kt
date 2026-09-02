@@ -2,6 +2,8 @@ package com.auroraplay.iptv.presentation.movies
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -85,7 +87,7 @@ fun MovieDetailsScreen(
                             DetailMediaPager(
                                 title = movie.name,
                                 backdropUrl = movie.backdropUrl ?: movie.posterUrl,
-                                subtitle = listOfNotNull(movie.year, movie.genre).joinToString("  •  ").ifBlank { null },
+                                subtitle = listOfNotNull(movie.year, movie.genre, movie.audioLabel).joinToString("  •  ").ifBlank { null },
                                 trailerYoutubeId = state.trailerYoutubeId,
                             )
                         }
@@ -105,6 +107,18 @@ fun MovieDetailsScreen(
                                 genre = movie.genre,
                                 quality = "HD",
                             )
+                            movie.audioLabel?.let { label ->
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    label,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f))
+                                        .padding(horizontal = 8.dp, vertical = 2.dp),
+                                )
+                            }
 
                             Spacer(Modifier.height(18.dp))
                             // "Minha lista" sits right beside "Assistir" (matching

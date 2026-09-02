@@ -150,6 +150,11 @@ object MetadataSanitizer {
         "(?i)(?<![\\p{L}])(dublad[oa]s?|dublagem|dubbed|dub|nacion(?:al|ais)|dual\\s*[aá]?udio?|dual|\\[\\s*d\\s*]|\\(\\s*d\\s*\\)|\\[\\s*dub\\s*])(?![\\p{L}])"
     )
 
+    /** "Legendado" when [audioVariantFrom] says so, else null — a ready label
+     * for the detail page so a viewer isn't surprised by subtitles. */
+    fun audioLabelOf(name: String?, categoryName: String?): String? =
+        if (audioVariantFrom(name, categoryName) == AudioVariant.LEGENDADO) "Legendado" else null
+
     /**
      * Classifies a movie as dubbed / subtitled / unknown from its title AND
      * its category name — providers often mark only one of the two ("Duna"

@@ -12,6 +12,9 @@ data class Series(
     val genre: String?,
     val plot: String?,
     val rating: Double?,
+    /** "Legendado" when the provider only offers a subtitled version — shown
+     * on the detail page so nobody expects dubbed audio. null otherwise. */
+    val audioLabel: String? = null,
     val isFavorite: Boolean = false,
     val addedAtMillis: Long = 0L,
     val seasons: List<Season> = emptyList(),

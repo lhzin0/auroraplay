@@ -1,3 +1,19 @@
+## 1.26.4 — 2026-09-02
+
+- **Modo Cinema — brilho nas quatro bordas.** Antes só preenchia a tarja de
+  um eixo (a de cima/baixo ficava preta enquanto as laterais brilhavam).
+  Agora desenha o brilho hugando os quatro lados, do tamanho da tarja real
+  de cada eixo, com um mínimo de 16dp para que topo e base sempre peguem uma
+  luz de ambiente.
+- **Selo "Legendado".** Séries/filmes que o provedor só oferece legendado
+  agora mostram um selo "Legendado" na página de detalhes (linha de
+  metadados + no banner), para não gerar confusão sobre o áudio agora que o
+  catálogo unifica dublado/legendado. Detectado por título + categoria
+  (`MetadataSanitizer.audioLabelOf` → `Movie.audioLabel` / `Series.audioLabel`).
+- **Ano no título.** "(2026)" que sobrava no nome quando vinha *antes* de um
+  marcador ("... (2026) LEGENDADO") agora é removido — `toDomain` re-roda o
+  `title()` depois de tirar o marcador.
+
 ## 1.26.3 — 2026-09-02
 
 - **Badges de canal: cantos mais arredondados** (10→16dp) e **FrostGlass**.

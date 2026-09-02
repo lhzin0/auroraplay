@@ -95,22 +95,44 @@ fun SeriesDetailsScreen(
                             DetailMediaPager(
                                 title = series.name,
                                 backdropUrl = series.backdropUrl ?: series.posterUrl,
-                                subtitle = listOfNotNull(series.year, series.genre, "${series.seasons.size} temporada(s)").joinToString("  •  "),
+                                subtitle = listOfNotNull(series.year, series.genre, "${series.seasons.size} temporada(s)", series.audioLabel).joinToString("  •  "),
                                 trailerYoutubeId = state.trailerYoutubeId,
                             )
                         }
                     }
                     item {
                         Column(Modifier.padding(horizontal = 20.dp)) {
-                            Text(series.name, style = MaterialTheme.typography.headlineMedium, color = AuroraColors.TextPrimary)
+                            Text(
+                                series.name,
+                                style = MaterialTheme.typography.headlineMedium,
+                                color = AuroraColors.TextPrimary,
+                                maxLines = 3,
+                                overflow = TextOverflow.Ellipsis,
+                            )
                             Spacer(Modifier.height(8.dp))
                             val metaLine = listOfNotNull(series.year, series.genre, "${series.seasons.size} temporada(s)")
-                            if (metaLine.isNotEmpty()) {
-                                Text(
-                                    text = metaLine.joinToString("  •  "),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = AuroraColors.TextSecondary,
-                                )
+                            if (metaLine.isNotEmpty() || series.audioLabel != null) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    if (metaLine.isNotEmpty()) {
+                                        Text(
+                                            text = metaLine.joinToString("  •  "),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = AuroraColors.TextSecondary,
+                                        )
+                                    }
+                                    series.audioLabel?.let { label ->
+                                        if (metaLine.isNotEmpty()) Spacer(Modifier.width(8.dp))
+                                        Text(
+                                            label,
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f))
+                                                .padding(horizontal = 8.dp, vertical = 2.dp),
+                                        )
+                                    }
+                                }
                             }
                             Spacer(Modifier.height(16.dp))
 

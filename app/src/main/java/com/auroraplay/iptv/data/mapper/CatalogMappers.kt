@@ -80,8 +80,10 @@ fun MovieEntity.toDomain() = Movie(
     id = id,
     connectionId = connectionId,
     // The stored name keeps any "- DUBLADO" / "(Legendado)" tag (the catalog
-    // dedup and the player's audio picker need it); the display name drops it.
-    name = MetadataSanitizer.stripAudioMarkers(name),
+    // dedup needs it); the display name drops it — and then re-runs title()
+    // so a "(2026)" that was only trailing *after* the tag also comes off.
+    name = MetadataSanitizer.title(MetadataSanitizer.stripAudioMarkers(name)),
+    audioLabel = MetadataSanitizer.audioLabelOf(name, categoryName),
     posterUrl = posterUrl,
     backdropUrl = backdropUrl,
     categoryId = categoryId,
@@ -113,7 +115,8 @@ fun SeriesDto.toEntity(connectionId: String, categoryName: String) = SeriesEntit
 fun SeriesEntity.toDomain() = Series(
     id = id,
     connectionId = connectionId,
-    name = MetadataSanitizer.stripAudioMarkers(name),
+    name = MetadataSanitizer.title(MetadataSanitizer.stripAudioMarkers(name)),
+    audioLabel = MetadataSanitizer.audioLabelOf(name, categoryName),
     posterUrl = posterUrl,
     backdropUrl = backdropUrl,
     categoryId = categoryId,

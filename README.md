@@ -69,11 +69,21 @@ app/src/main/java/com/auroraplay/iptv/
 
 ## Versão atual
 
-**1.26.3** — `versionCode 73`. Badges de canal com cantos mais arredondados e
-FrostGlass (vidro colorido fosco quando o efeito está ligado). Antes (1.26.2):
-monograma usa o número do canal, botão de mudo do hero removido.
+**1.26.4** — `versionCode 74`. Modo Cinema agora brilha nas quatro bordas
+(topo/base não ficam mais pretas); séries/filmes só-legendado ganham um selo
+"Legendado" nos detalhes; "(2026)" que sobrava no título quando vinha antes de
+um marcador foi removido. Antes (1.26.3): badges de canal com FrostGlass.
 
 ## Novidades desta revisão
+
+### 1.26.4 — 2026-09-02
+
+- **Modo Cinema:** brilho nas 4 bordas (mínimo 16dp) — topo e base pegam luz
+  também.
+- **Selo "Legendado"** na página de detalhes de séries/filmes só-legendado
+  (`Movie.audioLabel` / `Series.audioLabel`), para não confundir com o áudio.
+- **Ano no título:** "(2026)" antes de um marcador ("... (2026) LEGENDADO")
+  agora é removido.
 
 ### 1.26.3 — 2026-09-02
 
