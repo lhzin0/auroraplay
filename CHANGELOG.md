@@ -1,3 +1,13 @@
+## 1.25.9 — 2026-09-02
+
+- **Contador discreto de "próximo episódio"** no player. Quando o avanço
+  automático está armado (últimos ~40s de um episódio de série, com a opção
+  ligada), aparece uma pílula pequena no canto inferior direito: "Próximo
+  ep. em Ns" + "Cancelar". Fica visível com ou sem os controles, afastada
+  das áreas de gesto (`displayCutoutPadding` + `navigationBarsPadding`), e o
+  ticker de posição passa a 1s enquanto ela conta para não pular segundos.
+  "Cancelar" desliga o avanço só para o episódio atual.
+
 ## 1.25.8 — 2026-08-31
 
 Refino do player (preservando o design atual) + episódio automático.

@@ -125,6 +125,7 @@ fun PlayerScreen(
     val seekSeconds by viewModel.seekSeconds.collectAsState()
     val scrubThumbnail by viewModel.scrubThumbnail.collectAsState()
     val cinematicFrame by viewModel.cinematicFrame.collectAsState()
+    val autoNextInSeconds by viewModel.autoNextInSeconds.collectAsState()
     var cinematicModeEnabled by remember { mutableStateOf(false) }
 
     var controlsVisible by remember { mutableStateOf(true) }
@@ -168,8 +169,12 @@ fun PlayerScreen(
     // resume instantly when the controls reappear, without forcing the whole
     // player tree to re-evaluate twice a second through the stretch the
     // decoder wants the CPU to itself.
-    LaunchedEffect(loadState.streamUrl, controlsVisible, isScrubbing) {
-        val intervalMs = if (controlsVisible || isScrubbing) 500L else 2000L
+    LaunchedEffect(loadState.streamUrl, controlsVisible, isScrubbing, autoNextInSeconds != null) {
+        val intervalMs = when {
+            autoNextInSeconds != null -> 1000L      // keep the countdown ticking smoothly
+            controlsVisible || isScrubbing -> 500L
+            else -> 2000L
+        }
         while (true) {
             viewModel.refreshPosition()
             delay(intervalMs)
@@ -324,6 +329,46 @@ fun PlayerScreen(
                         .align(if (seekForward) Alignment.CenterEnd else Alignment.CenterStart)
                         .fillMaxWidth(0.5f)
                         .wrapContentWidth(Alignment.CenterHorizontally),
+                )
+            }
+        }
+
+        // Discreet "jumping to the next episode" countdown — bottom-right,
+        // always visible (controls up or not), clear of the gesture areas.
+        val autoNextSecs = autoNextInSeconds
+        if (!isLocked && autoNextSecs != null) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .displayCutoutPadding()
+                    .navigationBarsPadding()
+                    .padding(end = 20.dp, bottom = if (controlsVisible) 100.dp else 22.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(Color.Black.copy(alpha = 0.6f))
+                    .padding(start = 12.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+            ) {
+                Icon(
+                    Icons.Default.SkipNext,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.9f),
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(Modifier.width(7.dp))
+                Text(
+                    "Próximo ep. em ${autoNextSecs}s",
+                    color = Color.White,
+                    style = MaterialTheme.typography.labelMedium,
+                )
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    "Cancelar",
+                    color = Color.White.copy(alpha = 0.75f),
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { viewModel.cancelAutoNext() }
+                        .padding(horizontal = 8.dp, vertical = 3.dp),
                 )
             }
         }

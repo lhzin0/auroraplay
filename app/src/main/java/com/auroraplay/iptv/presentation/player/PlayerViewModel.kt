@@ -93,25 +93,62 @@ class PlayerViewModel @Inject constructor(
     @Volatile
     private var autoPlayNextEnabled: Boolean = true
     private var autoAdvancedForUrl: String? = null
+    private var autoNextCancelledForUrl: String? = null
+
+    /** Seconds left before the player jumps to the next episode, or null when
+     * no auto-advance is pending. Drives the small on-player countdown. */
+    private val _autoNextInSeconds = MutableStateFlow<Int?>(null)
+    val autoNextInSeconds: StateFlow<Int?> = _autoNextInSeconds.asStateFlow()
 
     /**
      * Auto-advance heuristic: Xtream gives us no chapter/credits markers, so
      * "detect the end credits" becomes "the last [CREDITS_WINDOW_MS] of the
-     * episode". Fires at most once per loaded stream.
+     * episode". While inside that window a countdown is published; it fires
+     * (once per stream) when it reaches zero. The viewer can dismiss it for
+     * the current episode or trigger the jump immediately.
      */
     private fun maybeAutoAdvance() {
-        if (!autoPlayNextEnabled) return
         val state = _loadState.value
-        val url = state.streamUrl ?: return
-        if (state.nextEpisode == null || state.contentType != ContentType.SERIES) return
-        if (autoAdvancedForUrl == url) return
+        val url = state.streamUrl
+        val eligible = autoPlayNextEnabled && url != null && state.nextEpisode != null &&
+            state.contentType == ContentType.SERIES &&
+            autoAdvancedForUrl != url && autoNextCancelledForUrl != url
+        if (!eligible) {
+            if (_autoNextInSeconds.value != null) _autoNextInSeconds.value = null
+            return
+        }
         val duration = playerManager.currentDuration()
         val position = playerManager.currentPosition()
-        if (duration <= 0L) return
-        if (duration - position in 1..CREDITS_WINDOW_MS) {
-            autoAdvancedForUrl = url
-            playNextEpisode()
+        if (duration <= 0L) {
+            if (_autoNextInSeconds.value != null) _autoNextInSeconds.value = null
+            return
         }
+        val remainingMs = duration - position
+        if (remainingMs in 1..CREDITS_WINDOW_MS) {
+            val secs = ((remainingMs + 999L) / 1000L).toInt()
+            if (secs <= 0) {
+                autoAdvancedForUrl = url
+                _autoNextInSeconds.value = null
+                playNextEpisode()
+            } else {
+                _autoNextInSeconds.value = secs
+            }
+        } else if (_autoNextInSeconds.value != null) {
+            _autoNextInSeconds.value = null
+        }
+    }
+
+    /** Viewer dismissed the countdown — no auto-jump for this episode. */
+    fun cancelAutoNext() {
+        autoNextCancelledForUrl = _loadState.value.streamUrl
+        _autoNextInSeconds.value = null
+    }
+
+    /** Viewer chose to jump now instead of waiting out the countdown. */
+    fun playNextEpisodeNow() {
+        autoAdvancedForUrl = _loadState.value.streamUrl
+        _autoNextInSeconds.value = null
+        playNextEpisode()
     }
 
     private val _loadState = MutableStateFlow(PlayerLoadState())
@@ -155,6 +192,7 @@ class PlayerViewModel @Inject constructor(
             _loadState.value = _loadState.value.copy(loadError = "Conteúdo inválido.")
             return
         }
+        _autoNextInSeconds.value = null
 
         viewModelScope.launch {
             _loadState.value = _loadState.value.copy(loadError = null)
