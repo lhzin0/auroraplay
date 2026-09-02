@@ -39,7 +39,7 @@ fun ChannelAvatar(
     name: String,
     logoUrl: String?,
     modifier: Modifier = Modifier,
-    shape: Shape = RoundedCornerShape(16.dp),
+    shape: Shape = RoundedCornerShape(18.dp),
 ) {
     Box(modifier.clip(shape)) {
         if (logoUrl.isNullOrBlank()) {
@@ -70,6 +70,7 @@ private fun GeneratedBadge(name: String, shape: Shape) {
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .clip(shape)
             .background(Brush.linearGradient(listOf(top.copy(alpha = fillAlpha), bottom.copy(alpha = fillAlpha))))
             // Soft light from the top-left for a little depth / glass sheen.
             .background(

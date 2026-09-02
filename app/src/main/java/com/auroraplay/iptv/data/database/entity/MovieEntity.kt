@@ -17,5 +17,8 @@ data class MovieEntity(
     val durationLabel: String?,
     val rating: Double?,
     val streamUrl: String,
+    /** "Legendado" when the raw provider name/category said so (computed at
+     * sync, before the display name is cleaned); null otherwise. */
+    val audioLabel: String? = null,
     val addedAtMillis: Long,
 )

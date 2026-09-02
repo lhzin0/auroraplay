@@ -1,3 +1,22 @@
+## 1.26.5 — 2026-09-02
+
+- **Corrige "app crashando sem nem abrir".** O APK de debug estava marcado
+  com `android:testOnly="true"` — o Android recusa abrir um APK assim. Causa:
+  o histórico de execução do Gradle (`.gradle/8.14.5/executionHistory`) e o
+  `configuration-cache` guardavam `-Pandroid.injected.testOnly=true` de um
+  build da IDE, e os builds seguintes da linha de comando herdavam. Desliguei
+  o `configuration-cache` no `gradle.properties` e limpei os caches.
+- **`[L]` = Legendado.** Novo `MovieEntity.audioLabel` / `SeriesEntity.audioLabel`
+  (coluna, migração 4→5) calculado no sync a partir do nome/categoria **crus**
+  — antes o `title()` já tinha comido o `[L]`, então o selo "Legendado" só
+  pegava por categoria. Agora pega o `[L]`/`[D]` no título também.
+- **Título de episódio limpo.** `MetadataSanitizer.episodeTitle` tira "(2026)",
+  "[L]" e o código de temporada/episódio colado no fim ("... (2026) [L] S01
+  E01" → "..."). E o subtítulo do player não repete o nome da série quando o
+  "título" do episódio é o próprio nome do show.
+- **Badges de canal:** cantos 16→18dp e um `clip` a mais no preenchimento
+  para garantir o arredondamento.
+
 ## 1.26.4 — 2026-09-02
 
 - **Modo Cinema — brilho nas quatro bordas.** Antes só preenchia a tarja de

@@ -69,12 +69,24 @@ app/src/main/java/com/auroraplay/iptv/
 
 ## Versão atual
 
-**1.26.4** — `versionCode 74`. Modo Cinema agora brilha nas quatro bordas
-(topo/base não ficam mais pretas); séries/filmes só-legendado ganham um selo
-"Legendado" nos detalhes; "(2026)" que sobrava no título quando vinha antes de
-um marcador foi removido. Antes (1.26.3): badges de canal com FrostGlass.
+**1.26.5** — `versionCode 75`. Corrige o APK de debug que saía como `testOnly`
+(o Android recusava abrir) — caches do Gradle guardando config da IDE.
+Também: `[L]` no nome agora é reconhecido como "Legendado" (coluna
+`audioLabel`, migração 4→5), título de episódio limpo ("... (2026) [L] S01
+E01" → "..."), badges de canal mais arredondados.
 
 ## Novidades desta revisão
+
+### 1.26.5 — 2026-09-02
+
+- **Fix "app não abre":** APK de debug estava `testOnly` — caches do Gradle
+  (`executionHistory` + configuration-cache) herdando `android.injected.testOnly`
+  de um build da IDE. Cache limpo + configuration-cache desligado.
+- **`[L]` → Legendado:** `Movie.audioLabel` / `Series.audioLabel` agora vem de
+  uma coluna calculada no sync a partir do nome cru, então o `[L]`/`[D]` no
+  título é reconhecido (não só a categoria).
+- **Título de episódio** perde "(2026)", "[L]" e o "S01 E01" colado no fim.
+- **Badges de canal** mais arredondados (18dp) + clip extra.
 
 ### 1.26.4 — 2026-09-02
 

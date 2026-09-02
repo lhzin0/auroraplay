@@ -73,6 +73,8 @@ fun VodStreamDto.toEntity(connectionId: String, categoryName: String, urlBuilder
     durationLabel = null,
     rating = rating?.toDoubleOrNull(),
     streamUrl = urlBuilder.vodStreamPlayback(streamId.toString(), containerExtension ?: "mp4"),
+    // Computed from the *raw* name + category, before title() strips "[L]" etc.
+    audioLabel = MetadataSanitizer.audioLabelOf(name, categoryName),
     addedAtMillis = added?.toLongOrNull()?.times(1000) ?: System.currentTimeMillis(),
 )
 
@@ -83,7 +85,7 @@ fun MovieEntity.toDomain() = Movie(
     // dedup needs it); the display name drops it — and then re-runs title()
     // so a "(2026)" that was only trailing *after* the tag also comes off.
     name = MetadataSanitizer.title(MetadataSanitizer.stripAudioMarkers(name)),
-    audioLabel = MetadataSanitizer.audioLabelOf(name, categoryName),
+    audioLabel = audioLabel,
     posterUrl = posterUrl,
     backdropUrl = backdropUrl,
     categoryId = categoryId,
@@ -109,6 +111,8 @@ fun SeriesDto.toEntity(connectionId: String, categoryName: String) = SeriesEntit
     genre = MetadataSanitizer.categoryName(genre),
     plot = MetadataSanitizer.text(plot),
     rating = rating?.toDoubleOrNull(),
+    // Computed from the *raw* name + category, before title() strips "[L]" etc.
+    audioLabel = MetadataSanitizer.audioLabelOf(name, categoryName),
     addedAtMillis = lastModified?.toLongOrNull()?.times(1000) ?: System.currentTimeMillis(),
 )
 
@@ -116,7 +120,7 @@ fun SeriesEntity.toDomain() = Series(
     id = id,
     connectionId = connectionId,
     name = MetadataSanitizer.title(MetadataSanitizer.stripAudioMarkers(name)),
-    audioLabel = MetadataSanitizer.audioLabelOf(name, categoryName),
+    audioLabel = audioLabel,
     posterUrl = posterUrl,
     backdropUrl = backdropUrl,
     categoryId = categoryId,
@@ -134,7 +138,7 @@ fun EpisodeDto.toEntity(seriesId: String, connectionId: String, seasonNumber: In
     connectionId = connectionId,
     seasonNumber = seasonNumber,
     episodeNumber = episodeNum ?: 0,
-    title = MetadataSanitizer.text(title) ?: "Episódio ${episodeNum ?: 0}",
+    title = MetadataSanitizer.episodeTitle(title) ?: "Episódio ${episodeNum ?: 0}",
     thumbnailUrl = info?.movieImage,
     durationLabel = MetadataSanitizer.duration(info?.duration),
     plot = MetadataSanitizer.text(info?.plot),
@@ -146,7 +150,9 @@ fun EpisodeEntity.toDomain() = Episode(
     seriesId = seriesId,
     seasonNumber = seasonNumber,
     episodeNumber = episodeNumber,
-    title = title,
+    // Also cleaned on read, so episodes synced before this landed still show
+    // "..." instead of "... (2026) [L] S01 E01".
+    title = MetadataSanitizer.episodeTitle(title) ?: title,
     thumbnailUrl = thumbnailUrl,
     durationLabel = durationLabel,
     plot = plot,

@@ -15,6 +15,9 @@ data class SeriesEntity(
     val genre: String?,
     val plot: String?,
     val rating: Double?,
+    /** "Legendado" when the raw provider name/category said so (computed at
+     * sync, before the display name is cleaned); null otherwise. */
+    val audioLabel: String? = null,
     val addedAtMillis: Long,
 )
 

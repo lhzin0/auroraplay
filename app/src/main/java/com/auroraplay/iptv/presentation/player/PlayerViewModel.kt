@@ -304,9 +304,17 @@ class PlayerViewModel @Inject constructor(
         val next = allEpisodes.getOrNull(allEpisodes.indexOf(episode) + 1)
         val isFav = profileId?.let { favoriteRepository.isFavorite(it, seriesId).first() } ?: false
 
+        // Drop the episode title from the subtitle when it just repeats the
+        // series name (a very common provider habit: the "title" of every
+        // episode is the show's own name).
+        val epLabel = episode.title
+            .takeIf { it.isNotBlank() && !it.equals(series.name, ignoreCase = true) && !it.startsWith("Episódio", true) }
         _loadState.value = _loadState.value.copy(
             title = series.name,
-            subtitle = "T${episode.seasonNumber} E${episode.episodeNumber} • ${episode.title}",
+            subtitle = listOfNotNull(
+                "T${episode.seasonNumber} E${episode.episodeNumber}",
+                epLabel,
+            ).joinToString(" • "),
             streamUrl = episode.streamUrl,
             isLive = false,
             contentType = ContentType.SERIES,

@@ -155,6 +155,27 @@ object MetadataSanitizer {
     fun audioLabelOf(name: String?, categoryName: String?): String? =
         if (audioVariantFrom(name, categoryName) == AudioVariant.LEGENDADO) "Legendado" else null
 
+    // Junk providers often glue onto the end of an episode title: a season/
+    // episode code ("S01 E01", "T1E1", "1x01", "EP 3", "Episódio 12").
+    private val EPISODE_CODE_TAIL = Regex(
+        "(?i)\\s*[-–—|•:]?\\s*(?:s\\s?\\d{1,3}\\s?e\\s?\\d{1,3}|t\\s?\\d{1,3}\\s?e\\s?\\d{1,3}|\\d{1,3}\\s?x\\s?\\d{1,3}|epis[oó]dio\\s?\\d{1,4}|ep?\\.?\\s?\\d{1,4})\\s*$"
+    )
+
+    /**
+     * Cleans an episode title for display: drops a trailing year, dub/sub tag
+     * ("[L]", "- LEGENDADO"), and a season/episode code the provider tacked on
+     * ("... (2026) [L] S01 E01" -> "..."). Returns null if nothing readable is
+     * left (the caller falls back to "Episódio N").
+     */
+    fun episodeTitle(raw: String?): String? {
+        var s = text(raw) ?: return null
+        // markers first (they may sit between the name and the year/code)
+        s = s.replace(Regex("(?i)\\s*[\\[(]\\s*(l|d|leg|dub|dual|nac)\\s*[\\])]\\s*"), " ")
+        repeat(2) { s = s.replace(EPISODE_CODE_TAIL, "").trim() }
+        s = title(stripAudioMarkers(s)).trim(' ', '-', '–', '—', '|', '•', ':', '.')
+        return s.ifBlank { null }
+    }
+
     /**
      * Classifies a movie as dubbed / subtitled / unknown from its title AND
      * its category name — providers often mark only one of the two ("Duna"
