@@ -69,9 +69,28 @@ app/src/main/java/com/auroraplay/iptv/
 
 ## Versão atual
 
-**1.24.0** — revisão ampla de UI/UX inspirada na experiência analisada: navegação mais compacta, mídia de detalhes Banner ⇄ Trailer, densidade visual e responsividade refinadas, preservando a identidade AuroraPlay.
+**1.25.10** — `versionCode 62`. Modo Cinema reescrito para amostrar o próprio
+`TextureView` do player (sem segundo decodificador — fim do crash), glifo de
+avanço "fantasma" após o toque duplo corrigido, e o toggle de Cinema volta
+para o modo Ajustar para o brilho ambiente ter onde aparecer.
 
 ## Novidades desta revisão
+
+### 1.25.10 — 2026-09-02
+
+- **Modo Cinema não derruba mais o app.** O brilho ambiente parava de vez em
+  quando o processo porque montava um segundo `ExoPlayer`/`MediaCodec` em
+  paralelo com o player principal. Agora ele lê frames já decodificados
+  direto do `TextureView` na tela (`getBitmap` num alvo minúsculo — leitura
+  de GPU barata), com crossfade lento entre amostras. Sem decodificador
+  extra: o pior caso é ficar sem brilho, nunca um crash.
+- **Toque duplo para pular:** o glifo de ±5/10s que aparecia sozinho a cada
+  vez que os controles sumiam (mesmo sem pular nada) foi corrigido — ele era
+  disparado por uma guarda que ficava verdadeira para sempre depois do
+  primeiro uso. Agora é um sinal de uso único que se apaga sozinho ao fim da
+  animação e quando os controles voltam.
+- **Toggle de Cinema** também volta o vídeo para "Ajustar", senão um vídeo
+  com zoom não tem tarja para o brilho aparecer e o botão parecia morto.
 
 ### 1.24.0 — 2026-08-31
 

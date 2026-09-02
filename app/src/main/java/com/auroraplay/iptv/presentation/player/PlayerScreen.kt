@@ -2,6 +2,7 @@ package com.auroraplay.iptv.presentation.player
 
 import android.app.Activity
 import android.content.pm.ActivityInfo
+import android.view.TextureView
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
@@ -88,6 +89,13 @@ import kotlin.time.Duration.Companion.milliseconds
  * to trigger by accident while just trying to tap through the video, and
  * gave no visible target to aim for.
  */
+
+/** Transient state for the double-tap seek glyph shown while the controls are
+ * hidden: an id (so each fresh double-tap re-triggers the animation) plus the
+ * direction it should spin. Non-null only between a hidden double-tap and the
+ * end of that one animation. */
+private data class HiddenSeekRipple(val id: Int, val forward: Boolean)
+
 @Composable
 fun PlayerScreen(
     contentType: ContentType,
@@ -124,9 +132,15 @@ fun PlayerScreen(
     val playbackState by viewModel.playerManager.state.collectAsState()
     val seekSeconds by viewModel.seekSeconds.collectAsState()
     val scrubThumbnail by viewModel.scrubThumbnail.collectAsState()
-    val cinematicFrame by viewModel.cinematicFrame.collectAsState()
     val autoNextInSeconds by viewModel.autoNextInSeconds.collectAsState()
     var cinematicModeEnabled by remember { mutableStateOf(false) }
+    // The on-screen video surface (a TextureView — see player_surface.xml) and
+    // the latest ambient-glow sample taken from it. Kept here, not in the
+    // ViewModel: capturing an already-rendered frame is a local, decoder-free
+    // GPU read-back, and the previous ViewModel path (a 2nd ExoPlayer) is what
+    // crashed the app.
+    var videoTextureView by remember { mutableStateOf<TextureView?>(null) }
+    var cinematicFrame by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
 
     var controlsVisible by remember { mutableStateOf(true) }
     var isLocked by remember { mutableStateOf(false) }
@@ -144,10 +158,13 @@ fun PlayerScreen(
     // short icon animation each tap.
     var seekBump by remember { mutableIntStateOf(0) }
     var seekForward by remember { mutableStateOf(true) }
-    // Feedback is only created for a real double-tap while controls are hidden.
-    // This prevents an old seek animation from reappearing merely because the
-    // user later taps the empty player area to close the controls.
-    var hiddenSeekRippleId by remember { mutableIntStateOf(0) }
+    // One-shot glyph shown ONLY for a genuine double-tap-seek made while the
+    // controls are hidden. It clears itself the instant its animation ends and
+    // again whenever the controls come back, so it can never re-appear merely
+    // because the user later single-taps the video to hide the controls again.
+    // (The old `id > 0` guard stayed true forever after the first use, so the
+    // glyph flashed on every subsequent control-hide with no seek behind it.)
+    var hiddenSeekRipple by remember { mutableStateOf<HiddenSeekRipple?>(null) }
     val controlsVisibleState by rememberUpdatedState(controlsVisible)
     // Pauses the controls auto-hide while the timeline is being dragged.
     var isScrubbing by remember { mutableStateOf(false) }
@@ -192,6 +209,27 @@ fun PlayerScreen(
         if (toastLabel != null) { delay(700.milliseconds); toastLabel = null }
     }
 
+    // The hidden-controls seek glyph is strictly transient: drop it the moment
+    // the controls are shown so it can't linger into the next hide.
+    LaunchedEffect(controlsVisible) { if (controlsVisible) hiddenSeekRipple = null }
+
+    // Cinema / ambient glow. Sample the on-screen video TextureView itself —
+    // frames that are already decoded and composited — instead of running a
+    // second decoder. `getBitmap` into a tiny target is a cheap read-back;
+    // when the surface isn't ready it just returns null and we keep the last
+    // glow. Worst case is no glow, never a crash.
+    LaunchedEffect(cinematicModeEnabled, videoTextureView) {
+        if (!cinematicModeEnabled) { cinematicFrame = null; return@LaunchedEffect }
+        val tv = videoTextureView ?: return@LaunchedEffect
+        while (true) {
+            val shot = runCatching {
+                if (tv.isAvailable && tv.width > 0 && tv.height > 0) tv.getBitmap(192, 108) else null
+            }.getOrNull()
+            if (shot != null) cinematicFrame = shot
+            delay(900)
+        }
+    }
+
     BackHandler {
         when {
             showChannelList -> showChannelList = false
@@ -230,7 +268,7 @@ fun PlayerScreen(
                         else viewModel.playerManager.seekBackward()
                         seekForward = forward
                         seekBump++
-                        if (!controlsVisibleState) hiddenSeekRippleId++
+                        if (!controlsVisibleState) hiddenSeekRipple = HiddenSeekRipple(seekBump, forward)
                     },
                 )
             }
@@ -283,6 +321,7 @@ fun PlayerScreen(
                 playerManager = viewModel.playerManager,
                 resizeMode = loadState.resizeMode,
                 showBufferingIndicator = !controlsVisible,
+                onVideoTextureView = { videoTextureView = it },
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -319,14 +358,16 @@ fun PlayerScreen(
         // Double-tap seek feedback. With the controls up, the matching −10/+10
         // button spins (via seekBump → externalSpinTick). With them hidden,
         // there's no button to spin, so a lone spinning glyph shows on the
-        // tapped side, well out towards the edge.
-        if (hiddenSeekRippleId > 0 && !controlsVisible) {
-            key(hiddenSeekRippleId) {
+        // tapped side, well out towards the edge — one shot per double-tap,
+        // then it removes itself.
+        hiddenSeekRipple?.takeIf { !controlsVisible }?.let { ripple ->
+            key(ripple.id) {
                 SeekRipple(
-                    forward = seekForward,
+                    forward = ripple.forward,
                     seconds = seekSeconds,
+                    onFinished = { if (hiddenSeekRipple?.id == ripple.id) hiddenSeekRipple = null },
                     modifier = Modifier
-                        .align(if (seekForward) Alignment.CenterEnd else Alignment.CenterStart)
+                        .align(if (ripple.forward) Alignment.CenterEnd else Alignment.CenterStart)
                         .fillMaxWidth(0.5f)
                         .wrapContentWidth(Alignment.CenterHorizontally),
                 )
@@ -441,9 +482,13 @@ fun PlayerScreen(
                     onToggleCinematicMode = {
                         val next = !cinematicModeEnabled
                         cinematicModeEnabled = next
-                        // The cinematic frame path drives a headless decoder;
-                        // never let a failure there take down the player.
-                        runCatching { viewModel.setCinematicMode(next) }
+                        // The ambient glow can only paint the letterbox space
+                        // that FIT leaves, so turning Cinema on snaps back to
+                        // FIT — otherwise a pinch-zoomed video has nowhere for
+                        // it to show and the toggle looks dead.
+                        if (next) viewModel.setResizeMode(
+                            androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+                        )
                     },
                     onOpenAudio = { showAudioSheet = true },
                     onSkipIntro = { viewModel.playerManager.skipIntro() },
@@ -559,15 +604,24 @@ private fun CinematicBarImage(
     modifier: Modifier,
 ) {
     Box(modifier.clipToBounds()) {
-        Image(
-            bitmap = frame.asImageBitmap(),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .fillMaxSize()
-                .blur(28.dp),
-            alpha = 0.88f,
-        )
+        // Slow crossfade between samples so the glow drifts like theatre light
+        // instead of snapping each time a new frame is grabbed.
+        Crossfade(
+            targetState = frame,
+            animationSpec = tween(650),
+            label = "cinematicFrame",
+            modifier = Modifier.fillMaxSize(),
+        ) { f ->
+            Image(
+                bitmap = f.asImageBitmap(),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .blur(28.dp),
+                alpha = 0.88f,
+            )
+        }
         Box(
             Modifier
                 .matchParentSize()
@@ -1262,14 +1316,22 @@ private fun ThinSeekBar(
 
 
 /** Double-tap seek feedback shown when the controls are hidden — the same
- * motion as [SeekButton]: one plain white glyph turning once, then fading. */
+ * motion as [SeekButton]: one plain white glyph turning once, then fading.
+ * [onFinished] fires once the fade-out is done so the caller can drop it. */
 @Composable
-private fun SeekRipple(forward: Boolean, seconds: Int, modifier: Modifier = Modifier) {
+private fun SeekRipple(
+    forward: Boolean,
+    seconds: Int,
+    onFinished: () -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
     var visible by remember { mutableStateOf(true) }
     val spin = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
         spin.animateTo(if (forward) 1f else -1f, tween(320, easing = EaseOutCubic))
         visible = false
+        delay(240)          // let the fade-out play before the parent removes us
+        onFinished()
     }
     val glyph = when {
         forward && seconds == 5 -> Icons.Default.Forward5

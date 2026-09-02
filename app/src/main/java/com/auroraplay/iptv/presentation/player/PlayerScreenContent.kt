@@ -53,6 +53,10 @@ fun PlayerScreenContent(
      * player does, inside the play/pause button, so the two never double up
      * or sit at slightly different centres). */
     showBufferingIndicator: Boolean = true,
+    /** Reports the underlying video [TextureView] so the caller can sample it
+     * for the ambient "Cinema" glow (a decoder-free GPU read-back). Null when
+     * the surface goes away. */
+    onVideoTextureView: (TextureView?) -> Unit = {},
     playerManager: PlayerManager = hiltPlayerManager(),
 ) {
     LaunchedEffect(streamUrl) {
@@ -102,16 +106,19 @@ fun PlayerScreenContent(
             // transparent so the cinematic image remains visible in them.
             // TextureView rejects background drawables on Android, including
             // a transparent one, so only its opacity may be changed here.
-            view.findTextureView()?.apply {
+            val texture = view.findTextureView()?.apply {
                 isOpaque = false
             }
+            onVideoTextureView(texture)
 
             view
         },
         update = { view ->
             view.player = activePlayer
             view.setResizeMode(resizeMode)
+            onVideoTextureView(view.findTextureView())
         },
+        onRelease = { onVideoTextureView(null) },
     )
 
     if (state.isBuffering && showBufferingIndicator) {

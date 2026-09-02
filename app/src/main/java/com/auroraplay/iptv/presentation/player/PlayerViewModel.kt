@@ -424,57 +424,13 @@ class PlayerViewModel @Inject constructor(
         if (lang != null) viewModelScope.launch { settingsRepository.updatePreferredSubtitleLang(lang) }
     }
 
-    // Cinematic mode inspired by YouTube's Ambient mode implementation.
-    // Instead of painting a single dominant color, we periodically reuse a
-    // real storyboard/frame from the playing video as the background. The
-    // frame is rendered behind the actual player, blurred and darkened, so
-    // it naturally fills only the letterboxed/side areas without tinting or
-    // altering the video itself. Sampling is intentionally infrequent to keep
-    // decoding/network work away from the UI thread.
-    private val _cinematicFrame = MutableStateFlow<android.graphics.Bitmap?>(null)
-    val cinematicFrame: StateFlow<android.graphics.Bitmap?> = _cinematicFrame.asStateFlow()
-    private var cinematicJob: Job? = null
-
-    fun setCinematicMode(enabled: Boolean) {
-        cinematicJob?.cancel()
-        if (!enabled) {
-            _cinematicFrame.value = null
-            return
-        }
-
-        val url = _loadState.value.streamUrl ?: return
-        // A crash anywhere in this frame-sampling loop must never reach the
-        // process — the worst acceptable outcome is "no cinema glow".
-        val safety = kotlinx.coroutines.CoroutineExceptionHandler { _, _ -> _cinematicFrame.value = null }
-        cinematicJob = viewModelScope.launch(Dispatchers.Default + safety) {
-          try {
-            // YouTube's own design notes describe using thumbnails/storyboards,
-            // stretching, blurring and scrimming them rather than tinting the
-            // video. A 6s cadence gives a similar slow-moving theatre glow
-            // while avoiding a frame decode on every playback tick.
-            while (true) {
-                if (playerManager.state.value.isBuffering) {
-                    delay(2500.milliseconds)
-                    continue
-                }
-
-                val positionMs = playerManager.state.value.positionMillis
-                val frame = runCatching {
-                    thumbnailPreviewGenerator.frameAt(url, positionMs)
-                }.getOrNull()
-
-                if (frame != null && _loadState.value.streamUrl == url) {
-                    _cinematicFrame.value = frame
-                }
-                delay(6.seconds)
-            }
-          } catch (c: kotlinx.coroutines.CancellationException) {
-            throw c
-          } catch (t: Throwable) {
-            _cinematicFrame.value = null
-          }
-        }
-    }
+    // NOTE: the "Cinema" ambient glow no longer lives here. It used to spin up
+    // a second headless ExoPlayer (via ThumbnailPreviewGenerator) to decode
+    // background frames — a MediaCodec instance running alongside the main one,
+    // which is exactly what crashed the app on devices with a small decoder
+    // pool. The player screen now samples the on-screen video TextureView
+    // directly (a cheap GPU read-back, no extra decoder), so there is nothing
+    // to drive from the ViewModel.
 
     /**
      * Requests a scrubbing-preview frame near [positionMillis]. Cancelling
@@ -551,7 +507,6 @@ class PlayerViewModel @Inject constructor(
         persistProgressNow()
         playerManager.stop()
         thumbnailPreviewGenerator.release()
-        cinematicJob?.cancel()
     }
 
     private companion object {

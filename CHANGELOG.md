@@ -1,3 +1,29 @@
+## 1.25.10 — 2026-09-02
+
+Player: fim do crash do Modo Cinema + glifo fantasma do toque duplo.
+
+- **Modo Cinema reescrito, sem segundo decodificador.** O caminho antigo
+  pedia frames ao `ExoFrameGrabber` (um segundo `ExoPlayer` + `ImageReader`
+  numa thread própria) — um `MediaCodec` de vídeo rodando em paralelo com o
+  do player principal, que estourava em aparelhos com pool de codecs
+  pequeno. Toda essa lógica saiu do `PlayerViewModel`. Agora o
+  `PlayerScreen` amostra o próprio `TextureView` do player
+  (`getBitmap(192, 108)` a cada ~0,9s — leitura de GPU de frames já
+  decodificados), com `Crossfade` lento entre amostras para o brilho
+  "andar" como luz de cinema. Pior caso: sem brilho, nunca crash.
+- **`ExoFrameGrabber` agora só serve à preview da timeline.** O grabber e o
+  `ThumbnailPreviewGenerator` continuam iguais; apenas deixaram de ser
+  chamados pelo Modo Cinema.
+- **Glifo de ±5/10s "fantasma" no toque duplo — corrigido.** A guarda era
+  `hiddenSeekRippleId > 0`, que fica verdadeira para sempre depois do
+  primeiro uso; daí o glifo de avanço/retrocesso piscava toda vez que os
+  controles sumiam, sem nenhum seek por trás. Virou um estado de uso único
+  (`HiddenSeekRipple?`) que se anula ao fim da animação (`onFinished`) e
+  sempre que os controles reaparecem.
+- **Ligar o Cinema volta o vídeo para "Ajustar" (FIT).** O brilho só pode
+  pintar a tarja que o FIT deixa; com o vídeo em zoom o botão parecia não
+  fazer nada.
+
 ## 1.25.9 — 2026-09-02
 
 - **Contador discreto de "próximo episódio"** no player. Quando o avanço
