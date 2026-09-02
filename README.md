@@ -69,15 +69,30 @@ app/src/main/java/com/auroraplay/iptv/
 
 ## Versão atual
 
-**1.26.9** — `versionCode 79`. Correção da regressão que apagava os canais ao
-vivo (a sincronização limpava a seção antes de confirmar que o servidor tinha
-respondido). PiP agora usa auto-entrada no Android 12+. Abrir filme/série ficou
-rápido (a página não espera mais os `get_*_info`/TMDB). Busca por gênero
-("romance", "dorama", "ação"…). Prévia da timeline não fica mais preta.
-Animações de push/pop na navegação. Configurações mais enxutas (saíram
-"Animações" e o card "Informações e trailers").
+**1.26.10** — `versionCode 80`. Fim do crash nativo (`SIGSEGV`) do extrator de
+miniatura da timeline em aparelhos Samsung — a extração de frame no aparelho
+foi desligada. `clear()`+`upsertAll()` da sincronização agora é atômico
+(`@Transaction`), então a lista de canais nunca pisca vazia no meio de uma
+atualização. Filtros da Busca ocupam a largura da barra. Ícone no estilo
+OneDark 3D (plaquinha escura fosca).
 
 ## Novidades desta revisão
+
+### 1.26.10 — 2026-09-02
+
+- **Crash nativo da miniatura:** `ThumbnailPreviewGenerator` com
+  `extractionEnabled = false` — `prewarm`/`frameAt` viram no-op, `ExoFrameGrabber`
+  nunca instancia. O `toBitmap` lia `Image.Plane` DirectByteBuffer com stride
+  manual e a capacidade reportada era maior que o mapeado (Exynos) → SIGSEGV
+  não capturável. A barra de progresso já mostra só o horário sem frame.
+- **Swap atômico:** `ChannelDao.replace` / `CategoryDao.replace` /
+  `MovieDao.replace` / `SeriesDao.replace` (`@Transaction`) no lugar de
+  `clear()` + `upsertAll()` soltos em `syncConnection`.
+- **Busca:** as 4 abas em `Row` com `weight(1f)` + `CategoryChip(horizontalPadding)`
+  no lugar do `CategoryStrip` rolável.
+- **Ícone:** `ic_launcher_background` = gradiente escuro #24262F→#0B0C10 +
+  brilho radial no topo + vinheta na base; vetores legados em `mipmap-anydpi/`
+  ganharam a mesma plaquinha.
 
 ### 1.26.9 — 2026-09-02
 

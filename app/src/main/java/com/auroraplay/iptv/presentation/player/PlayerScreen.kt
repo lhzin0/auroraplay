@@ -903,30 +903,29 @@ private fun PlayerControlsOverlay(
                                     .fillMaxWidth(shownFrac.coerceIn(0.10f, 0.90f)),
                                 horizontalAlignment = Alignment.End,
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .width(140.dp)
-                                        .aspectRatio(16f / 9f)
-                                        .shadow(6.dp, RoundedCornerShape(10.dp))
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .background(Color.Black),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    scrubThumbnail?.let { frame ->
+                                // Only shown when a real frame is available —
+                                // an always-empty preview box (placeholder icon,
+                                // no picture) is just noise, so with on-device
+                                // extraction off this collapses to the time label.
+                                scrubThumbnail?.let { frame ->
+                                    Box(
+                                        modifier = Modifier
+                                            .width(140.dp)
+                                            .aspectRatio(16f / 9f)
+                                            .shadow(6.dp, RoundedCornerShape(10.dp))
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .background(Color.Black),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
                                         Image(
                                             bitmap = frame.asImageBitmap(),
                                             contentDescription = null,
                                             contentScale = ContentScale.Crop,
                                             modifier = Modifier.fillMaxSize(),
                                         )
-                                    } ?: Icon(
-                                        Icons.Default.Movie,
-                                        contentDescription = null,
-                                        tint = Color.White.copy(alpha = 0.35f),
-                                        modifier = Modifier.size(22.dp),
-                                    )
+                                    }
+                                    Spacer(Modifier.height(4.dp))
                                 }
-                                Spacer(Modifier.height(4.dp))
                                 Text(
                                     (shownMillis / 1000).toTimeLabel(),
                                     color = Color.White,

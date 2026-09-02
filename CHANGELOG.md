@@ -1,3 +1,28 @@
+## 1.26.10 — 2026-09-02
+
+- **Crash nativo ao mexer na timeline / ao reabrir o app.** A prévia de
+  miniatura (`ExoFrameGrabber.toBitmap`) lia o frame decodificado direto do
+  buffer nativo do `ImageReader` com aritmética de stride manual. Em aparelhos
+  Samsung/Exynos a capacidade informada desse buffer é maior que a região
+  realmente mapeada → leitura em memória não mapeada → **SIGSEGV** que nenhum
+  try/catch Kotlin segura, derrubando o processo (visto no S23). A extração de
+  frame no aparelho foi **desligada** — a barra de progresso já cai para só o
+  horário quando não há frame. Volta quando for reescrita num caminho seguro
+  (PixelCopy / SurfaceTexture GL).
+- **Canais "sumindo" durante a sincronização.** `clear()` + `upsertAll()` de
+  cada seção não eram atômicos: quem estivesse observando a lista via um
+  intervalo vazio no meio de toda sincronização (e a de abertura roda sozinha).
+  Agora é um `@Transaction` único (`ChannelDao.replace` etc.) — a lista nunca
+  pisca "Nenhum canal disponível" no meio de uma atualização. *(O banco do S23
+  estava íntegro o tempo todo: 2531 canais, 49 categorias, todas com canais.)*
+- **Filtros da Busca ocupam a largura da barra.** As 4 abas
+  (Tudo / Filmes / Séries / Canais) agora se distribuem em partes iguais na
+  mesma largura do campo de busca — sem o espaço vazio à direita.
+- **Ícone estilo OneDark 3D.** O fundo do ícone virou uma "plaquinha" escura
+  fosca com leve domo de luz no topo (gradiente #24262F → #0B0C10 + brilho
+  radial + vinheta), no espírito do pack OneDark 3D. A marca "A" continua por
+  cima.
+
 ## 1.26.9 — 2026-09-02
 
 - **Canais ao vivo sumindo (regressão da 1.26.7).** A sincronização apagava a

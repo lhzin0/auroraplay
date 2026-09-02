@@ -21,6 +21,14 @@ interface CategoryDao {
 
     @Query("DELETE FROM categories WHERE connectionId = :connectionId AND type = :type")
     suspend fun clear(connectionId: String, type: String)
+
+    /** Atomic swap: observers of [observe] never see the empty gap between the
+     * delete and the re-insert during a sync. */
+    @Transaction
+    suspend fun replace(connectionId: String, type: String, categories: List<CategoryEntity>) {
+        clear(connectionId, type)
+        upsertAll(categories)
+    }
 }
 
 @Dao
@@ -40,6 +48,14 @@ interface ChannelDao {
 
     @Query("DELETE FROM channels WHERE connectionId = :connectionId")
     suspend fun clear(connectionId: String)
+
+    /** Atomic swap — see [CategoryDao.replace]. Prevents the Canais list from
+     * flashing "Nenhum canal disponível" mid-sync. */
+    @Transaction
+    suspend fun replace(connectionId: String, channels: List<ChannelEntity>) {
+        clear(connectionId)
+        upsertAll(channels)
+    }
 }
 
 @Dao
@@ -62,6 +78,13 @@ interface MovieDao {
 
     @Query("DELETE FROM movies WHERE connectionId = :connectionId")
     suspend fun clear(connectionId: String)
+
+    /** Atomic swap — see [CategoryDao.replace]. */
+    @Transaction
+    suspend fun replace(connectionId: String, movies: List<MovieEntity>) {
+        clear(connectionId)
+        upsertAll(movies)
+    }
 }
 
 @Dao
@@ -81,6 +104,13 @@ interface SeriesDao {
 
     @Query("DELETE FROM series WHERE connectionId = :connectionId")
     suspend fun clear(connectionId: String)
+
+    /** Atomic swap — see [CategoryDao.replace]. */
+    @Transaction
+    suspend fun replace(connectionId: String, series: List<SeriesEntity>) {
+        clear(connectionId)
+        upsertAll(series)
+    }
 }
 
 @Dao

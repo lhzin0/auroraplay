@@ -75,16 +75,15 @@ class ContentRepositoryImpl @Inject constructor(
             emit(Resource.Success(SyncStage.CHANNELS))
             val liveCategories = runCatching { api.getLiveCategories(urlBuilder.liveCategories()) }.getOrNull()
             if (!liveCategories.isNullOrEmpty()) {
-                categoryDao.clear(connectionId, ContentType.LIVE.name)
-                categoryDao.upsertAll(liveCategories.map { it.toEntity(connectionId, ContentType.LIVE) })
+                categoryDao.replace(connectionId, ContentType.LIVE.name, liveCategories.map { it.toEntity(connectionId, ContentType.LIVE) })
             }
             val liveCategoryNameById = liveCategories?.associate { it.categoryId to it.categoryName }
                 ?: categoryDao.getAll(connectionId, ContentType.LIVE.name).associate { it.id to it.name }
             val liveStreams = runCatching { api.getLiveStreams(urlBuilder.liveStreams()) }.getOrNull()
             if (!liveStreams.isNullOrEmpty()) {
-                channelDao.clear(connectionId)
-                channelDao.upsertAll(
-                    liveStreams.map { it.toEntity(connectionId, liveCategoryNameById[it.categoryId] ?: "Geral", urlBuilder) }
+                channelDao.replace(
+                    connectionId,
+                    liveStreams.map { it.toEntity(connectionId, liveCategoryNameById[it.categoryId] ?: "Geral", urlBuilder) },
                 )
                 anyStreamFetched = true
             }
@@ -93,16 +92,15 @@ class ContentRepositoryImpl @Inject constructor(
             emit(Resource.Success(SyncStage.MOVIES))
             val vodCategories = runCatching { api.getVodCategories(urlBuilder.vodCategories()) }.getOrNull()
             if (!vodCategories.isNullOrEmpty()) {
-                categoryDao.clear(connectionId, ContentType.MOVIE.name)
-                categoryDao.upsertAll(vodCategories.map { it.toEntity(connectionId, ContentType.MOVIE) })
+                categoryDao.replace(connectionId, ContentType.MOVIE.name, vodCategories.map { it.toEntity(connectionId, ContentType.MOVIE) })
             }
             val vodCategoryNameById = vodCategories?.associate { it.categoryId to it.categoryName }
                 ?: categoryDao.getAll(connectionId, ContentType.MOVIE.name).associate { it.id to it.name }
             val vodStreams = runCatching { api.getVodStreams(urlBuilder.vodStreams()) }.getOrNull()
             if (!vodStreams.isNullOrEmpty()) {
-                movieDao.clear(connectionId)
-                movieDao.upsertAll(
-                    vodStreams.map { it.toEntity(connectionId, vodCategoryNameById[it.categoryId] ?: "Geral", urlBuilder) }
+                movieDao.replace(
+                    connectionId,
+                    vodStreams.map { it.toEntity(connectionId, vodCategoryNameById[it.categoryId] ?: "Geral", urlBuilder) },
                 )
                 anyStreamFetched = true
             }
@@ -111,16 +109,15 @@ class ContentRepositoryImpl @Inject constructor(
             emit(Resource.Success(SyncStage.SERIES))
             val seriesCategories = runCatching { api.getSeriesCategories(urlBuilder.seriesCategories()) }.getOrNull()
             if (!seriesCategories.isNullOrEmpty()) {
-                categoryDao.clear(connectionId, ContentType.SERIES.name)
-                categoryDao.upsertAll(seriesCategories.map { it.toEntity(connectionId, ContentType.SERIES) })
+                categoryDao.replace(connectionId, ContentType.SERIES.name, seriesCategories.map { it.toEntity(connectionId, ContentType.SERIES) })
             }
             val seriesCategoryNameById = seriesCategories?.associate { it.categoryId to it.categoryName }
                 ?: categoryDao.getAll(connectionId, ContentType.SERIES.name).associate { it.id to it.name }
             val seriesList = runCatching { api.getSeries(urlBuilder.series()) }.getOrNull()
             if (!seriesList.isNullOrEmpty()) {
-                seriesDao.clear(connectionId)
-                seriesDao.upsertAll(
-                    seriesList.map { it.toEntity(connectionId, seriesCategoryNameById[it.categoryId] ?: "Geral") }
+                seriesDao.replace(
+                    connectionId,
+                    seriesList.map { it.toEntity(connectionId, seriesCategoryNameById[it.categoryId] ?: "Geral") },
                 )
                 anyStreamFetched = true
             }

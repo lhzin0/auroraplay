@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Legacy launcher icon (API 21–25, before adaptive icons). The AuroraPlay "A"
-  mark on a transparent canvas — no dark tile. Scaled ~1.5x vs the adaptive
-  foreground since there is no launcher-mask safe zone to reserve here.
+  Legacy launcher icon (API 21-25, before adaptive icons): the same dark
+  "3D" tile as the adaptive background (see drawable/ic_launcher_background)
+  with the AuroraPlay "A" on top, rounded so it looks right on launchers
+  that don't apply their own mask at this API level.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:aapt="http://schemas.android.com/aapt"
@@ -11,28 +12,40 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
+    <!-- Dark rounded tile -->
+    <path android:pathData="M8,26 C8,15.5 15.5,8 26,8 h56 C92.5,8 100,15.5 100,26 v56 C100,92.5 92.5,100 82,100 h-56 C15.5,100 8,92.5 8,82 z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="54" android:startY="6"
+                android:endX="54" android:endY="102">
+                <item android:offset="0.0" android:color="#FF24262F" />
+                <item android:offset="0.55" android:color="#FF141620" />
+                <item android:offset="1.0" android:color="#FF0B0C10" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- "A" mark -->
     <path
-        android:pathData="M33,75 L54,36 L75,75"
-        android:strokeWidth="15"
+        android:pathData="M36,74 L54,40 L72,74"
+        android:strokeWidth="11"
         android:strokeLineCap="round"
         android:strokeLineJoin="round">
         <aapt:attr name="android:strokeColor">
             <gradient
                 android:type="linear"
-                android:startX="43"
-                android:startY="33"
-                android:endX="60"
-                android:endY="78">
+                android:startX="42" android:startY="38"
+                android:endX="62" android:endY="78">
                 <item android:offset="0.0" android:color="#FF00ACFC" />
                 <item android:offset="0.50" android:color="#FF5161FB" />
                 <item android:offset="1.0" android:color="#FF8B44FB" />
             </gradient>
         </aapt:attr>
     </path>
-
     <path
-        android:pathData="M45.75,75 L54,54 L62.25,75"
-        android:strokeWidth="6"
+        android:pathData="M45,74 L54,57 L63,74"
+        android:strokeWidth="5"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
         android:strokeColor="#FFB79BFF"

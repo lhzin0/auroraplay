@@ -20,6 +20,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
@@ -161,6 +162,7 @@ fun CategoryChip(
     selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    horizontalPadding: Dp = 18.dp,
 ) {
     val chipInteraction = remember { MutableInteractionSource() }
     val chipFocused by chipInteraction.collectIsFocusedAsState()
@@ -188,7 +190,7 @@ fun CategoryChip(
             )
             .focusable(interactionSource = chipInteraction)
             .clickable(interactionSource = chipInteraction, indication = null) { onClick() }
-            .padding(horizontal = 18.dp),
+            .padding(horizontal = horizontalPadding),
     ) {
         Text(
             text = text,

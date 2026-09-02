@@ -28,6 +28,21 @@ class ThumbnailPreviewGenerator @Inject constructor(
     @param:ApplicationContext private val context: Context,
 ) {
 
+    // On-device scrub-frame extraction is OFF.
+    //
+    // [ExoFrameGrabber.toBitmap] reads the decoded frame straight out of an
+    // ImageReader plane's DirectByteBuffer with manual stride arithmetic. On at
+    // least some Samsung (Exynos) devices that buffer's reported capacity is
+    // larger than what is actually mapped, so the read walks into unmapped
+    // memory — a native SIGSEGV that no Kotlin try/catch or thread
+    // UncaughtExceptionHandler can contain, taking the whole process down
+    // (observed on an SM-S911B while scrubbing / on the following launch).
+    //
+    // The seek bar already degrades to just the time label when no frame is
+    // available, so the feature is disabled wholesale until it can be rebuilt
+    // on a safe path (PixelCopy / GL SurfaceTexture read-back).
+    private val extractionEnabled = false
+
     // Include the stream URL in the key: the same 5-second position on two
     // different videos must never return the previous video's frame.
     private val cache = LinkedHashMap<CacheKey, Bitmap>()
@@ -43,12 +58,14 @@ class ThumbnailPreviewGenerator @Inject constructor(
     /** Called when a VOD stream loads so the first scrub is instant. No-op for
      * URLs already known to be un-extractable. */
     fun prewarm(url: String) {
+        if (!extractionEnabled) return
         if (url in deadUrls) return
         runCatching { grabber.prewarm(url) }
     }
 
     /** Returns a small frame near [positionMillis], or null if extraction isn't possible for this stream. */
     suspend fun frameAt(url: String, positionMillis: Long): Bitmap? = withContext(Dispatchers.IO) {
+        if (!extractionEnabled) return@withContext null
         if (url in deadUrls) return@withContext null
         val bucket = positionMillis / 3000L // 3s buckets balance responsiveness and cache size
         val key = CacheKey(url, bucket)
@@ -70,7 +87,9 @@ class ThumbnailPreviewGenerator @Inject constructor(
     }
 
     fun release() {
-        runCatching { grabber.release() }
+        // Don't touch `grabber` if it was never used — `by lazy` would spin one
+        // up just to tear it down.
+        if (extractionEnabled) runCatching { grabber.release() }
         cache.clear()
     }
 }

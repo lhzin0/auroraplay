@@ -24,7 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.auroraplay.iptv.core.theme.AuroraColors
 import com.auroraplay.iptv.domain.model.MediaItem
-import com.auroraplay.iptv.presentation.components.CategoryStrip
+import com.auroraplay.iptv.presentation.components.CategoryChip
 import com.auroraplay.iptv.presentation.components.ContextualSearchField
 import com.auroraplay.iptv.presentation.components.EmptyState
 import com.auroraplay.iptv.presentation.components.Spacing
@@ -75,16 +75,29 @@ fun SearchScreen(
         )
 
         Spacer(Modifier.height(Spacing.md))
-        CategoryStrip(
-            categories = listOf<Pair<String?, String>>(
-                SearchFilter.ALL.name to "Tudo",
-                SearchFilter.MOVIES.name to "Filmes",
-                SearchFilter.SERIES.name to "Séries",
-                SearchFilter.CHANNELS.name to "Canais",
-            ),
-            selectedId = state.filter.name,
-            onSelect = { id -> id?.let { viewModel.updateFilter(SearchFilter.valueOf(it)) } },
-        )
+        // Four fixed filters, spread edge-to-edge across the same width as the
+        // search field above — no scrolling, no dead space on the right.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Spacing.gutter),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+        ) {
+            listOf(
+                SearchFilter.ALL to "Tudo",
+                SearchFilter.MOVIES to "Filmes",
+                SearchFilter.SERIES to "Séries",
+                SearchFilter.CHANNELS to "Canais",
+            ).forEach { (filter, label) ->
+                CategoryChip(
+                    text = label,
+                    selected = state.filter == filter,
+                    onClick = { viewModel.updateFilter(filter) },
+                    modifier = Modifier.weight(1f),
+                    horizontalPadding = 8.dp,
+                )
+            }
+        }
         Spacer(Modifier.height(Spacing.sm))
 
         val showingSuggestions = state.query.isBlank()
