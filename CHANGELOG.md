@@ -1,3 +1,26 @@
+## 1.25.15 — 2026-09-02
+
+Dublado/Legendado: detecção mais forte + troca rápida no player (feedback com print).
+
+- **Detecção pela categoria, não só pelo título.** Novo
+  `MetadataSanitizer.audioVariantFrom(name, categoryName)`: um filme numa
+  categoria "…Legendado…" é legendado mesmo sem marca no título (era o caso
+  de "Pennyworth", "The Witcher: A Origem", "O Jardim dos Esquecidos" — o
+  título das duas cópias é idêntico). Legendado ganha quando os dois sinais
+  aparecem.
+- **`collapseAudioVariants` reescrito.** Agrupa por `variantKey` e colapsa o
+  grupo quando: (a) mistura uma cópia legendada com uma não-legendada, ou
+  (b) a chave tem ano (mesmo título + mesmo ano ⇒ duplicata), com um teto de
+  4 por grupo pra não esconder demais. Sobrevive a dublada. Home, grade de
+  Filmes e Busca herdam. Nada é apagado do banco.
+- **Troca rápida no player.** Segmento **Dublado ⇄ Legendado** na barra
+  superior (aparece quando há ≥2 versões): um toque troca o stream mantendo
+  a posição, sem abrir menu — como em qualquer streamer. A folha "Áudio e
+  legendas" completa continua na ação "Áudio" da barra de baixo.
+- `getMovieAudioVariants` agora classifica por título + categoria, rotula
+  "Dublado"/"Legendado" e usa uma busca `LIKE` mais ampla (LIMIT 200) pra
+  achar o gêmeo mesmo em categoria de nome diferente.
+
 ## 1.25.14 — 2026-09-02
 
 FrostGlass: blur real do fundo nas superfícies flutuantes (lib Haze).

@@ -505,6 +505,9 @@ fun PlayerScreen(
                     },
                     onOpenAudio = { showAudioSubsSheet = true },
                     onSkipIntro = { viewModel.playerManager.skipIntro() },
+                    audioVariants = loadState.audioVariants,
+                    currentStreamUrl = loadState.streamUrl,
+                    onSelectAudioVariant = { viewModel.selectAudioVariant(it) },
                 )
             }
         }
@@ -757,6 +760,9 @@ private fun PlayerControlsOverlay(
     onToggleCinematicMode: () -> Unit,
     onOpenAudio: () -> Unit,
     onSkipIntro: () -> Unit,
+    audioVariants: List<com.auroraplay.iptv.domain.model.AudioStreamVariant> = emptyList(),
+    currentStreamUrl: String? = null,
+    onSelectAudioVariant: (com.auroraplay.iptv.domain.model.AudioStreamVariant) -> Unit = {},
 ) {
     Box(
         modifier = Modifier
@@ -813,6 +819,19 @@ private fun PlayerControlsOverlay(
                             color = MaterialTheme.colorScheme.primary,
                         )
                     }
+                }
+
+                // Fast Dublado ⇄ Legendado switch (provider ships them as two
+                // separate streams) — one tap, no menu, like every big
+                // streamer. The full audio/subtitle sheet still lives behind
+                // the bottom "Áudio" action.
+                if (audioVariants.size >= 2) {
+                    AudioVariantToggle(
+                        variants = audioVariants,
+                        currentStreamUrl = currentStreamUrl,
+                        onSelect = onSelectAudioVariant,
+                    )
+                    Spacer(Modifier.width(6.dp))
                 }
 
                 // An intro is only ever in the first few minutes, so the pill
@@ -1492,6 +1511,41 @@ private fun PlayerBottomAction(
 }
 
 private const val SKIP_INTRO_WINDOW_MILLIS = 5 * 60_000L
+
+/** Segmented Dublado / Legendado switch in the player top bar — one tap flips
+ * to the provider's other stream, keeping the position. The active half is
+ * filled with the accent; tapping the active half does nothing. */
+@Composable
+private fun AudioVariantToggle(
+    variants: List<com.auroraplay.iptv.domain.model.AudioStreamVariant>,
+    currentStreamUrl: String?,
+    onSelect: (com.auroraplay.iptv.domain.model.AudioStreamVariant) -> Unit,
+) {
+    val shown = variants.distinctBy { it.label }.take(2)
+    if (shown.size < 2) return
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .clip(RoundedCornerShape(100.dp))
+            .background(Color.White.copy(alpha = 0.14f))
+            .padding(3.dp),
+    ) {
+        shown.forEach { v ->
+            val active = v.streamUrl == currentStreamUrl
+            Text(
+                text = v.label,
+                style = MaterialTheme.typography.labelMedium,
+                color = if (active) Color.Black else Color.White,
+                maxLines = 1,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(100.dp))
+                    .background(if (active) MaterialTheme.colorScheme.primary else Color.Transparent)
+                    .clickable(enabled = !active) { onSelect(v) }
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+            )
+        }
+    }
+}
 
 @Composable
 private fun ControlPill(

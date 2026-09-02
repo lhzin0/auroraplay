@@ -69,12 +69,23 @@ app/src/main/java/com/auroraplay/iptv/
 
 ## Versão atual
 
-**1.25.14** — `versionCode 66`. FrostGlass com blur real do fundo (lib Haze)
-na barra de navegação e no pop-over ⋮ do player — o visual da referência.
-Antes: FrostGlass estendido aos chips/campo de busca/cartões, e a unificação
-Dublado/Legendado.
+**1.25.15** — `versionCode 67`. Dublado/Legendado: detecção agora usa a
+categoria além do título (junta as cópias mesmo sem marca no nome), e o player
+ganhou um segmento **Dublado ⇄ Legendado** na barra superior — um toque troca
+o stream mantendo a posição. Antes: FrostGlass com blur real (Haze).
 
 ## Novidades desta revisão
+
+### 1.25.15 — 2026-09-02
+
+- **Unificação Dublado/Legendado mais forte.** `audioVariantFrom(name,
+  categoria)` classifica pelo nome da categoria também, então cópias sem
+  marca no título (Pennyworth, The Witcher…) agora se juntam.
+  `collapseAudioVariants` colapsa grupos que misturam legendado + não, ou que
+  compartilham título+ano. Home, Filmes e Busca herdam; nada some do banco.
+- **Troca rápida no player.** Segmento Dublado ⇄ Legendado na barra superior
+  (quando há ≥2 versões): um toque troca o stream mantendo a posição, sem
+  menu. A folha completa "Áudio e legendas" segue na ação "Áudio".
 
 ### 1.25.14 — 2026-09-02
 

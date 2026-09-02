@@ -131,12 +131,38 @@ object MetadataSanitizer {
         return value.ifEmpty { raw?.trim().orEmpty() }
     }
 
-    /** Classifies a raw provider title as dubbed / subtitled / unknown. */
+    /** Classifies a raw provider title as dubbed / subtitled / unknown (trailing tag only). */
     fun audioVariant(raw: String?): AudioVariant {
         val m = TRAILING_AUDIO_MARKER.find(raw?.trim().orEmpty()) ?: return AudioVariant.DESCONHECIDO
         val token = m.groupValues[1].ifBlank { m.groupValues[2] }
             .lowercase().replace(" ", "").replace("á", "a")
         return if (token in DUB_TOKENS) AudioVariant.DUBLADO else AudioVariant.LEGENDADO
+    }
+
+    // A dub/sub hint anywhere in the text — whole token or bracketed short
+    // form. Loose because it is fed the title AND the (short, controlled)
+    // category name; the word boundaries keep a real title word from being
+    // mistaken for a marker.
+    private val LEG_HINT = Regex(
+        "(?i)(?<![\\p{L}])(legendad[oa]s?|legendas?|leg|subtitulad[oa]s?|subtitle[ds]?|subbed|sub|\\[\\s*l\\s*]|\\(\\s*l\\s*\\)|\\[\\s*leg\\s*])(?![\\p{L}])"
+    )
+    private val DUB_HINT = Regex(
+        "(?i)(?<![\\p{L}])(dublad[oa]s?|dublagem|dubbed|dub|nacion(?:al|ais)|dual\\s*[aá]?udio?|dual|\\[\\s*d\\s*]|\\(\\s*d\\s*\\)|\\[\\s*dub\\s*])(?![\\p{L}])"
+    )
+
+    /**
+     * Classifies a movie as dubbed / subtitled / unknown from its title AND
+     * its category name — providers often mark only one of the two ("Duna"
+     * in a "Filmes Legendados" bucket, or "Duna DUBLADO" in a plain one).
+     * Subtitled wins when both signals are present.
+     */
+    fun audioVariantFrom(name: String?, categoryName: String?): AudioVariant {
+        val hay = foldAccents(((name ?: "") + "  ¬  " + (categoryName ?: "")).lowercase())
+        return when {
+            LEG_HINT.containsMatchIn(hay) -> AudioVariant.LEGENDADO
+            DUB_HINT.containsMatchIn(hay) -> AudioVariant.DUBLADO
+            else -> AudioVariant.DESCONHECIDO
+        }
     }
 
     /** A short label for the [audioVariant] of a raw title, for the player's

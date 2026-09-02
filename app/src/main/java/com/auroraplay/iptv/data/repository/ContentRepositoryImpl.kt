@@ -131,41 +131,58 @@ class ContentRepositoryImpl @Inject constructor(
             .flowOn(Dispatchers.Default)
 
     /**
-     * Collapses a provider's dubbed + subtitled copies of one movie ("Duna
-     * DUBLADO" / "Duna LEG") to a single row — keeps the dubbed one when
-     * present, else the first seen — preserving the original ordering. Only
-     * merges rows that are *both* explicitly dub/sub-tagged, so two genuinely
-     * different films sharing a title (and lacking a year to disambiguate) are
-     * never hidden. Non-destructive: every row still exists in the DB, so a
-     * favourite / "continuar assistindo" entry on the hidden twin still opens.
+     * Collapses a provider's dubbed + subtitled copies of one movie to a
+     * single row, preferring the dubbed copy for a pt-BR audience and keeping
+     * the original ordering.
+     *
+     * Rows are grouped by [MetadataSanitizer.variantKey] (base name minus
+     * marker/year, accent-folded, plus the year). A group collapses when
+     * either:
+     *  - it mixes a subtitled row with a non-subtitled one (a real dub/sub
+     *    split — the split is read from the title *and* the category, since
+     *    providers often mark only one), or
+     *  - the shared key carries a year, i.e. the rows are the same title from
+     *    the same year (an exact/near duplicate).
+     * Otherwise the group is left intact, so two unrelated films that merely
+     * share a marker-less title are never hidden. Non-destructive: every row
+     * stays in the DB, so a favourite / continue-watching entry pointing at
+     * the hidden twin still opens.
      */
     private fun List<MovieEntity>.collapseAudioVariants(): List<MovieEntity> {
         if (size < 2) return this
-        val slotOf = HashMap<String, Int>()
-        val out = ArrayList<MovieEntity>(size)
+        val order = ArrayList<String>(size)
+        val groups = HashMap<String, MutableList<MovieEntity>>(size)
         for (movie in this) {
             val key = MetadataSanitizer.variantKey(movie.name, movie.year)
-            val slot = slotOf[key]
-            if (slot == null) {
-                slotOf[key] = out.size
-                out += movie
-                continue
-            }
-            val keptTag = MetadataSanitizer.audioVariant(out[slot].name)
-            val tag = MetadataSanitizer.audioVariant(movie.name)
-            if (tag == MetadataSanitizer.AudioVariant.DESCONHECIDO ||
-                keptTag == MetadataSanitizer.AudioVariant.DESCONHECIDO
-            ) {
-                out += movie
-                continue
-            }
-            if (keptTag != MetadataSanitizer.AudioVariant.DUBLADO &&
-                tag == MetadataSanitizer.AudioVariant.DUBLADO
-            ) {
-                out[slot] = movie
+            groups.getOrPut(key) { order.add(key); ArrayList(2) }.add(movie)
+        }
+        if (groups.size == size) return this
+
+        val out = ArrayList<MovieEntity>(size)
+        for (key in order) {
+            val group = groups.getValue(key)
+            if (group.size == 1) { out += group[0]; continue }
+
+            val tags = group.map { MetadataSanitizer.audioVariantFrom(it.name, it.categoryName) }
+            val hasLeg = tags.any { it == MetadataSanitizer.AudioVariant.LEGENDADO }
+            val hasNonLeg = tags.any { it != MetadataSanitizer.AudioVariant.LEGENDADO }
+            val yearKnown = key.substringAfterLast('|').isNotBlank()
+
+            if ((hasLeg && hasNonLeg) || (yearKnown && group.size <= 6)) {
+                val keep = group.indices.minByOrNull { i -> variantRank(tags[i]) } ?: 0
+                out += group[keep]
+            } else {
+                out += group
             }
         }
         return out
+    }
+
+    /** Preference order when picking the survivor: dubbed, then unknown, then subtitled. */
+    private fun variantRank(v: MetadataSanitizer.AudioVariant): Int = when (v) {
+        MetadataSanitizer.AudioVariant.DUBLADO -> 0
+        MetadataSanitizer.AudioVariant.DESCONHECIDO -> 1
+        MetadataSanitizer.AudioVariant.LEGENDADO -> 2
     }
 
     override fun observeSeries(connectionId: String, categoryId: String?): Flow<List<Series>> =
@@ -263,16 +280,27 @@ class ContentRepositoryImpl @Inject constructor(
         // then keep only exact variantKey matches.
         val probe = MetadataSanitizer.stripAudioMarkers(movie.name)
             .split(Regex("\\s+")).maxByOrNull { it.length }?.takeIf { it.length >= 3 } ?: movie.name
-        val group = (runCatching { movieDao.search(connectionId, probe) }.getOrDefault(emptyList()) + movie)
+        val group = (runCatching { movieDao.searchAll(connectionId, probe) }.getOrDefault(emptyList()) + movie)
             .distinctBy { it.id }
             .filter { MetadataSanitizer.variantKey(it.name, it.year) == key }
         if (group.size < 2) return emptyList()
-        return group
-            .map {
+
+        val tagged = group.map { it to MetadataSanitizer.audioVariantFrom(it.name, it.categoryName) }
+        val hasLeg = tagged.any { it.second == MetadataSanitizer.AudioVariant.LEGENDADO }
+        return tagged
+            .map { (m, tag) ->
+                // With a subtitled copy present, treat the un-marked ones as
+                // dubbed — the pt-BR default — so the toggle reads cleanly.
+                val effective = if (tag == MetadataSanitizer.AudioVariant.DESCONHECIDO && hasLeg)
+                    MetadataSanitizer.AudioVariant.DUBLADO else tag
                 AudioStreamVariant(
-                    label = MetadataSanitizer.audioVariantLabel(it.name),
-                    streamUrl = it.streamUrl,
-                    variant = MetadataSanitizer.audioVariant(it.name),
+                    label = when (effective) {
+                        MetadataSanitizer.AudioVariant.DUBLADO -> "Dublado"
+                        MetadataSanitizer.AudioVariant.LEGENDADO -> "Legendado"
+                        MetadataSanitizer.AudioVariant.DESCONHECIDO -> "Original"
+                    },
+                    streamUrl = m.streamUrl,
+                    variant = effective,
                 )
             }
             .distinctBy { it.streamUrl }

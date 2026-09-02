@@ -48,6 +48,12 @@ interface MovieDao {
     @Query("SELECT * FROM movies WHERE connectionId = :connectionId AND name LIKE '%' || :query || '%' LIMIT 50")
     suspend fun search(connectionId: String, query: String): List<MovieEntity>
 
+    /** Wider LIKE used to gather every dubbed/subtitled copy of one title
+     * when resolving the player's audio switch — capped so a common word
+     * can't scan the whole catalog. */
+    @Query("SELECT * FROM movies WHERE connectionId = :connectionId AND name LIKE '%' || :query || '%' LIMIT 200")
+    suspend fun searchAll(connectionId: String, query: String): List<MovieEntity>
+
     @Query("SELECT * FROM movies WHERE id = :id AND connectionId = :connectionId LIMIT 1")
     suspend fun getById(connectionId: String, id: String): MovieEntity?
 
