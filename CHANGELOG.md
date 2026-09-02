@@ -1,3 +1,13 @@
+## 1.26.8 — 2026-09-02
+
+- **Ícone sem o fundo preto.** O `background` do ícone adaptativo virou
+  totalmente transparente — sobra só a marca "A". Os PNGs legados (API < 26)
+  foram trocados por um vetor em `mipmap-anydpi/` (a marca sobre transparente,
+  ~1,5x maior já que aí não há máscara do launcher). Nota: launcher decide o
+  que fazer com fundo transparente — Samsung One UI mostra um squircle branco;
+  o Pixel Launcher preenche de preto; launchers customizados deixam ver o
+  wallpaper.
+
 ## 1.26.7 — 2026-09-02
 
 - **Modo Cinema sem piscar.** O `Crossfade` fazia as duas camadas caírem de

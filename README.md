@@ -69,13 +69,18 @@ app/src/main/java/com/auroraplay/iptv/
 
 ## Versão atual
 
-**1.26.7** — `versionCode 77`. Modo Cinema sem piscar (duas camadas, a anterior
-opaca por baixo enquanto a nova aparece por cima). Troca rápida de episódio no
-player ("Episódios" → gaveta lateral). Picture-in-Picture (toggle em
-Configurações, entra no Home durante o vídeo). Sincronização automática ao
-abrir (Desligada/12h/24h/Semanal).
+**1.26.8** — `versionCode 78`. Ícone do app: `background` do adaptativo agora
+totalmente transparente (sem a tarja preta); PNGs legados trocados por vetor.
+O resultado depende do launcher (Samsung: squircle branco; Pixel: preenche de
+preto). Antes (1.26.7): Cinema sem piscar, troca rápida de episódio, PiP,
+sincronização automática.
 
 ## Novidades desta revisão
+
+### 1.26.8 — 2026-09-02
+
+- **Ícone sem fundo preto:** `ic_launcher_background` transparente; legados
+  (`mipmap-*/ic_launcher.png`) substituídos por um vetor em `mipmap-anydpi/`.
 
 ### 1.26.7 — 2026-09-02
 

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Legacy launcher icon (API 21–25, before adaptive icons). The AuroraPlay "A"
+  mark on a transparent canvas — no dark tile. Scaled ~1.5x vs the adaptive
+  foreground since there is no launcher-mask safe zone to reserve here.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <path
+        android:pathData="M33,75 L54,36 L75,75"
+        android:strokeWidth="15"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:type="linear"
+                android:startX="43"
+                android:startY="33"
+                android:endX="60"
+                android:endY="78">
+                <item android:offset="0.0" android:color="#FF00ACFC" />
+                <item android:offset="0.50" android:color="#FF5161FB" />
+                <item android:offset="1.0" android:color="#FF8B44FB" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <path
+        android:pathData="M45.75,75 L54,54 L62.25,75"
+        android:strokeWidth="6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeColor="#FFB79BFF"
+        android:strokeAlpha="0.55" />
+</vector>
