@@ -22,7 +22,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -242,7 +241,6 @@ fun SeriesDetailsScreen(
                                 isDownloading = episode.id in state.downloadingEpisodeIds,
                                 downloadProgress = state.downloadProgressByEpisodeId[episode.id] ?: 0f,
                                 hasKnownDownloadPercentage = state.downloadHasKnownPercentageByEpisodeId[episode.id] ?: true,
-                                downloadBytesDownloaded = state.downloadBytesByEpisodeId[episode.id] ?: 0L,
                                 resumePositionMillis = state.resumePositionMillis.takeIf { episode.id == state.resumeEpisodeId },
                                 resumeDurationMillis = state.resumeDurationMillis.takeIf { episode.id == state.resumeEpisodeId },
                                 onClick = { onWatchEpisode(series.id, episode.id) },
@@ -314,7 +312,6 @@ private fun EpisodeRow(
     isDownloading: Boolean,
     downloadProgress: Float,
     hasKnownDownloadPercentage: Boolean,
-    downloadBytesDownloaded: Long,
     resumePositionMillis: Long?,
     resumeDurationMillis: Long?,
     onClick: () -> Unit,
@@ -323,7 +320,7 @@ private fun EpisodeRow(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 10.dp)
+            .padding(horizontal = 20.dp, vertical = 10.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(

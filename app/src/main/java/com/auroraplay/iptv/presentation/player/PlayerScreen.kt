@@ -1,3 +1,4 @@
+@file:OptIn(androidx.media3.common.util.UnstableApi::class)
 package com.auroraplay.iptv.presentation.player
 
 import android.app.Activity
@@ -280,7 +281,6 @@ fun PlayerScreen(
                     pinchAccumulator *= zoom
                     when {
                         pinchAccumulator > 1.25f -> {
-                            @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
                             viewModel.setResizeMode(androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM)
                             toastLabel = "Preenchendo a tela"
                             pinchAccumulator = 1f
@@ -868,22 +868,19 @@ private fun PlayerControlsOverlay(
                                         .background(Color.Black),
                                     contentAlignment = Alignment.Center,
                                 ) {
-                                    val frame = scrubThumbnail
-                                    if (frame != null) {
+                                    scrubThumbnail?.let { frame ->
                                         Image(
                                             bitmap = frame.asImageBitmap(),
                                             contentDescription = null,
                                             contentScale = ContentScale.Crop,
                                             modifier = Modifier.fillMaxSize(),
                                         )
-                                    } else {
-                                        Icon(
-                                            Icons.Default.Movie,
-                                            contentDescription = null,
-                                            tint = Color.White.copy(alpha = 0.35f),
-                                            modifier = Modifier.size(22.dp),
-                                        )
-                                    }
+                                    } ?: Icon(
+                                        Icons.Default.Movie,
+                                        contentDescription = null,
+                                        tint = Color.White.copy(alpha = 0.35f),
+                                        modifier = Modifier.size(22.dp),
+                                    )
                                 }
                                 Spacer(Modifier.height(4.dp))
                                 Text(

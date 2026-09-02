@@ -1,4 +1,3 @@
-@file:OptIn(androidx.media3.common.util.UnstableApi::class)
 package com.auroraplay.iptv.player
 
 import android.content.Context
@@ -24,8 +23,9 @@ import javax.inject.Singleton
  * the time label — playback is never affected.
  */
 @Singleton
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class ThumbnailPreviewGenerator @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
 ) {
 
     // Include the stream URL in the key: the same 5-second position on two

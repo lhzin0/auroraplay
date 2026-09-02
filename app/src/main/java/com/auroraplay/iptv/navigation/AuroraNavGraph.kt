@@ -284,7 +284,7 @@ private fun MainShell(isTvDevice: Boolean, initialTab: MainTab, navController: N
                     available: androidx.compose.ui.geometry.Offset,
                     source: androidx.compose.ui.input.nestedscroll.NestedScrollSource,
                 ): androidx.compose.ui.geometry.Offset {
-                    if (source == androidx.compose.ui.input.nestedscroll.NestedScrollSource.Drag &&
+                    if (source == androidx.compose.ui.input.nestedscroll.NestedScrollSource.UserInput &&
                         kotlin.math.abs(available.y) > 0.5f
                     ) {
                         scrollAccumulator += available.y

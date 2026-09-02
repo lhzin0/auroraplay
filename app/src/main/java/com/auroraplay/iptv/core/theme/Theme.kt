@@ -50,7 +50,9 @@ fun AuroraPlayTheme(
         val window = (view.context as? android.app.Activity)?.window
         if (window != null) {
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
+            @Suppress("DEPRECATION")
             window.statusBarColor = Color.Transparent.toArgb()
+            @Suppress("DEPRECATION")
             window.navigationBarColor = Color.Transparent.toArgb()
         }
     }

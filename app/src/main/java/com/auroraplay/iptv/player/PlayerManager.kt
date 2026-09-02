@@ -66,8 +66,8 @@ data class PlaybackUiState(
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Singleton
 class PlayerManager @Inject constructor(
-    @ApplicationContext private val context: Context,
-    @PlaybackCacheReadOnly private val cacheDataSourceFactory: CacheDataSource.Factory,
+    @param:ApplicationContext private val context: Context,
+    @param:PlaybackCacheReadOnly private val cacheDataSourceFactory: CacheDataSource.Factory,
 ) {
     val exoPlayer: ExoPlayer by lazy {
         // Downloaded content is served straight from the shared download
@@ -108,7 +108,9 @@ class PlayerManager @Inject constructor(
     /** Null when Google Play services / Cast SDK isn't available on the device (e.g. some Android TV boxes). */
     private val castContext: CastContext? = runCatching { CastContext.getSharedInstance(context) }.getOrNull()
 
-    private val castPlayer: CastPlayer? = castContext?.let { CastPlayer(it) }
+    private val castPlayer: CastPlayer? = castContext?.let {
+        CastPlayer.Builder(context).build()
+    }
 
     private var lastKnownUrl: String? = null
     /** Original URL requested by the screen. This remains stable if a live
@@ -149,7 +151,7 @@ class PlayerManager @Inject constructor(
             // before surfacing an error. This is per-channel, not global:
             // channels that do have an HLS playlist keep using it.
             val url = lastKnownUrl
-            if (!triedLiveTsFallback && url != null && url.contains("/live/") && url.endsWith(".m3u8")) {
+            if (!triedLiveTsFallback && (url != null && url.contains("/live/") && url.endsWith(".m3u8"))) {
                 triedLiveTsFallback = true
                 val tsUrl = url.removeSuffix(".m3u8") + ".ts"
                 val player = activePlayer()
@@ -351,7 +353,9 @@ class PlayerManager @Inject constructor(
         val player = activePlayer()
         player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
             .apply {
-                if (audioLanguage != null) setPreferredAudioLanguage(audioLanguage)
+                if (audioLanguage != null) {
+                    setPreferredAudioLanguage(audioLanguage)
+                }
                 if (subtitleLanguage != null) {
                     setPreferredTextLanguage(subtitleLanguage)
                     setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)

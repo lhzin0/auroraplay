@@ -2,6 +2,7 @@ package com.auroraplay.iptv.player.download
 
 import android.content.Context
 import android.net.Uri
+import androidx.core.net.toUri
 import androidx.media3.exoplayer.offline.Download
 import androidx.media3.exoplayer.offline.DownloadManager
 import androidx.media3.exoplayer.offline.DownloadRequest
@@ -20,6 +21,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.time.Duration.Companion.seconds
 
 /** Snapshot of a single download, keyed by our own contentId (movie id or episode id).
  * [playbackContentType]/[playbackId] carry exactly what Screen.Player's route needs
@@ -67,7 +69,7 @@ data class DownloadState(
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Singleton
 class DownloadTracker @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val downloadManager: DownloadManager,
 ) {
     private val _downloads = MutableStateFlow<Map<String, DownloadState>>(emptyMap())
@@ -96,15 +98,17 @@ class DownloadTracker @Inject constructor(
             _downloads.value = initial + _downloads.value
         }
 
-        downloadManager.addListener(object : DownloadManager.Listener {
-            override fun onDownloadChanged(downloadManager: DownloadManager, download: Download, finalException: Exception?) {
-                _downloads.value = _downloads.value + (download.request.id to download.toState())
-            }
+        downloadManager.addListener(
+            object : DownloadManager.Listener {
+                override fun onDownloadChanged(downloadManager: DownloadManager, download: Download, finalException: Exception?) {
+                    _downloads.value = _downloads.value + (download.request.id to download.toState())
+                }
 
-            override fun onDownloadRemoved(downloadManager: DownloadManager, download: Download) {
-                _downloads.value = _downloads.value - download.request.id
-            }
-        })
+                override fun onDownloadRemoved(downloadManager: DownloadManager, download: Download) {
+                    _downloads.value = _downloads.value - download.request.id
+                }
+            },
+        )
 
         // Media3's DownloadManager.Listener only fires on state *transitions*
         // (queued → downloading → completed), never as bytes arrive — so without
@@ -114,11 +118,11 @@ class DownloadTracker @Inject constructor(
             while (isActive) {
                 val active = downloadManager.currentDownloads
                 if (active.isEmpty()) {
-                    delay(5_000)
+                    delay(5.seconds)
                 } else {
                     _downloads.value = _downloads.value +
-                        active.associate { it.request.id to it.toState() }
-                    delay(1_000)
+                        active.associateBy({ it.request.id }, { it.toState() })
+                    delay(1.seconds)
                 }
             }
         }
@@ -134,7 +138,7 @@ class DownloadTracker @Inject constructor(
         return DownloadState(
             contentId = request.id,
             status = state,
-            progressPercent = percentDownloaded.takeIf { it in 0f..100f } ?: 0f,
+            progressPercent = percentDownloaded.takeIf { (it in 0f..100f) } ?: 0f,
             hasKnownPercentage = percentDownloaded in 0f..100f,
             bytesDownloaded = bytesDownloaded,
             playbackContentType = parts.getOrNull(0)?.ifBlank { null } ?: "MOVIE",
@@ -185,7 +189,7 @@ class DownloadTracker @Inject constructor(
             groupTitle,
             sortKey.toString(),
         ).joinToString(DATA_SEPARATOR)
-        val request = DownloadRequest.Builder(contentId, Uri.parse(streamUrl))
+        val request = DownloadRequest.Builder(contentId, streamUrl.toUri())
             .setData(data.toByteArray())
             .build()
         DownloadService.sendAddDownload(context, AuroraDownloadService::class.java, request, false)

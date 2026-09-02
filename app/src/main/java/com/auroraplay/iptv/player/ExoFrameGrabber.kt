@@ -150,7 +150,7 @@ class ExoFrameGrabber(private val context: Context) {
         val width = image.width
         val height = image.height
         require(pixelStride == 4) { "Unexpected RGBA pixel stride: $pixelStride" }
-        require(rowStride >= width * pixelStride) { "Invalid RGBA row stride: $rowStride" }
+        require(rowStride >= (width * pixelStride)) { "Invalid RGBA row stride: $rowStride" }
 
         val source = plane.buffer.duplicate()
         val requiredBytes = (height - 1) * rowStride + width * pixelStride

@@ -20,7 +20,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class NetworkMonitor @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
 ) {
     val isOnline: Flow<Boolean> = callbackFlow {
         val connectivityManager =
@@ -37,7 +37,7 @@ class NetworkMonitor @Inject constructor(
         // portal briefly slipping through as "online" is a much smaller
         // problem here: this flow only drives a banner and blocks nothing.
         fun NetworkCapabilities?.hasInternet(): Boolean =
-            this != null && hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            this != null && (hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET))
 
         fun currentlyOnline(): Boolean =
             connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork).hasInternet()
