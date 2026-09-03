@@ -1,249 +1,216 @@
+<div align="center">
+
+<a href="https://lhzin0.github.io/auroraplay/">
+    <img src="./website/assets/logo.svg" alt="AuroraPlay" height="180" width="180" />
+</a>
+
 # AuroraPlay
 
-**Reprodutor IPTV/Xtream para Android e Android TV.** Kotlin + Jetpack Compose,
-Clean Architecture (MVVM), Media3/ExoPlayer.
+Reprodutor IPTV/Xtream para Android e Android TV
 
-![versão](https://img.shields.io/badge/versão-1.34.0-8476fa)
-![minSdk](https://img.shields.io/badge/minSdk-24%20(Android%207.0)-3ddc84)
-![targetSdk](https://img.shields.io/badge/targetSdk-36-3ddc84)
-![licença](https://img.shields.io/badge/licença-proprietária-lightgrey)
-![plataforma](https://img.shields.io/badge/plataforma-Android%20%7C%20Android%20TV-555)
+[![Site](https://img.shields.io/badge/site-lhzin0.github.io%2Fauroraplay-8476fa?labelColor=27303D)](https://lhzin0.github.io/auroraplay/)
+[![CI](https://github.com/lhzin0/auroraplay/actions/workflows/ci.yml/badge.svg?labelColor=27303D)](https://github.com/lhzin0/auroraplay/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/lhzin0/auroraplay/actions/workflows/codeql.yml/badge.svg?labelColor=27303D)](https://github.com/lhzin0/auroraplay/actions/workflows/codeql.yml)
+[![Licença](https://img.shields.io/badge/licen%C3%A7a-propriet%C3%A1ria-lightgrey?labelColor=27303D)](./LICENSE)
 
-<!-- Ativar quando o repositório for público:
-[![CI](https://github.com/lhzin0/auroraplay/actions/workflows/ci.yml/badge.svg)](https://github.com/lhzin0/auroraplay/actions/workflows/ci.yml)
-[![Release](https://github.com/lhzin0/auroraplay/actions/workflows/release.yml/badge.svg)](https://github.com/lhzin0/auroraplay/actions/workflows/release.yml)
--->
+<img src="./website/assets/og.png" alt="AuroraPlay — sua playlist, no seu ritmo" width="720" />
 
-Site: <https://lhzin0.github.io/auroraplay/> · Downloads:
-[GitHub Releases](https://github.com/lhzin0/auroraplay/releases)
+## Download
 
----
+[![Release](https://img.shields.io/github/v/release/lhzin0/auroraplay?maxAge=3600&label=Est%C3%A1vel&labelColor=06599d&color=043b69&filter=v*)](https://github.com/lhzin0/auroraplay/releases)
 
-## Sobre
+*Requer Android 7.0 ou superior. Celular, tablet e Android TV.*
+
+Baixe o APK pela página oficial — <https://lhzin0.github.io/auroraplay/> — ou
+pela aba [Releases](https://github.com/lhzin0/auroraplay/releases). A partir da
+1.34.0 o próprio app verifica e baixa novas versões (você escolhe quando
+instalar).
+
+</div>
+
+## Sobre o projeto
 
 AuroraPlay organiza e reproduz **as suas próprias** conexões Xtream Codes:
 canais ao vivo, filmes e séries, com perfis locais, favoritos, "continuar
 assistindo", busca por gênero, backup portátil e atualização pelo próprio app.
-A interface se adapta a celular/tablet e a Android TV (navegação inferior vs.
-_rail_ lateral, detectados em tempo de execução).
+A interface se adapta a celular/tablet e a Android TV — a navegação inferior dá
+lugar a um _rail_ lateral, detectado em tempo de execução.
 
-> **Aviso.** O AuroraPlay **não fornece, hospeda, indexa ou revende** canais,
-> filmes, séries ou assinaturas. Não há listas, servidores ou credenciais
-> embutidos. Você conecta uma playlist Xtream à qual já tem acesso e é
-> responsável pela origem e pela legalidade dela.
+Feito em **Kotlin + Jetpack Compose**, Clean Architecture (MVVM), Hilt e
+Media3/ExoPlayer. Histórico completo em [CHANGELOG.md](./CHANGELOG.md).
 
 ## Funcionalidades
 
-- **Perfis locais** ("Quem está assistindo?") com nome, avatar, cor; favoritos
-  e histórico por perfil; PIN/biometria em aparelhos compatíveis; perfil
-  infantil com filtro baseado no catálogo.
-- **Conexões Xtream**: cadastro com servidor/login/senha, múltiplas conexões e
-  padrão, teste de acesso, importação/exportação, credenciais guardadas com
-  `EncryptedSharedPreferences` (AES-256).
-- **Home** com _hero banner_ e trilhos dinâmicos (continuar assistindo, ao
-  vivo, filmes, séries, canais recentes, favoritos, recomendados).
-- **TV ao vivo** com prévia, lista de canais e categorias; "programa atual"
-  com barra de progresso quando a playlist fornece EPG.
-- **Filmes e séries** com categorias do servidor, detalhes, trailer _inline_,
-  "mais como este", temporadas e episódios.
-- **Player** Media3/ExoPlayer com controles próprios (play/pause, _seek_,
-  próximo episódio, troca rápida de canais, auto-hide), **prévia na timeline**,
-  **modo cinematográfico** persistente, **Picture-in-Picture**, transmissão
-  para dispositivos Cast.
-- **Busca global** com filtros (Todos/Canais/Filmes/Séries) e por gênero
-  (romance, drama, dorama, ação, …).
-- **Downloads** de filmes e episódios compatíveis (apenas Wi-Fi opcional).
-- **Backup portátil** para um arquivo escolhido pelo usuário (pasta local,
-  SD/USB ou nuvem), opcionalmente cifrado por senha.
-- **Sincronização** do catálogo com progresso na tela e na notificação,
-  continuando fora da tela; atualização periódica em segundo plano.
-- **Atualização pelo app** (≥ 1.34.0): consulta as GitHub Releases, baixa e o
-  usuário decide quando instalar.
+<div align="left">
 
-Detalhes de disponibilidade (EPG, trailers, legendas, Cast) dependem do
-conteúdo, do servidor e do aparelho.
+<details open>
+<summary><b>Player</b></summary>
 
-## Tecnologias
+* Controles próprios: play/pause, _seek_, próximo episódio, troca rápida de canais, auto-hide.
+* Prévia de quadros ao arrastar a linha do tempo.
+* Modo cinematográfico persistente e Picture-in-Picture.
+* Transmissão para dispositivos Cast compatíveis.
+* Ganchos para faixas de áudio/legenda e velocidade de reprodução.
 
-| Área | Stack |
-|---|---|
-| Linguagem / UI | Kotlin, Jetpack Compose (Material 3), Navigation Compose |
-| Arquitetura | Clean Architecture + MVVM, Hilt (DI), Coroutines/Flow |
-| Dados | Room, DataStore Preferences, `androidx.security` (EncryptedSharedPreferences) |
-| Rede | Retrofit, OkHttp, Gson |
-| Mídia | Media3/ExoPlayer (HLS/DASH), Media3 Session, Cast, WorkManager |
-| Imagens | Coil, Palette |
-| Build | Gradle 8.14.x (KTS), AGP + KSP, JDK 21 (CLI) |
+</details>
 
-## Estrutura do repositório
+<details open>
+<summary><b>Catálogo e busca</b></summary>
 
-```
-app/                      # aplicativo Android (com.auroraplay.iptv)
-  src/main/java/.../
-    core/ domain/ data/ player/ navigation/ presentation/ sync/ update/
-  src/test/                # testes JVM
-  src/androidTest/         # testes instrumentados
-docs/                      # arquitetura, segurança/assinatura, backup, atualizações, release-notes/
-scripts/                   # PowerShell: inicializar assinatura, backup da identidade, build de release
-website/                   # site estático (GitHub Pages), Node ESM, zero dependências
-.github/                   # workflows (CI, Release, Pages, CodeQL), templates, RELEASING.md
-CHANGELOG.md               # histórico completo (Keep a Changelog)
-```
+* Canais, filmes e séries com categorias vindas do servidor.
+* Detalhes, trailer _inline_, "mais como este", temporadas e episódios.
+* TV ao vivo com prévia, lista de canais e "programa atual" quando há EPG.
+* Busca global com filtros (Todos/Canais/Filmes/Séries) e por gênero
+  (romance, drama, dorama, ação…).
 
-## Requisitos
+</details>
 
-- **Android Studio** Koala ou mais recente.
-- **JDK 21** para o Gradle **pela linha de comando** (o Gradle 8.14.x falha com
-  o JDK 25 que acompanha versões recentes do Android Studio). Aponte
-  `JAVA_HOME`/`org.gradle.java.home` para um JDK 21.
-- **Android SDK** com `platforms;android-36` e `build-tools;36.0.0`.
-- Dispositivo/emulador com **Android 7.0 (API 24)** ou superior.
+<details open>
+<summary><b>Perfis</b></summary>
 
-## Configuração
+* Perfis locais ("Quem está assistindo?") com nome, avatar e cor.
+* Favoritos e histórico separados por perfil.
+* PIN e biometria em aparelhos compatíveis; perfil infantil com filtro pelo catálogo.
 
-`local.properties` **não é versionado**. Chaves reconhecidas (todas opcionais):
+</details>
 
-```properties
-sdk.dir=<caminho do Android SDK>
+<details open>
+<summary><b>Conexões e sincronização</b></summary>
 
-# Metadados e trailers oficiais (TMDB). Sem ela o app compila e roda com
-# recursos de metadados limitados. Nunca vai para o build de release.
-TMDB_API_KEY=
+* Cadastro Xtream (servidor/login/senha), múltiplas conexões e padrão.
+* Teste de acesso, importação/exportação, credenciais em `EncryptedSharedPreferences` (AES-256).
+* Sincronização com progresso na tela e na notificação, seguindo fora da tela;
+  atualização periódica em segundo plano.
 
-# Somente build de debug: pré-carrega uma playlist de teste (DebugConnectionSeeder).
-SEED_XTREAM_NAME=
-SEED_XTREAM_URL=
-SEED_XTREAM_USER=
-SEED_XTREAM_PASS=
-```
+</details>
 
-Esses valores entram no `BuildConfig` via `localBuildString(...)`; variáveis de
-ambiente de mesmo nome têm prioridade. **Nunca comite credenciais.**
+<details open>
+<summary><b>Backup e atualizações</b></summary>
 
-## Executar
+* Backup para um arquivo escolhido por você (pasta local, SD/USB ou nuvem),
+  opcionalmente cifrado por senha.
+* Downloads de filmes e episódios compatíveis (só Wi-Fi opcional).
+* Atualização pelo app a partir das Releases do GitHub, com verificação de
+  integridade, versão e certificado antes de instalar.
 
-1. `File → Open` e selecione a pasta do projeto no Android Studio.
-2. Deixe o Gradle Sync concluir (precisa de internet na primeira vez).
-3. Rode a configuração `app` em um emulador/dispositivo API 24+.
-   - Android TV é detectado por `UiModeManager` e troca a navegação
-     automaticamente.
+</details>
 
-Pela linha de comando:
+</div>
+
+Disponibilidade de EPG, trailers, legendas e Cast depende do conteúdo, do
+servidor e do aparelho.
+
+## Roadmap
+
+Notas de planejamento para as próximas versões em
+[docs/roadmap.md](./docs/roadmap.md). Resumo:
+
+<div align="left">
+
+<details>
+<summary>Próximas versões</summary>
+
+1. Classificação e busca por gênero mais precisas.
+2. Card de **Histórico** (abaixo de Perfil), persistente até apagar manualmente, incluído no backup.
+3. "Remover de Continuar Assistindo" (por filme; por série remove todos os episódios) sem apagar histórico/progresso.
+4. Repositório oficial no GitHub como base do sistema de atualização.
+5. Card de atualização absorvido pelo card **Versão** (no fim das Configurações).
+6. Redesenho da tela **Editar Perfil**.
+7. Card **Backup** logo abaixo do card **Dados**.
+
+Regras gerais: não remover funcionalidades não relacionadas, preservar dados
+existentes, não perder histórico/progresso em atualizações, manter consistência
+visual, testar filmes e séries separadamente, validar backup/restauração do
+histórico.
+
+</details>
+
+</div>
+
+## Desenvolvimento
 
 ```bash
-./gradlew installDebug
+./gradlew testDebugUnitTest assembleDebug   # testes JVM + APK de debug
+./gradlew lintDebug                          # Android Lint
+./gradlew connectedDebugAndroidTest         # instrumentados (precisa de device/emulador)
 ```
 
-## Build
+O build **pela linha de comando exige JDK 21** (o Gradle 8.14.x falha com o JDK
+25 de versões recentes do Android Studio). `org.gradle.configuration-cache`
+fica desligado de propósito. Chaves opcionais de `local.properties`
+(`TMDB_API_KEY`, `SEED_XTREAM_*`) e o restante da configuração estão em
+[CONTRIBUTING.md](./CONTRIBUTING.md).
 
-```bash
-# Debug
-./gradlew assembleDebug        # app/build/outputs/apk/debug/
+* Arquitetura: [docs/arquitetura.md](./docs/arquitetura.md)
+* Publicar uma versão (CI assina o APK na tag `vX.Y.Z`): [.github/RELEASING.md](./.github/RELEASING.md)
+* Segurança e assinatura: [SECURITY.md](./SECURITY.md) · [docs/seguranca-e-assinatura.md](./docs/seguranca-e-assinatura.md)
+* Site: [website/README.md](./website/README.md)
 
-# Release (sai NÃO assinado de propósito)
-./gradlew :app:assembleRelease # app/build/outputs/apk/release/app-release-unsigned.apk
-```
+## Contribuindo
 
-O APK de release é assinado **depois** do build, com rotação de chave
-(_lineage_ v3, esquema APK Signature v3) para instalar por cima das versões
-antigas sem desinstalar:
+_Pull requests_ são bem-vindos. Para mudanças grandes, abra uma _issue_ antes.
+Fluxo, padrões de commit (Conventional Commits) e verificações em
+[CONTRIBUTING.md](./CONTRIBUTING.md); participação sujeita ao
+[Código de Conduta](./CODE_OF_CONDUCT.md).
 
-- **Local:** `./scripts/build-release.ps1` (usa a identidade em
-  `%LOCALAPPDATA%\AuroraPlay\signing`, criada uma vez por
-  `scripts/initialize-signing.ps1`). Gera `build/release/` com o APK assinado,
-  `SHA256SUMS.txt` e `release.json`, e verifica os certificados nas APIs
-  24/27/28/32/33/36.
-- **CI:** `.github/workflows/release.yml` faz o mesmo a partir de _secrets_ ao
-  publicar uma tag `vX.Y.Z`. Ver [.github/RELEASING.md](.github/RELEASING.md).
+<div align="left">
 
-`org.gradle.configuration-cache` fica **desligado de propósito** — ver o
-comentário em `gradle.properties`.
+<details>
+<summary>Issues</summary>
 
-## Testes
+Antes de abrir, veja a [ajuda do site](https://lhzin0.github.io/auroraplay/#ajuda),
+as [Releases](https://github.com/lhzin0/auroraplay/releases) e as
+[issues existentes](https://github.com/lhzin0/auroraplay/issues).
 
-```bash
-./gradlew testDebugUnitTest           # testes JVM
-./gradlew lint                        # Android Lint
-./gradlew connectedDebugAndroidTest   # instrumentados (precisa de emulador/dispositivo)
-```
+</details>
 
-O CI (`.github/workflows/ci.yml`) roda `testDebugUnitTest lint assembleDebug`
-em cada PR, mais o build do site.
+<details>
+<summary>Bugs</summary>
 
-## Arquitetura
+* Informe a versão (**Ajustes → Sobre**) e, se não for a mais recente, tente atualizar primeiro.
+* Passos para reproduzir, aparelho/Android e, se ajudar, um print ou vídeo.
+* **Nunca** inclua login, senha, link de playlist com credenciais ou arquivos de backup.
+* Se puder depender do aparelho, tente reproduzir em outro.
 
-`presentation → domain ← data`, com `player` isolado. ViewModels expõem
-`StateFlow`; repositórios têm _single source of truth_ no Room e a rede só
-preenche o cache. Visão completa (persistência, sincronização, player, prévia
-da timeline, atualização, backup, Android TV) em
-[docs/arquitetura.md](docs/arquitetura.md).
+</details>
 
-## Site
+<details>
+<summary>Pedidos de recurso</summary>
 
-`website/` é um site estático para GitHub Pages, em Node ESM **sem
-dependências**. `npm run dev` (porta 4173) para prévia, `npm run build` para
-gerar e validar `dist/`. Publicado por `.github/workflows/pages.yml`. Ver
-[website/README.md](website/README.md).
+* Descreva o que deve fazer e por quê; evite só "como o app X faz".
+* Deve estar dentro do escopo: reprodução/organização da **sua** playlist.
+* Print quando ajudar.
 
-## Releases e atualização pelo app
+</details>
 
-- Publicação: [.github/RELEASING.md](.github/RELEASING.md).
-- Atualização in-app e verificações de integridade:
-  [docs/atualizacoes-github.md](docs/atualizacoes-github.md).
+</div>
 
-## Segurança
+### Créditos
 
-- Política e canal privado de report: [SECURITY.md](SECURITY.md).
-- Assinatura, migração de chave e proteções de dados:
-  [docs/seguranca-e-assinatura.md](docs/seguranca-e-assinatura.md).
-- **Nunca** comite credenciais, backups, `local.properties` ou material de
-  assinatura (`*.jks`, `*.keystore`, `*.p12`, `*.lineage`, `identity.json`) —
-  o `.gitignore` já bloqueia esses padrões.
+Obrigado a todas as pessoas que contribuíram.
 
-## Backup
+<a href="https://github.com/lhzin0/auroraplay/graphs/contributors">
+    <img src="https://contrib.rocks/image?repo=lhzin0/auroraplay" alt="Contribuidores do AuroraPlay" width="600" />
+</a>
 
-Arquivo escolhido pelo usuário (SAF), opcionalmente cifrado (AES-256-GCM,
-chave por PBKDF2). Auto Backup do Android fica desativado de propósito. Uso e
-testes: [docs/backup-em-arquivo.md](docs/backup-em-arquivo.md).
+O player é baseado em [AndroidX Media3/ExoPlayer](https://github.com/androidx/media).
 
-## Roadmap / limitações conhecidas
+### Aviso
 
-Pontos que encaixam na arquitetura atual (repositório/ViewModel/tela) sem
-reestruturação:
+Os desenvolvedores do AuroraPlay não têm afiliação com provedores de conteúdo.
+O aplicativo **não hospeda nenhum conteúdo** e não fornece listas, canais,
+filmes, séries ou assinaturas: você conecta uma playlist Xtream à qual já tem
+acesso e é responsável pela origem e pela legalidade dela.
 
-- **EPG completo:** a UI já mostra "programa atual"; falta disparar
-  `get_short_epg` na sincronização e montar a grade com linha do tempo.
-- **Perfil ↔ conexão no onboarding:** o modelo suporta a associação, mas a
-  navegação ainda passa `profileId = null` em `AddConnectionScreen`.
-- **UI de faixas:** o player expõe `availableAudioTracks` /
-  `availableSubtitleTracks` / `setPlaybackSpeed`; falta a tela de seleção sobre
-  o `TrackSelector` do Media3.
-- **Aba "Downloads":** a infraestrutura e o botão "Baixar" existem; falta uma
-  lista única de tudo que foi baixado.
-- **Artes finais:** ícones de launcher/banner de TV ainda são vetores simples.
+### Licença
 
-## Contribuição
+<pre>
+Copyright © 2026 Henrique Luís Pereira. Todos os direitos reservados.
 
-Projeto proprietário; contribuições são coordenadas pelo mantenedor. Fluxo,
-padrões de commit (Conventional Commits) e verificações em
-[CONTRIBUTING.md](CONTRIBUTING.md). Participação sujeita ao
-[Código de Conduta](CODE_OF_CONDUCT.md). Ajuda e suporte:
-[SUPPORT.md](SUPPORT.md).
+Software proprietário. Nenhuma licença é concedida sobre o código-fonte ou
+demais materiais deste repositório sem autorização prévia e por escrito do
+titular. O aplicativo distribuído pelos canais oficiais é gratuito para uso
+pessoal, sem garantia de qualquer natureza.
 
-## Histórico
-
-Registro completo de versões em [CHANGELOG.md](CHANGELOG.md), uma entrada
-`## X.Y.Z — data` por release, da mais recente para a mais antiga.
-`versionName`/`versionCode` vivem apenas em `app/build.gradle.kts` e aparecem
-em `Ajustes → Sobre` via `BuildConfig`.
-
-| Tipo de mudança | Incremento |
-|---|---|
-| Correção de bug | `x.x.PATCH` |
-| Funcionalidade / redesign | `x.MINOR.x` |
-| Quebra de compatibilidade | `MAJOR.x.x` |
-
-## Licença
-
-Proprietária — **todos os direitos reservados**. Ver [LICENSE](LICENSE). O APK
-distribuído pelos canais oficiais é gratuito para uso pessoal, sem garantia.
+Texto completo em ./LICENSE
+</pre>
