@@ -128,7 +128,7 @@ class ScrubPreviewEngine @Inject constructor(
                 val p = player ?: return@post
                 p.setMediaItem(MediaItem.fromUri(url))
                 p.prepare()
-            }.onFailure { Log.w(TAG, "open failed", it) }
+            }.onFailure { Log.w(TAG, "open failed") }
         }
         ensureWorker()
     }
@@ -317,7 +317,7 @@ class ScrubPreviewEngine @Inject constructor(
         if (player != null && gl != null) return
         val t = HandlerThread("aurora-scrub").apply {
             start()
-            setUncaughtExceptionHandler { _, e -> Log.w(TAG, "worker thread error", e) }
+            setUncaughtExceptionHandler { _, e -> Log.w(TAG, "worker thread error") }
         }
         val h = Handler(t.looper)
         val done = java.util.concurrent.CountDownLatch(1)
@@ -348,14 +348,14 @@ class ScrubPreviewEngine @Inject constructor(
                                 }
                             }
                             override fun onPlayerError(error: PlaybackException) {
-                                Log.w(TAG, "preview player error", error)
+                                Log.w(TAG, "preview player error")
                             }
                         })
                     }
                 gl = reader
                 player = p
             } catch (e: Throwable) {
-                Log.w(TAG, "scrub engine init failed; preview disabled", e)
+                Log.w(TAG, "scrub engine init failed; preview disabled")
                 runCatching { player?.release() }
                 runCatching { gl?.release() }
                 player = null

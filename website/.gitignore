@@ -1,0 +1,9 @@
+dist/
+node_modules/
+.DS_Store
+
+# APKs de release são anexos da GitHub Release, não conteúdo versionado.
+# Exceção: o APK atual serve de semente até a primeira release por CI
+# (ver .github/RELEASING.md).
+downloads/*.apk
+!downloads/AuroraPlay-1.34.0.apk

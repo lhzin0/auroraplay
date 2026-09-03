@@ -1,8 +1,38 @@
+# Build / tooling
 .gradle/
 .kotlin/
 .idea/
+.cxx/
 build/
 app/build/
+captures/
 local.properties
 *.iml
+*.hprof
+
+# Claude Code local data / worktrees (nunca versionar)
+.claude/
+
+# OS
 .DS_Store
+Thumbs.db
+
+# Signing material — NUNCA versionar (ver docs/seguranca-e-assinatura.md)
+*.jks
+*.keystore
+*.p12
+*.pepk
+*.password.dpapi
+*.lineage
+signing.properties
+identity.json
+keystore.properties
+
+# Segredos locais
+.env
+.env.*
+!.env.example
+
+# APK / AAB soltos (releases são anexos da GitHub Release)
+/*.apk
+/*.aab

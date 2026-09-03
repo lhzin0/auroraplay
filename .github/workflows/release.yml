@@ -1,0 +1,210 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag existente a lançar (ex.: v1.34.0)"
+        required: true
+
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build assinado + GitHub Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Conferir segredos de assinatura
+        env:
+          LEGACY_B64: ${{ secrets.SIGNING_LEGACY_KEYSTORE_BASE64 }}
+          PROD_B64: ${{ secrets.SIGNING_PRODUCTION_KEYSTORE_BASE64 }}
+          PROD_PASS: ${{ secrets.SIGNING_PRODUCTION_PASSWORD }}
+          LINEAGE_B64: ${{ secrets.SIGNING_LINEAGE_BASE64 }}
+        run: |
+          missing=
+          [ -n "$LEGACY_B64" ]  || missing="$missing SIGNING_LEGACY_KEYSTORE_BASE64"
+          [ -n "$PROD_B64" ]    || missing="$missing SIGNING_PRODUCTION_KEYSTORE_BASE64"
+          [ -n "$PROD_PASS" ]   || missing="$missing SIGNING_PRODUCTION_PASSWORD"
+          [ -n "$LINEAGE_B64" ] || missing="$missing SIGNING_LINEAGE_BASE64"
+          if [ -n "$missing" ]; then
+            echo "::error::Segredos ausentes:$missing — veja .github/RELEASING.md"
+            exit 1
+          fi
+
+      - name: Resolver versão e conferir a tag
+        id: version
+        run: |
+          set -euo pipefail
+          VERSION="${TAG#v}"
+          GRADLE_NAME="$(sed -n 's/.*versionName = "\([0-9.]*\)".*/\1/p' app/build.gradle.kts)"
+          GRADLE_CODE="$(sed -n 's/.*versionCode = \([0-9]*\).*/\1/p' app/build.gradle.kts)"
+          echo "tag=$TAG  version=$VERSION  gradleName=$GRADLE_NAME  gradleCode=$GRADLE_CODE"
+          if [ -z "$VERSION" ] || [ -z "$GRADLE_NAME" ] || [ -z "$GRADLE_CODE" ]; then
+            echo "::error::Não foi possível ler a versão."; exit 1
+          fi
+          if [ "$VERSION" != "$GRADLE_NAME" ]; then
+            echo "::error::Tag ($VERSION) difere de versionName ($GRADLE_NAME) em app/build.gradle.kts."; exit 1
+          fi
+          if ! printf '%s\n' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Versão fora do formato x.y.z."; exit 1
+          fi
+          NOTES_FILE="docs/release-notes/${VERSION}.json"
+          if [ ! -f "$NOTES_FILE" ]; then
+            echo "::error::Faltam as notas: $NOTES_FILE (array JSON de strings). Veja .github/RELEASING.md"; exit 1
+          fi
+          node -e 'const n=require("./"+process.argv[1]);if(!Array.isArray(n)||!n.length||n.some(x=>typeof x!=="string"))throw new Error("Notas inválidas em "+process.argv[1])' "$NOTES_FILE"
+          {
+            echo "version=$VERSION"
+            echo "versionCode=$GRADLE_CODE"
+            echo "notesFile=$NOTES_FILE"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Configurar JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Validar o Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
+
+      - name: Configurar Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Instalar build-tools 36.0.0
+        run: sdkmanager "build-tools;36.0.0" "platforms;android-36"
+
+      - name: assembleRelease (não assinado)
+        run: ./gradlew :app:assembleRelease --no-daemon --stacktrace
+
+      - name: Assinar APK (lineage v3 — legada -> produção)
+        id: sign
+        env:
+          LEGACY_B64: ${{ secrets.SIGNING_LEGACY_KEYSTORE_BASE64 }}
+          PROD_B64: ${{ secrets.SIGNING_PRODUCTION_KEYSTORE_BASE64 }}
+          LINEAGE_B64: ${{ secrets.SIGNING_LINEAGE_BASE64 }}
+          AURORAPLAY_SIGNING_PASSWORD: ${{ secrets.SIGNING_PRODUCTION_PASSWORD }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/signing"; mkdir -p "$work"
+          printf '%s' "$LEGACY_B64"  | base64 -d > "$work/legacy.keystore"
+          printf '%s' "$PROD_B64"    | base64 -d > "$work/production.p12"
+          printf '%s' "$LINEAGE_B64" | base64 -d > "$work/auroraplay.lineage"
+
+          bt="$(ls -d "$ANDROID_HOME"/build-tools/36.0.0)"
+          signer="$bt/apksigner"
+          unsigned="app/build/outputs/apk/release/app-release-unsigned.apk"
+          out="$RUNNER_TEMP/AuroraPlay-${VERSION}.apk"
+
+          "$signer" sign \
+            --out "$out" \
+            --ks "$work/legacy.keystore" --ks-key-alias androiddebugkey \
+            --ks-pass pass:android --key-pass pass:android \
+            --next-signer \
+            --ks "$work/production.p12" --ks-key-alias auroraplay \
+            --ks-pass env:AURORAPLAY_SIGNING_PASSWORD --key-pass env:AURORAPLAY_SIGNING_PASSWORD \
+            --lineage "$work/auroraplay.lineage" \
+            --rotation-min-sdk-version 28 \
+            --v4-signing-enabled false \
+            --debuggable-apk-permitted false \
+            "$unsigned"
+
+          for api in 24 27 28 32 33 36; do
+            echo "--- verify API $api ---"
+            "$signer" verify --min-sdk-version "$api" --max-sdk-version "$api" --print-certs "$out"
+          done
+
+          rm -f "$work/legacy.keystore" "$work/production.p12" "$work/auroraplay.lineage"
+          echo "apk=$out" >> "$GITHUB_OUTPUT"
+
+      - name: Gerar release.json e SHA256SUMS.txt
+        id: manifest
+        env:
+          APK: ${{ steps.sign.outputs.apk }}
+          VERSION: ${{ steps.version.outputs.version }}
+          VERSION_CODE: ${{ steps.version.outputs.versionCode }}
+          NOTES_FILE: ${{ steps.version.outputs.notesFile }}
+        run: |
+          set -euo pipefail
+          SIZE="$(stat -c%s "$APK")"
+          SHA="$(sha256sum "$APK" | cut -d' ' -f1)"
+          DATE="$(date -u +%Y-%m-%d)"
+          FILE="AuroraPlay-${VERSION}.apk"
+          echo "$SHA  $FILE" > "$RUNNER_TEMP/SHA256SUMS.txt"
+          SIZE="$SIZE" SHA="$SHA" DATE="$DATE" node -e '
+            const fs = require("fs");
+            const notes = JSON.parse(fs.readFileSync(process.env.NOTES_FILE, "utf8"));
+            const m = {
+              applicationId: "com.auroraplay.iptv",
+              minSdk: 24,
+              version: process.env.VERSION,
+              versionCode: Number(process.env.VERSION_CODE),
+              publishedAt: process.env.DATE,
+              minAndroid: "7.0",
+              fileName: `AuroraPlay-${process.env.VERSION}.apk`,
+              downloadUrl: `./downloads/AuroraPlay-${process.env.VERSION}.apk`,
+              sizeBytes: Number(process.env.SIZE),
+              sha256: process.env.SHA,
+              notes,
+            };
+            // Espelha as validações de website/scripts/build.mjs.
+            if (!/^\d+\.\d+\.\d+$/.test(m.version)) throw new Error("version");
+            if (!Number.isSafeInteger(m.versionCode) || m.versionCode <= 0) throw new Error("versionCode");
+            if (!/^AuroraPlay-[\d.]+\.apk$/.test(m.fileName)) throw new Error("fileName");
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(m.publishedAt)) throw new Error("publishedAt");
+            if (!/^\d+(\.\d+)?$/.test(m.minAndroid)) throw new Error("minAndroid");
+            if (!(m.sizeBytes > 0) || !/^[a-f0-9]{64}$/.test(m.sha256)) throw new Error("apk");
+            if (!Array.isArray(m.notes) || !m.notes.length || m.notes.some(n => typeof n !== "string")) throw new Error("notes");
+            fs.writeFileSync(process.env.RUNNER_TEMP + "/release.json", JSON.stringify(m, null, 2) + "\n");
+            console.log(m);
+          '
+          {
+            echo "## AuroraPlay ${VERSION}"
+            echo
+            node -e 'JSON.parse(require("fs").readFileSync(process.env.NOTES_FILE,"utf8")).forEach(n=>console.log("- "+n))'
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Arquivo | \`${FILE}\` |"
+            echo "| SHA-256 | \`${SHA}\` |"
+            echo "| Tamanho | ${SIZE} bytes |"
+            echo "| versionCode | ${VERSION_CODE} |"
+            echo "| Android mínimo | 7.0 (API 24) |"
+            echo
+            echo "Verifique o download: \`sha256sum ${FILE}\`."
+          } > "$RUNNER_TEMP/body.md"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Criar/atualizar a GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APK: ${{ steps.sign.outputs.apk }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          assets=( "$APK" "$RUNNER_TEMP/release.json" "$RUNNER_TEMP/SHA256SUMS.txt" )
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${assets[@]}" --clobber
+            gh release edit "$TAG" --title "AuroraPlay $VERSION" --notes-file "$RUNNER_TEMP/body.md" --draft=false --prerelease=false --latest
+          else
+            gh release create "$TAG" "${assets[@]}" \
+              --title "AuroraPlay $VERSION" \
+              --notes-file "$RUNNER_TEMP/body.md" \
+              --verify-tag --latest
+          fi

@@ -56,13 +56,18 @@ class ContentRepositoryImpl @Inject constructor(
         emit(Resource.Loading)
         val urlBuilder = urlBuilderFor(connectionId)
         if (urlBuilder == null) {
-            emit(Resource.Error("Conexão não encontrada."))
+            emit(Resource.Error("Conexão sem credenciais disponíveis. Importe um backup completo ou cadastre a playlist novamente."))
             return@flow
         }
 
         try {
             emit(Resource.Success(SyncStage.CONNECTING))
-            api.authenticate(urlBuilder.auth())
+            val auth = api.authenticate(urlBuilder.auth())
+            if (auth.userInfo?.auth != 1 && !auth.userInfo?.status.equals("Active", ignoreCase = true)) {
+                connectionDao.updateStatus(connectionId, "OFFLINE")
+                emit(Resource.Error("O servidor recusou as credenciais da playlist."))
+                return@flow
+            }
 
             // Every section below follows the same rule: only wipe-and-replace
             // the local rows when the remote fetch actually returned something.
@@ -143,6 +148,8 @@ class ContentRepositoryImpl @Inject constructor(
                 connectionDao.updateStatus(connectionId, "OFFLINE")
                 emit(Resource.Error("Não foi possível atualizar o catálogo agora."))
             }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             connectionDao.updateStatus(connectionId, "OFFLINE")
             emit(Resource.Error(mapSyncError(e), e))

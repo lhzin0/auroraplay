@@ -26,6 +26,8 @@ class AuroraApplication : Application(), Configuration.Provider {
     @Inject lateinit var debugConnectionSeeder: DebugConnectionSeeder
     @Inject lateinit var connectionRepository: ConnectionRepository
     @Inject lateinit var contentRepository: ContentRepository
+    @Inject lateinit var syncContentUseCase: com.auroraplay.iptv.domain.usecase.SyncContentUseCase
+    @Inject internal lateinit var appUpdateManager: com.auroraplay.iptv.update.AppUpdateManager
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
@@ -35,6 +37,7 @@ class AuroraApplication : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
         NewEpisodeScheduler.schedule(this)
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch { runCatching { appUpdateManager.start() } }
         // Retire work persisted by 1.29.0 when upgrading to manual file backups.
         // Keep existing backup files; only discard the obsolete local account selection.
         androidx.work.WorkManager.getInstance(this).apply {
@@ -64,7 +67,7 @@ class AuroraApplication : Application(), Configuration.Provider {
                 val conn = connectionRepository.getDefaultConnection() ?: return@launch
                 val last = contentRepository.getLastSyncMillis(conn.id) ?: 0L
                 if (System.currentTimeMillis() - last >= hours * 3_600_000L) {
-                    contentRepository.syncConnection(conn.id).collect { }
+                    syncContentUseCase(conn.id).collect { }
                 }
             }
         }

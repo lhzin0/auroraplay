@@ -17,6 +17,10 @@ import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
+class MissingBackupPasswordException : IllegalStateException("Uma conexão não possui credenciais completas.")
+
+data class BackupRestoreResult(val readyConnectionIds: List<String>, val missingPasswords: Int)
+
 /** Explicit user-data snapshot. Never traverses storage or reads the download database. */
 @Singleton
 class UserDataBackup @Inject constructor(
@@ -27,23 +31,31 @@ class UserDataBackup @Inject constructor(
     private val credentials: SecureCredentialStore,
 ) {
     private val mutex = Mutex()
-    suspend fun saveToDocument(uri: Uri) = withContext(Dispatchers.IO) {
+    suspend fun saveToDocument(uri: Uri, password: CharArray? = null) = withContext(Dispatchers.IO) {
         mutex.withLock {
             // Capture and validate before opening the user-selected destination.
-            val bytes = capture().toByteArray(Charsets.UTF_8)
-            val stream = context.contentResolver.openOutputStream(uri, "wt")
-                ?: throw IOException("Não foi possível abrir o arquivo para gravação.")
-            stream.use { it.write(bytes); it.flush() }
+            val plain = capture().toByteArray(Charsets.UTF_8)
+            val bytes = try { if (password == null) plain else BackupEncryption.encrypt(plain, password) }
+            finally { if (password != null) plain.fill(0) }
+            try {
+                val stream = context.contentResolver.openOutputStream(uri, "wt")
+                    ?: throw IOException("Não foi possível abrir o arquivo para gravação.")
+                stream.use { it.write(bytes); it.flush() }
+            } finally { bytes.fill(0) }
         }
     }
 
-    suspend fun restoreFromDocument(uri: Uri) = withContext(Dispatchers.IO) {
+    suspend fun restoreFromDocument(uri: Uri, password: CharArray? = null) = withContext(Dispatchers.IO) {
         mutex.withLock {
             val stream = context.contentResolver.openInputStream(uri)
                 ?: throw IOException("Não foi possível abrir o backup.")
-            val json = stream.use { it.readBytesBounded(BackupSnapshotCodec.MAX_BYTES).toString(Charsets.UTF_8) }
+            val bytes = stream.use { it.readBytesBounded(BackupEncryption.MAX_FILE_BYTES) }
             // Validate the entire file before making any database changes.
-            restore(BackupSnapshotCodec.decode(json))
+            try {
+                val plain = BackupEncryption.decrypt(bytes, password)
+                try { restore(BackupSnapshotCodec.decode(plain.toString(Charsets.UTF_8))) }
+                finally { plain.fill(0) }
+            } finally { bytes.fill(0) }
         }
     }
 
@@ -63,17 +75,18 @@ class UserDataBackup @Inject constructor(
                 watchProgress = db.watchProgressDao().getAll().filter { it.profileId in profileIds }, settings = settings,
             )
         }
-        val passwords = snapshot.connections.mapNotNull { connection ->
-            credentials.getPassword(connection.id)?.let { connection.id to it }
+        val passwords = snapshot.connections.map { connection ->
+            val password = credentials.getPassword(connection.id) ?: throw MissingBackupPasswordException()
+            connection.id to password
         }.toMap()
         return BackupSnapshotCodec.encode(snapshot.copy(connectionPasswords = passwords))
     }
 
     /** Merge without deleting local records; keep newer local playback positions. */
-    private suspend fun restore(snapshot: BackupSnapshot) {
+    private suspend fun restore(snapshot: BackupSnapshot): BackupRestoreResult {
         db.mergeBackup(snapshot)
         // Never pair an imported password with a different local server or login.
-        // Existing passwords win; missing ones can be filled on a retried restore.
+        // Explicit restore applies the file's password to the matching connection.
         val matchingPasswords = snapshot.connections.mapNotNull { connection ->
             val local = db.connectionDao().getById(connection.id)
             val password = snapshot.connectionPasswords[connection.id]
@@ -81,7 +94,7 @@ class UserDataBackup @Inject constructor(
                 connection.id to password
             } else null
         }.toMap()
-        credentials.restoreMissingPasswords(matchingPasswords)
+        credentials.restorePasswords(matchingPasswords)
         // Room and DataStore are separate stores. The merge is idempotent so an
         // interrupted restore can safely be retried without deleting local data.
         snapshot.settings?.let { settingsRepository.restoreFrom(it) }
@@ -89,6 +102,12 @@ class UserDataBackup @Inject constructor(
             snapshot.activeProfileId?.takeIf { id -> snapshot.profiles.any { it.id == id } }
                 ?.let { settingsDataStore.setActiveProfileId(it) }
         }
+        val matchingConnections = snapshot.connections.filter { connection ->
+            val local = db.connectionDao().getById(connection.id)
+            local?.serverUrl == connection.serverUrl && local.username == connection.username
+        }
+        val ready = matchingConnections.filter { credentials.getPassword(it.id) != null }.map { it.id }
+        return BackupRestoreResult(ready, matchingConnections.size - ready.size)
     }
 }
 

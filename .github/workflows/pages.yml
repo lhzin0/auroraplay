@@ -1,0 +1,76 @@
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "website/**"
+      - ".github/workflows/pages.yml"
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  # Uma release pode compartilhar o commit da última publicação da página, e o
+  # Pages reaproveitaria o artefato antigo. Redisparar em 'main' força o mesmo
+  # caminho de publicação de uma execução manual.
+  # https://github.com/actions/deploy-pages/issues/383
+  refresh-after-release:
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run pages.yml --ref main --repo "$GITHUB_REPOSITORY"
+
+  build:
+    if: github.event_name != 'release'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Configurar Pages
+        id: pages
+        uses: actions/configure-pages@v5
+
+      - name: Build e verificação dos arquivos públicos
+        working-directory: website
+        env:
+          SITE_URL: ${{ steps.pages.outputs.base_url }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Segue a release estável mais recente sem expor token no JavaScript.
+          RELEASE_FROM_GITHUB: "true"
+        run: node scripts/build.mjs
+
+      - name: Enviar artefato do site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: website/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

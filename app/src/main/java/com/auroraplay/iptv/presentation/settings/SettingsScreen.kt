@@ -125,6 +125,7 @@ fun SettingsScreen(
                 }
 
                 item { FileBackupSection() }
+                item { com.auroraplay.iptv.update.AppUpdateSection() }
 
                 item {
                     SettingsSection(title = "Reprodução") {

@@ -1,0 +1,58 @@
+name: Sugerir um recurso
+description: Propor uma melhoria ou nova funcionalidade
+labels: [enhancement, triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        O AuroraPlay é um reprodutor para listas Xtream que **você** fornece.
+        Pedidos para fornecer canais, filmes, séries ou assinaturas estão fora
+        do escopo e serão fechados.
+  - type: checkboxes
+    id: pre
+    attributes:
+      label: Antes de abrir
+      options:
+        - label: Procurei issues existentes e não encontrei uma proposta igual
+          required: true
+        - label: A ideia está dentro do escopo (reprodução/organização da minha própria playlist)
+          required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problema ou necessidade
+      description: Que situação real isso resolve? Evite já propor a solução aqui.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposta
+      description: Como você imagina que deveria funcionar.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativas consideradas
+    validations:
+      required: false
+  - type: dropdown
+    id: area
+    attributes:
+      label: Área
+      multiple: true
+      options:
+        - Player
+        - Ao vivo / EPG
+        - Filmes e séries
+        - Busca
+        - Perfis
+        - Conexões / sincronização
+        - Backup
+        - Atualizações
+        - Ajustes
+        - Android TV
+        - Site
+    validations:
+      required: true

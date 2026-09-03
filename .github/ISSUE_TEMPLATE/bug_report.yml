@@ -1,0 +1,79 @@
+name: Relatar um bug
+description: Algo não funciona como deveria no AuroraPlay
+labels: [bug, triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado pelo relato. **Não** inclua login, senha ou o link completo
+        da sua playlist, nem anexe arquivos de backup. Para falhas de
+        segurança, siga o
+        [SECURITY.md](https://github.com/lhzin0/auroraplay/blob/main/SECURITY.md).
+  - type: checkboxes
+    id: pre
+    attributes:
+      label: Antes de abrir
+      options:
+        - label: Estou na versão estável mais recente
+          required: true
+        - label: Procurei em issues abertas e fechadas e não encontrei duplicata
+          required: true
+        - label: Não vou incluir credenciais, links com senha ou backups
+          required: true
+  - type: input
+    id: app-version
+    attributes:
+      label: Versão do AuroraPlay
+      description: "Ajustes → Sobre"
+      placeholder: "1.34.0"
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Aparelho e Android
+      placeholder: "Galaxy S23, Android 14  —  ou:  Android TV, Android 12"
+    validations:
+      required: true
+  - type: dropdown
+    id: install-source
+    attributes:
+      label: Como instalou
+      options:
+        - APK do site / GitHub Releases
+        - Atualização dentro do app
+        - Build local (debug)
+        - Build local (release)
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: O que aconteceu
+      description: Comportamento observado e o que você esperava.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Passos para reproduzir
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: frequency
+    attributes:
+      label: Frequência
+      placeholder: "Sempre / às vezes / aconteceu uma vez"
+    validations:
+      required: false
+  - type: textarea
+    id: extra
+    attributes:
+      label: Logs, vídeo ou print (opcional)
+      description: "`adb logcat` ajuda. Remova qualquer credencial, token ou URL de playlist antes de colar."
+    validations:
+      required: false

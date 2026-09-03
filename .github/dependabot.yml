@@ -1,0 +1,58 @@
+version: 2
+updates:
+  # Android / Gradle dependencies (app module + version catalogs at the root).
+  - package-ecosystem: gradle
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Sao_Paulo
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - android
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      androidx:
+        patterns:
+          - "androidx.*"
+      media3:
+        patterns:
+          - "androidx.media3:*"
+      compose:
+        patterns:
+          - "androidx.compose*"
+      kotlin-ksp-hilt:
+        patterns:
+          - "org.jetbrains.kotlin*"
+          - "com.google.devtools.ksp*"
+          - "com.google.dagger:*"
+
+  # GitHub Actions used by the workflows in this folder.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Sao_Paulo
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - ci
+    commit-message:
+      prefix: "chore(ci)"
+
+  # The static website has a package.json (currently zero runtime deps).
+  - package-ecosystem: npm
+    directory: "/website"
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - website
+    commit-message:
+      prefix: "chore(website)"

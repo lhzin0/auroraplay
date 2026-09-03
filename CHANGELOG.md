@@ -1,3 +1,35 @@
+## 1.34.0 — 2026-09-03
+
+- Atualizações pelo GitHub, consulta diária e download automático em redes não tarifadas.
+- Progresso e cancelamento nas notificações; instalação iniciada pelo usuário.
+- Validação de hash, pacote, versão e certificado do APK antes da instalação.
+- Página oficial com instalação, recursos, ajuda, privacidade e download da versão atual.
+
+## 1.33.0 — 2026-09-03
+
+- Assinatura de produção com rotação a partir do Android 9, preservando a
+  atualização das instalações existentes; Android 7/8 mantêm a assinatura legada.
+- Backup protegido por senha com AES-256-GCM, validação antes da restauração
+  e leitura de backups JSON antigos. Credenciais incluídas; downloads excluídos.
+- Removida a permissão ampla de armazenamento. Removidos logs HTTP e cache de
+  requisições autenticadas; bloqueado downgrade HTTPS→HTTP na API de conexão.
+- Credenciais de desenvolvimento retiradas do Gradle rastreado; biblioteca de
+  armazenamento cifrado atualizada para a versão estável 1.1.0.
+- Scripts para assinatura, verificação e cópia de recuperação das chaves.
+
+## 1.32.0 — 2026-09-02
+
+- Sincronização com notificação do Android, progresso por etapa, cancelamento e
+  aviso de conclusão/falha. Trabalho continua ao sair da tela e evita duplicatas
+  por conexão. Minhas conexões mostra loading e desabilita Atualizar enquanto ativo.
+- Removidos botão e diálogo de senha. Cadastro/importação já guarda a credencial
+  automaticamente, e a restauração aplica a senha do arquivo às playlists
+  correspondentes e agenda a atualização do catálogo sem nova digitação.
+- Exportação avisa quando uma conexão antiga não tem senha, em vez de gerar
+  silenciosamente um backup incompleto. Backups antigos seguem legíveis.
+- Downloads continuam excluídos. Nomes dos campos do backup de conexões
+  preservados no APK otimizado para manter a portabilidade entre versões.
+
 ## 1.31.0 — 2026-09-02
 
 - Seletor de salvar/restaurar permite provedores de nuvem, como Google Drive,

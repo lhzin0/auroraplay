@@ -72,14 +72,16 @@ class FileBackupTest {
             assertFalse(json.contains(media.name))
             withContext(Dispatchers.IO) { db.clearAllTables() }
             credentials.deletePassword("file-connection")
-            backup.restoreFromDocument(document)
+            val restored = backup.restoreFromDocument(document)
+            assertEquals(listOf("file-connection"), restored.readyConnectionIds)
+            assertEquals(0, restored.missingPasswords)
             assertEquals("test-only-password-ç@/\\", credentials.getPassword("file-connection"))
             assertEquals("https://example.com", db.connectionDao().getById("file-connection")?.serverUrl)
             assertEquals("test-user", db.connectionDao().getById("file-connection")?.username)
-            // Replaying an older backup must not replace a newer local password.
+            // Explicit restore must recover the file's password even if a local one exists.
             credentials.savePassword("file-connection", "test-only-newer-password")
             backup.restoreFromDocument(document)
-            assertEquals("test-only-newer-password", credentials.getPassword("file-connection"))
+            assertEquals("test-only-password-ç@/\\", credentials.getPassword("file-connection"))
             assertEquals("João", db.profileDao().getById("file-profile")?.name)
             assertEquals("OFFLINE", db.connectionDao().getById("file-connection")?.status)
             assertEquals(1, db.favoriteDao().observe("file-profile", null).first().size)
@@ -98,6 +100,26 @@ class FileBackupTest {
         assertEquals(listOf(profile), db.profileDao().observeAll().first())
     }
 
+    @Test fun encryptedBackupRestoresCredentialsAndRejectsWrongPasswordBeforeChangingData() = runBlocking {
+        db.connectionDao().upsert(ConnectionEntity("file-connection", "TV", "https://example.com", "test-user"))
+        credentials.savePassword("file-connection", "test-only-private-playlist-password")
+        val password = "test-only-file-passphrase".toCharArray()
+        backup.saveToDocument(document, password)
+        val encrypted = context.contentResolver.openInputStream(document)!!.use { it.readBytes() }
+        assertFalse(encrypted.toString(Charsets.UTF_8).contains("test-only-private-playlist-password"))
+        withContext(Dispatchers.IO) { db.clearAllTables() }
+        credentials.deletePassword("file-connection")
+        try { backup.restoreFromDocument(document); fail("Password required") }
+        catch (_: BackupPasswordRequiredException) { }
+        try { backup.restoreFromDocument(document, "wrong-password".toCharArray()); fail("Authentication required") }
+        catch (_: BackupAuthenticationException) { }
+        assertNull(db.connectionDao().getById("file-connection"))
+        assertNull(credentials.getPassword("file-connection"))
+        val result = backup.restoreFromDocument(document, password)
+        assertEquals(listOf("file-connection"), result.readyConnectionIds)
+        assertEquals("test-only-private-playlist-password", credentials.getPassword("file-connection"))
+    }
+
     @Test fun documentContractsAllowCloudAndExternalStorageProviders() {
         val save = CreateBackupDocument().createIntent(context, "AuroraPlay-backup.json")
         assertEquals(Intent.ACTION_CREATE_DOCUMENT, save.action)
@@ -113,6 +135,9 @@ class FileBackupTest {
         assertNull(save.`package`)
         assertNull(save.component)
         assertNull(open.`package`)
+        val encrypted = CreateBackupDocument().createIntent(context, "AuroraPlay-backup.aurorabackup")
+        assertEquals("application/octet-stream", encrypted.type)
+        assertFalse(encrypted.getBooleanExtra(Intent.EXTRA_LOCAL_ONLY, false))
     }
 
     @Test fun passwordIsNotAppliedToDifferentLocalServerOrLogin() = runBlocking {
@@ -135,12 +160,29 @@ class FileBackupTest {
             remove("connectionPasswords")
         }
         context.contentResolver.openOutputStream(document, "wt")!!.use { it.write(old.toString().toByteArray()) }
-        backup.restoreFromDocument(document)
+        val restored = backup.restoreFromDocument(document)
+        assertTrue(restored.readyConnectionIds.isEmpty())
+        assertEquals(1, restored.missingPasswords)
         assertNotNull(db.connectionDao().getById("backup-test-old"))
         assertNull(credentials.getPassword("backup-test-old"))
         val current = snapshot.copy(connectionPasswords = mapOf("backup-test-old" to "test-only-restored-password"))
         context.contentResolver.openOutputStream(document, "wt")!!.use { it.write(BackupSnapshotCodec.encode(current).toByteArray()) }
         backup.restoreFromDocument(document)
         assertEquals("test-only-restored-password", credentials.getPassword("backup-test-old"))
+        // The restored credential is used automatically for the next portable backup.
+        backup.saveToDocument(document)
+        val reexported = context.contentResolver.openInputStream(document)!!.bufferedReader().use { it.readText() }
+        assertEquals("test-only-restored-password", BackupSnapshotCodec.decode(reexported).connectionPasswords["backup-test-old"])
+    }
+
+    @Test fun exportWithoutPasswordFailsBeforeOverwritingExistingBackup() = runBlocking {
+        val original = "existing-backup-should-not-be-truncated"
+        context.contentResolver.openOutputStream(document, "wt")!!.use { it.write(original.toByteArray()) }
+        db.connectionDao().upsert(ConnectionEntity("backup-test-old", "Incomplete", "https://example.com", "old-user"))
+        try {
+            backup.saveToDocument(document)
+            fail("A complete backup must include every connection password")
+        } catch (_: MissingBackupPasswordException) { }
+        assertEquals(original, context.contentResolver.openInputStream(document)!!.bufferedReader().use { it.readText() })
     }
 }

@@ -133,7 +133,11 @@ private fun ConnectionForm(onConnect: (String, String, String, String) -> Unit) 
 
         LabeledField(label = "Nome da conexão", value = name, onChange = { name = it }, placeholder = "Ex: Minha lista principal")
         Spacer(Modifier.height(16.dp))
-        LabeledField(label = "URL do servidor", value = url, onChange = { url = it }, placeholder = "http://servidor.exemplo.com:8080", keyboardType = KeyboardType.Uri)
+        LabeledField(label = "URL do servidor", value = url, onChange = { url = it }, placeholder = "https://servidor.exemplo.com", keyboardType = KeyboardType.Uri)
+        if (url.trim().startsWith("http://", ignoreCase = true)) {
+            Text("Este servidor usa HTTP: login, senha e conteúdo trafegam sem criptografia. Use o endereço HTTPS do provedor, se disponível.",
+                color = AuroraColors.TextSecondary, style = MaterialTheme.typography.bodySmall)
+        }
         Spacer(Modifier.height(16.dp))
         LabeledField(label = "Usuário", value = username, onChange = { username = it }, placeholder = "usuario")
         Spacer(Modifier.height(16.dp))

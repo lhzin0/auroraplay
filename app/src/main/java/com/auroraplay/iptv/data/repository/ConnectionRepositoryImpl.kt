@@ -64,8 +64,9 @@ class ConnectionRepositoryImpl @Inject constructor(
                 profileId = profileId,
             )
             if (hasNoConnections) dao.clearDefaults()
-            dao.upsert(entity)
             secureStore.savePassword(id, password)
+            try { dao.upsert(entity) }
+            catch (e: Exception) { secureStore.deletePassword(id); throw e }
 
             emit(Resource.Success(entity.toDomain()))
         } catch (e: Exception) {
@@ -102,7 +103,7 @@ class ConnectionRepositoryImpl @Inject constructor(
         val entity = dao.getById(id)
         val password = secureStore.getPassword(id)
         if (entity == null || password == null) {
-            emit(Resource.Error("Conexão não encontrada."))
+            emit(Resource.Error("Conexão sem credenciais disponíveis. Importe um backup completo ou cadastre a playlist novamente."))
             return@flow
         }
         try {

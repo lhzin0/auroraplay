@@ -66,13 +66,6 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* declining just means no notifications */ }
 
-    // WRITE_EXTERNAL_STORAGE is declared with maxSdkVersion="28" (app-private
-    // external dirs need no permission from API 29 on), but on API 24-28 it's
-    // still a dangerous permission requiring this runtime grant — without it,
-    // "Baixar" would fail to write on exactly those OS versions.
-    private val storagePermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* declining just means downloads can't save on this OS version */ }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -82,9 +75,6 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         // (download-complete, new-episode) silently never shows.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
-        }
-        if (Build.VERSION.SDK_INT in Build.VERSION_CODES.N..Build.VERSION_CODES.P) {
-            storagePermissionLauncher.launch(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
         }
 
         lifecycleScope.launch {

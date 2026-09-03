@@ -1,7 +1,6 @@
 package com.auroraplay.iptv.core.di
 
 import android.content.Context
-import com.auroraplay.iptv.BuildConfig
 import com.auroraplay.iptv.data.api.XtreamApiService
 import com.auroraplay.iptv.data.api.tmdb.TmdbApiService
 import com.auroraplay.iptv.data.api.wikipedia.WikipediaApiService
@@ -12,7 +11,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import okhttp3.Cache
 import okhttp3.OkHttpClient
-import okhttp3.logging.HttpLoggingInterceptor
+import java.io.IOException
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
@@ -26,26 +25,24 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideOkHttpClient(@ApplicationContext context: Context): OkHttpClient {
-        val logging = HttpLoggingInterceptor().apply {
-            // BASIC logging was unconditional, including in release builds —
-            // every request URL for an Xtream connection carries the
-            // person's username and password in plain query params, so this
-            // was writing credentials to logcat on every sync, plus paying
-            // the interceptor's overhead on every call for no benefit once
-            // the app is actually installed on someone's phone.
-            level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BASIC else HttpLoggingInterceptor.Level.NONE
-        }
+        // Older builds shared a disk cache with authenticated Xtream requests.
+        // Clear that obsolete, app-private cache; it may contain credential URLs.
+        java.io.File(context.cacheDir, "http_cache").deleteRecursively()
         return OkHttpClient.Builder()
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(20, TimeUnit.SECONDS)
             .writeTimeout(20, TimeUnit.SECONDS)
-            .addInterceptor(logging)
-            // TMDB/Wikipedia both send standard cache-control headers, so a
-            // disk cache turns a repeat lookup (re-opening a title, retrying
-            // after a cold start) into a local read instead of a fresh
-            // request. Xtream's own endpoints don't send cache headers, so
-            // this is a no-op for them either way — safe to share the client.
-            .cache(Cache(java.io.File(context.cacheDir, "http_cache"), 25L * 1024 * 1024))
+            // No HTTP logging or disk cache: Xtream URLs contain credentials.
+            .addNetworkInterceptor { chain ->
+                val request = chain.request()
+                val response = chain.proceed(request)
+                val redirect = response.header("Location")?.let(request.url::resolve)
+                if (request.url.isHttps && response.isRedirect && redirect?.isHttps == false) {
+                    response.close()
+                    throw IOException("O servidor tentou redirecionar uma conexão segura para HTTP.")
+                }
+                response
+            }
             .build()
     }
 
@@ -70,10 +67,10 @@ object NetworkModule {
     @Provides
     @Singleton
     @Named("tmdb")
-    fun provideTmdbRetrofit(client: OkHttpClient): Retrofit =
+    fun provideTmdbRetrofit(client: OkHttpClient, @ApplicationContext context: Context): Retrofit =
         Retrofit.Builder()
             .baseUrl("https://api.themoviedb.org/3/")
-            .client(client)
+            .client(client.newBuilder().cache(Cache(java.io.File(context.cacheDir, "metadata_http_cache"), 25L * 1024 * 1024)).build())
             .addConverterFactory(GsonConverterFactory.create())
             .build()
 

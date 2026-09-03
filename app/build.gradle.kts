@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -5,6 +7,15 @@ plugins {
     id("com.google.dagger.hilt.android")
     id("com.google.devtools.ksp")
     id("kotlin-parcelize")
+}
+
+val developerProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) file.reader(Charsets.UTF_8).use { load(it) }
+}
+fun localBuildString(name: String): String {
+    val value = System.getenv(name) ?: developerProperties.getProperty(name, "")
+    return "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r") + "\""
 }
 
 android {
@@ -20,11 +31,11 @@ android {
         //   x.x.PATCH  -> bug fixes only
         //   x.MINOR.x  -> larger updates (new features, redesigns)
         // versionCode increments monotonically on every release.
-        versionCode = 87
-        versionName = "1.31.0"
+        versionCode = 90
+        versionName = "1.34.0"
         // Default application credential for automatic metadata and official
         // trailers. It is intentionally kept out of the settings UI.
-        buildConfigField("String", "TMDB_API_KEY", "\"b89b1d7fe6f14b4825f390e3db639b16\"")
+        buildConfigField("String", "TMDB_API_KEY", localBuildString("TMDB_API_KEY"))
 
         // Debug-only playlist seed (see DebugConnectionSeeder). Blank here so
         // the release build carries no credentials at all; the debug build
@@ -41,17 +52,19 @@ android {
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName("debug")
+            // Deliberately unsigned here. scripts/build-release.ps1 signs and verifies
+            // the final APK with the production key and the migration lineage.
+            isDebuggable = false
         }
         debug {
             isMinifyEnabled = false
             applicationIdSuffix = ".debug"
             // Pre-loads this Xtream playlist on a fresh debug install so
             // testing skips the onboarding flow. Never present in release.
-            buildConfigField("String", "SEED_XTREAM_NAME", "\"HubPlay\"")
-            buildConfigField("String", "SEED_XTREAM_URL", "\"https://vaptynew.top\"")
-            buildConfigField("String", "SEED_XTREAM_USER", "\"818617465590\"")
-            buildConfigField("String", "SEED_XTREAM_PASS", "\"939567793225\"")
+            buildConfigField("String", "SEED_XTREAM_NAME", localBuildString("SEED_XTREAM_NAME"))
+            buildConfigField("String", "SEED_XTREAM_URL", localBuildString("SEED_XTREAM_URL"))
+            buildConfigField("String", "SEED_XTREAM_USER", localBuildString("SEED_XTREAM_USER"))
+            buildConfigField("String", "SEED_XTREAM_PASS", localBuildString("SEED_XTREAM_PASS"))
         }
     }
 
@@ -127,7 +140,7 @@ dependencies {
     implementation("androidx.datastore:datastore-preferences:1.1.7")
 
     // Security (encrypted prefs for credentials)
-    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    implementation("androidx.security:security-crypto:1.1.0")
 
     // Media3 / ExoPlayer
     implementation("androidx.media3:media3-exoplayer:1.11.0")
@@ -160,6 +173,7 @@ dependencies {
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test:runner:1.6.2")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
+    androidTestImplementation("androidx.work:work-testing:2.10.1")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }

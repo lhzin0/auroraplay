@@ -1,6 +1,7 @@
 package com.auroraplay.iptv.presentation.connections
 
 import androidx.lifecycle.ViewModel
+import androidx.annotation.Keep
 import androidx.lifecycle.viewModelScope
 import com.auroraplay.iptv.core.util.Resource
 import com.auroraplay.iptv.domain.model.XtreamConnection
@@ -12,17 +13,21 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class ConnectionsUiState(
     val connections: List<XtreamConnection> = emptyList(),
     val isLoading: Boolean = true,
+    val activeSyncs: Map<String, SyncStage?> = emptyMap(),
 )
 
 /** Backup file schema — plain JSON so it's readable/portable, versioned in
  * case a future field needs a migration path when reading an older file. */
+@Keep
 private data class ConnectionBackupEntry(val name: String, val serverUrl: String, val username: String, val password: String)
+@Keep
 private data class ConnectionBackupFile(val version: Int = 1, val connections: List<ConnectionBackupEntry>)
 
 data class ImportResult(val imported: Int, val failed: Int)
@@ -38,25 +43,16 @@ class ConnectionsViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            connectionRepository.observeConnections().collect { list ->
-                _uiState.value = ConnectionsUiState(connections = list, isLoading = false)
-            }
+            combine(connectionRepository.observeConnections(), syncContentUseCase.observeActive()) { list, syncs ->
+                ConnectionsUiState(connections = list, isLoading = false, activeSyncs = syncs)
+            }.collect { _uiState.value = it }
         }
     }
 
     fun setDefault(id: String) = viewModelScope.launch { connectionRepository.setDefault(id) }
-    fun delete(id: String) = viewModelScope.launch { connectionRepository.deleteConnection(id) }
-
-    /** Preserve the restored connection ID, so its favorites/history still match after syncing. */
-    fun savePassword(connection: XtreamConnection, password: String, onResult: (String) -> Unit) = viewModelScope.launch {
-        try {
-            connectionRepository.updateConnection(connection, password)
-            onResult("Senha salva neste aparelho. Toque em Atualizar para sincronizar o catálogo.")
-        } catch (e: kotlinx.coroutines.CancellationException) {
-            throw e
-        } catch (_: Exception) {
-            onResult("Não foi possível salvar a senha. Tente novamente.")
-        }
+    fun delete(id: String) = viewModelScope.launch {
+        syncContentUseCase.cancel(id)
+        connectionRepository.deleteConnection(id)
     }
 
     fun testConnection(id: String, onResult: (Boolean, String?) -> Unit) {
@@ -73,22 +69,28 @@ class ConnectionsViewModel @Inject constructor(
 
     fun syncNow(id: String, onStage: (SyncStage) -> Unit, onError: (String) -> Unit) {
         viewModelScope.launch {
-            syncContentUseCase(id).collect { resource ->
+            try { syncContentUseCase(id).collect { resource ->
                 when (resource) {
                     is Resource.Success -> onStage(resource.data)
                     is Resource.Error -> onError(resource.message)
                     else -> Unit
                 }
-            }
+            } } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (_: Exception) { onError("Não foi possível iniciar a sincronização. Tente novamente.") }
         }
     }
 
     /** Builds the backup JSON text; null means there was nothing to export. */
-    fun exportConnections(onResult: (String?) -> Unit) {
+    fun exportConnections(onError: (String) -> Unit, onResult: (String?) -> Unit) {
         viewModelScope.launch {
-            val entries = _uiState.value.connections.mapNotNull { connection ->
-                val password = connectionRepository.getPassword(connection.id) ?: return@mapNotNull null
-                ConnectionBackupEntry(connection.name, connection.serverUrl, connection.username, password)
+            val entries = mutableListOf<ConnectionBackupEntry>()
+            for (connection in _uiState.value.connections) {
+                val password = connectionRepository.getPassword(connection.id)
+                if (password == null) {
+                    onError("Backup não salvo: uma conexão antiga está sem senha. Importe um backup completo ou cadastre novamente essa conexão pelo botão +.")
+                    return@launch
+                }
+                entries += ConnectionBackupEntry(connection.name, connection.serverUrl, connection.username, password)
             }
             onResult(if (entries.isEmpty()) null else Gson().toJson(ConnectionBackupFile(connections = entries)))
         }

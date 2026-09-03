@@ -38,11 +38,10 @@ class SecureCredentialStore @Inject constructor(
 
     /** Persist imported passwords before reporting restoration success. Call on an IO thread. */
     @Synchronized
-    fun restoreMissingPasswords(passwords: Map<String, String>) {
-        val missing = passwords.filterKeys { prefs.getString(it, null) == null }
-        if (missing.isEmpty()) return
+    fun restorePasswords(passwords: Map<String, String>) {
+        if (passwords.isEmpty()) return
         val editor = prefs.edit()
-        missing.forEach { (id, password) -> editor.putString(id, password) }
+        passwords.forEach { (id, password) -> editor.putString(id, password) }
         if (!editor.commit()) throw IOException("Não foi possível gravar as senhas restauradas.")
     }
 

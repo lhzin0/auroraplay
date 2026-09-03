@@ -1,0 +1,18 @@
+{
+  "applicationId": "com.auroraplay.iptv",
+  "minSdk": 24,
+  "version": "1.34.0",
+  "versionCode": 90,
+  "publishedAt": "2026-09-03",
+  "minAndroid": "7.0",
+  "fileName": "AuroraPlay-1.34.0.apk",
+  "downloadUrl": "./downloads/AuroraPlay-1.34.0.apk",
+  "sizeBytes": 6538619,
+  "sha256": "6d7e8b6148aff99db381441482f097ea82764e77d44974a4ef71f6ecdc1d6eda",
+  "notes": [
+    "Atualizações pelo GitHub: consulta diária e download automático no Wi-Fi.",
+    "Progresso nas notificações, cancelamento e instalação quando você escolher.",
+    "Verificação de integridade, versão, identificador e certificado do APK antes de instalar.",
+    "Backup protegido por senha e compatibilidade com os arquivos antigos."
+  ]
+}

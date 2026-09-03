@@ -1,0 +1,54 @@
+# Normalize line endings on checkin; check out platform-native where it matters.
+* text=auto eol=lf
+
+# Windows-only scripts keep CRLF.
+*.bat            text eol=crlf
+*.cmd            text eol=crlf
+*.ps1            text eol=crlf
+
+# POSIX scripts and the Gradle wrapper stay LF.
+*.sh             text eol=lf
+gradlew          text eol=lf
+
+# Source
+*.kt             text
+*.kts            text
+*.java           text
+*.xml            text
+*.pro            text
+*.md             text
+*.json           text
+*.yml            text
+*.yaml           text
+*.html           text
+*.css            text
+*.js             text
+*.mjs            text
+*.svg            text
+
+# Binary assets — never touch, never diff as text.
+*.png            binary
+*.jpg            binary
+*.jpeg           binary
+*.webp           binary
+*.gif            binary
+*.ico            binary
+*.woff           binary
+*.woff2          binary
+*.ttf            binary
+*.otf            binary
+*.mp4            binary
+*.webm           binary
+*.zip            binary
+*.jar            binary
+*.aar            binary
+*.keystore       binary
+*.jks            binary
+*.p12            binary
+*.apk            binary
+*.aab            binary
+*.lineage        binary
+
+# Keep large generated logs out of language stats.
+CHANGELOG.md     linguist-generated=false
+website/dist/**  linguist-generated=true

@@ -25,6 +25,8 @@ import com.auroraplay.iptv.core.theme.AuroraColors
 import com.auroraplay.iptv.core.util.toRelativeTimeLabel
 import com.auroraplay.iptv.domain.model.ConnectionStatus
 import com.auroraplay.iptv.domain.model.XtreamConnection
+import com.auroraplay.iptv.domain.repository.SyncStage
+import com.auroraplay.iptv.sync.syncLabel
 import com.auroraplay.iptv.presentation.components.EmptyState
 import kotlinx.coroutines.launch
 
@@ -41,8 +43,6 @@ fun ConnectionsScreen(
 
     var showExportWarning by remember { mutableStateOf(false) }
     var pendingExportJson by remember { mutableStateOf<String?>(null) }
-    var passwordConnection by remember { mutableStateOf<XtreamConnection?>(null) }
-    var restoredPassword by remember { mutableStateOf("") }
 
     val createDocumentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         val json = pendingExportJson
@@ -137,7 +137,8 @@ fun ConnectionsScreen(
                         connection = connection,
                         onSetDefault = { viewModel.setDefault(connection.id) },
                         onDelete = { viewModel.delete(connection.id) },
-                        onEnterPassword = { passwordConnection = connection; restoredPassword = "" },
+                        syncing = connection.id in state.activeSyncs,
+                        syncStage = state.activeSyncs[connection.id],
                         onTest = {
                             viewModel.testConnection(connection.id) { success, error ->
                                 scope.launch {
@@ -150,7 +151,9 @@ fun ConnectionsScreen(
                         onSync = {
                             viewModel.syncNow(
                                 connection.id,
-                                onStage = { },
+                                onStage = { stage ->
+                                    if (stage == SyncStage.DONE) scope.launch { snackbarHostState.showSnackbar("Sincronização concluída.") }
+                                },
                                 onError = { msg -> scope.launch { snackbarHostState.showSnackbar(msg) } },
                             )
                             scope.launch { snackbarHostState.showSnackbar("Sincronização iniciada.") }
@@ -160,36 +163,6 @@ fun ConnectionsScreen(
                 }
             }
         }
-    }
-
-    passwordConnection?.let { connection ->
-        AlertDialog(
-            onDismissRequest = { passwordConnection = null; restoredPassword = "" },
-            title = { Text("Senha de ${connection.name}") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("A senha fica protegida neste aparelho e não é enviada ao backup automático.")
-                    OutlinedTextField(
-                        value = restoredPassword,
-                        onValueChange = { restoredPassword = it },
-                        label = { Text("Senha Xtream") },
-                        singleLine = true,
-                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
-                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Password),
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(enabled = restoredPassword.isNotBlank(), onClick = {
-                    viewModel.savePassword(connection, restoredPassword) { message ->
-                        scope.launch { snackbarHostState.showSnackbar(message) }
-                    }
-                    passwordConnection = null
-                    restoredPassword = ""
-                }) { Text("Salvar senha") }
-            },
-            dismissButton = { TextButton(onClick = { passwordConnection = null; restoredPassword = "" }) { Text("Cancelar") } },
-        )
     }
 
     if (showExportWarning) {
@@ -207,7 +180,7 @@ fun ConnectionsScreen(
             confirmButton = {
                 TextButton(onClick = {
                     showExportWarning = false
-                    viewModel.exportConnections { json ->
+                    viewModel.exportConnections(onError = { message -> scope.launch { snackbarHostState.showSnackbar(message) } }) { json ->
                         if (json != null) {
                             pendingExportJson = json
                             createDocumentLauncher.launch("auroraplay-conexoes.json")
@@ -235,7 +208,8 @@ private fun ConnectionRow(
     onDelete: () -> Unit,
     onTest: () -> Unit,
     onSync: () -> Unit,
-    onEnterPassword: () -> Unit,
+    syncing: Boolean,
+    syncStage: SyncStage?,
 ) {
     var showActions by remember { mutableStateOf(false) }
     val statusColor = when (connection.status) {
@@ -279,28 +253,37 @@ private fun ConnectionRow(
             )
         }
 
+        if (syncing) {
+            Spacer(Modifier.height(12.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                Text(syncStage.syncLabel(), style = MaterialTheme.typography.bodySmall, color = AuroraColors.TextPrimary)
+            }
+            Spacer(Modifier.height(8.dp))
+            LinearProgressIndicator(Modifier.fillMaxWidth())
+        }
+
         if (showActions) {
             Spacer(Modifier.height(12.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                ActionChip("Testar", Icons.Default.NetworkCheck, onTest)
-                ActionChip("Senha", Icons.Default.Key, onEnterPassword)
-                ActionChip("Atualizar", Icons.Default.Sync, onSync)
+                ActionChip("Testar", Icons.Default.NetworkCheck, onTest, enabled = !syncing)
+                ActionChip(if (syncing) "Sincronizando" else "Atualizar", Icons.Default.Sync, onSync, enabled = !syncing)
                 if (!connection.isDefault) ActionChip("Padrão", Icons.Default.Star, onSetDefault)
-                ActionChip("Excluir", Icons.Default.Delete, onDelete, danger = true)
+                ActionChip("Excluir", Icons.Default.Delete, onDelete, danger = true, enabled = !syncing)
             }
         }
     }
 }
 
 @Composable
-private fun ActionChip(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit, danger: Boolean = false) {
-    val color = if (danger) AuroraColors.Error else AuroraColors.TextSecondary
+private fun ActionChip(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit, danger: Boolean = false, enabled: Boolean = true) {
+    val color = (if (danger) AuroraColors.Error else AuroraColors.TextSecondary).copy(alpha = if (enabled) 1f else 0.45f)
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .clip(RoundedCornerShape(100.dp))
             .background(AuroraColors.SurfaceHigh)
-            .clickable(onClick = onClick)
+            .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
         Icon(icon, contentDescription = text, tint = color, modifier = Modifier.size(16.dp))
