@@ -61,7 +61,7 @@ jobs:
         run: node scripts/build.mjs
 
       - name: Enviar artefato do site
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: website/dist
 
