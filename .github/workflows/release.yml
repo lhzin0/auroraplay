@@ -84,7 +84,7 @@ jobs:
         uses: gradle/actions/wrapper-validation@v4
 
       - name: Configurar Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Instalar build-tools 36.0.0
         run: sdkmanager "build-tools;36.0.0" "platforms;android-36"
