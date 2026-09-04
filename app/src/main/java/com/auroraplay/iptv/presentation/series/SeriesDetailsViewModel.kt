@@ -142,8 +142,15 @@ class SeriesDetailsViewModel @Inject constructor(
 
             combine(seriesFlow, similarFlow, latestProgressFlow, favoriteFlow, downloadTracker.downloads) { series, similar, latestProgress, isFav, downloads ->
                 if (series == null) return@combine
-                val episodeIds = series.seasons.flatMap { it.episodes }.map { it.id }.toSet()
-                val relevant = downloads.filterKeys { it in episodeIds }
+                // Look each episode up by its composite download key
+                // (connectionId|SERIES|episodeId), falling back to a bare-id
+                // entry queued before audit #3c, then re-key the per-episode
+                // maps back to plain episode ids for the UI rows.
+                val relevant = series.seasons.flatMap { it.episodes }.mapNotNull { ep ->
+                    val st = downloads[DownloadTracker.downloadKey(connection.id, "SERIES", ep.id)]
+                        ?: downloads[ep.id]
+                    if (st != null) ep.id to st else null
+                }.toMap()
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     series = series,
@@ -182,7 +189,10 @@ class SeriesDetailsViewModel @Inject constructor(
     fun toggleEpisodeDownload(episode: Episode) {
         val state = _uiState.value
         if (episode.id in state.downloadedEpisodeIds || episode.id in state.downloadingEpisodeIds) {
-            downloadTracker.removeDownload(episode.id)
+            activeConnectionId?.let { connectionId ->
+                downloadTracker.removeDownload(DownloadTracker.downloadKey(connectionId, "SERIES", episode.id))
+            }
+            downloadTracker.removeDownload(episode.id) // also clear any pre-#3c entry
         } else {
             startEpisodeDownload(episode)
         }
@@ -204,7 +214,9 @@ class SeriesDetailsViewModel @Inject constructor(
      * key + name + poster, and the per-episode sort order) is attached
      * identically whether it came from a single tap or "Baixar temporada". */
     private fun startEpisodeDownload(episode: Episode) {
+        val connectionId = activeConnectionId ?: return
         downloadTracker.startDownload(
+            connectionId = connectionId,
             contentId = episode.id,
             title = episodeItemLabel(episode),
             streamUrl = episode.streamUrl,

@@ -121,8 +121,9 @@ class MovieDetailsViewModel @Inject constructor(
             }
 
             val favoriteFlow = if (profile != null) favoriteRepository.isFavorite(connection.id, profile.id, movieId, com.auroraplay.iptv.domain.model.ContentType.MOVIE) else flowOf(false)
+            val downloadKey = com.auroraplay.iptv.player.download.DownloadTracker.downloadKey(connection.id, "MOVIE", movieId)
             combine(movieFlow, similarFlow, favoriteFlow, downloadTracker.downloads) { movie, similar, isFav, downloads ->
-                val download = downloads[movieId]
+                val download = downloads[downloadKey] ?: downloads[movieId] // fall back to a pre-#3c entry
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     movie = movie,
@@ -149,10 +150,14 @@ class MovieDetailsViewModel @Inject constructor(
 
     fun toggleDownload() {
         val movie = _uiState.value.movie ?: return
+        val connectionId = activeConnectionId ?: return
+        val key = com.auroraplay.iptv.player.download.DownloadTracker.downloadKey(connectionId, "MOVIE", movie.id)
         if (_uiState.value.isDownloaded || _uiState.value.isDownloading) {
-            downloadTracker.removeDownload(movie.id)
+            downloadTracker.removeDownload(key)
+            downloadTracker.removeDownload(movie.id) // also clear any pre-#3c entry
         } else {
             downloadTracker.startDownload(
+                connectionId = connectionId,
                 contentId = movie.id,
                 title = movie.name,
                 streamUrl = movie.streamUrl,

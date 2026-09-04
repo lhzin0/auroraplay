@@ -72,7 +72,7 @@ fun DownloadsScreen(
                         SeriesDownloadCard(
                             group = group,
                             onPlayEpisode = { onPlay(it.playbackContentType, it.playbackId) },
-                            onRemoveEpisode = { viewModel.remove(it.contentId) },
+                            onRemoveEpisode = { viewModel.remove(it.key) },
                             onRemoveAll = { viewModel.removeGroup(group) },
                         )
                     } else {

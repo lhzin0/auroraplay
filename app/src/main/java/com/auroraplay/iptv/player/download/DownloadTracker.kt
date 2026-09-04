@@ -34,7 +34,15 @@ import kotlin.time.Duration.Companion.seconds
  * poster URL travelled with the download when it was queued. [sortKey] orders
  * episodes within a series card (season * 1000 + episode). */
 data class DownloadState(
+    /** The Media3 download id — composite `connectionId|type|contentId` for
+     * anything queued since audit #3c, or the bare contentId for older ones.
+     * Use this to remove or look one up. */
+    val key: String,
+    /** Our own raw content id (movie id, or episode id), for display and the
+     * offline playback route — not unique across connections/types on its own. */
     val contentId: String,
+    /** Connection this download belongs to ("" for pre-#3c downloads). */
+    val connectionId: String,
     val status: Int, // Download.STATE_*
     val progressPercent: Float,
     /** False when the source never sent a Content-Length (common on Xtream/
@@ -134,7 +142,9 @@ class DownloadTracker @Inject constructor(
         val parts = raw.split(DATA_SEPARATOR)
         val title = parts.getOrNull(2)?.ifBlank { null } ?: "Download"
         return DownloadState(
-            contentId = request.id,
+            key = request.id,
+            contentId = parts.getOrNull(7)?.ifBlank { null } ?: request.id,
+            connectionId = parts.getOrNull(8)?.ifBlank { null } ?: "",
             status = state,
             progressPercent = percentDownloaded.takeIf { (it in 0f..100f) } ?: 0f,
             hasKnownPercentage = percentDownloaded in 0f..100f,
@@ -152,13 +162,14 @@ class DownloadTracker @Inject constructor(
         )
     }
 
-    fun stateFor(contentId: String): DownloadState? = _downloads.value[contentId]
+    /** [key] is [DownloadState.key] — the composite `downloadKey(...)`. */
+    fun stateFor(key: String): DownloadState? = _downloads.value[key]
 
-    fun isDownloadedFlow(contentId: String): Flow<Boolean> =
-        downloads.map { it[contentId]?.status == Download.STATE_COMPLETED }
+    fun isDownloadedFlow(key: String): Flow<Boolean> =
+        downloads.map { it[key]?.status == Download.STATE_COMPLETED }
 
-    fun isDownloaded(contentId: String): Boolean = _downloads.value[contentId]?.status == Download.STATE_COMPLETED
-    fun isDownloading(contentId: String): Boolean = _downloads.value[contentId]?.status == Download.STATE_DOWNLOADING
+    fun isDownloaded(key: String): Boolean = _downloads.value[key]?.status == Download.STATE_COMPLETED
+    fun isDownloading(key: String): Boolean = _downloads.value[key]?.status == Download.STATE_DOWNLOADING
 
     /** Same URL used for streaming — CacheDataSource resolves it from the
      * local download cache automatically once complete, so there is no
@@ -168,6 +179,7 @@ class DownloadTracker @Inject constructor(
      *   needs to resume this later from the Downloads screen — "MOVIE"/movie.id, or
      *   "SERIES"/"seriesId:episodeId". */
     fun startDownload(
+        connectionId: String,
         contentId: String,
         title: String,
         streamUrl: String,
@@ -186,15 +198,18 @@ class DownloadTracker @Inject constructor(
             groupKey,
             groupTitle,
             sortKey.toString(),
+            contentId,
+            connectionId,
         ).joinToString(DATA_SEPARATOR)
-        val request = DownloadRequest.Builder(contentId, streamUrl.toUri())
+        val request = DownloadRequest.Builder(downloadKey(connectionId, playbackContentType, contentId), streamUrl.toUri())
             .setData(data.toByteArray())
             .build()
         DownloadService.sendAddDownload(context, AuroraDownloadService::class.java, request, false)
     }
 
-    fun removeDownload(contentId: String) {
-        DownloadService.sendRemoveDownload(context, AuroraDownloadService::class.java, contentId, false)
+    /** [key] is [DownloadState.key]. */
+    fun removeDownload(key: String) {
+        DownloadService.sendRemoveDownload(context, AuroraDownloadService::class.java, key, false)
     }
 
     /**
@@ -211,7 +226,12 @@ class DownloadTracker @Inject constructor(
         )
     }
 
-    private companion object {
-        const val DATA_SEPARATOR = "\u0001"
+    companion object {
+        private const val DATA_SEPARATOR = "\u0001"
+
+        /** The Media3 download id: connectionId|type|contentId, globally unique so
+         * two playlists that reuse an Xtream numeric id do not collide (audit #3c). */
+        fun downloadKey(connectionId: String, playbackContentType: String, contentId: String): String =
+            "$connectionId$DATA_SEPARATOR$playbackContentType$DATA_SEPARATOR$contentId"
     }
 }

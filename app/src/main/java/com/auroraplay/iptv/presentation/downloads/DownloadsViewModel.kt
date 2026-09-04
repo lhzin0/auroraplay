@@ -61,8 +61,10 @@ class DownloadsViewModel @Inject constructor(
             ) { map, profile -> map to (profile?.isKids == true) }.collect { (map, isKids) ->
                 // Map is insertion-ordered (built by successive `+`), so a
                 // later index means a more recently queued download — used to
-                // sort finished groups newest-first.
-                val recency = map.values.withIndex().associate { (i, d) -> d.contentId to i }
+                // sort finished groups newest-first. Keyed by the composite
+                // download key so two connections reusing an Xtream id don't
+                // share a recency slot (audit #3c).
+                val recency = map.values.withIndex().associate { (i, d) -> d.key to i }
 
                 val groups = map.values
                     .groupBy { it.groupKey }
@@ -83,7 +85,7 @@ class DownloadsViewModel @Inject constructor(
                     .sortedWith(
                         // In-progress groups float to the top; the rest newest-first.
                         compareByDescending<DownloadGroup> { it.anyDownloading }
-                            .thenByDescending { g -> g.items.maxOf { recency[it.contentId] ?: 0 } }
+                            .thenByDescending { g -> g.items.maxOf { recency[it.key] ?: 0 } }
                     )
                     // A kids profile must not see downloads that look adult. The
                     // download index carries only a title, so this is the loose
@@ -95,8 +97,9 @@ class DownloadsViewModel @Inject constructor(
         }
     }
 
-    fun remove(contentId: String) = downloadTracker.removeDownload(contentId)
+    /** [key] is [DownloadState.key] — the composite download key. */
+    fun remove(key: String) = downloadTracker.removeDownload(key)
 
     /** Delete every episode of a series card (or the lone movie) at once. */
-    fun removeGroup(group: DownloadGroup) = group.items.forEach { downloadTracker.removeDownload(it.contentId) }
+    fun removeGroup(group: DownloadGroup) = group.items.forEach { downloadTracker.removeDownload(it.key) }
 }
