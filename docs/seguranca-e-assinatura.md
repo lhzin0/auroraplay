@@ -1,5 +1,15 @@
 # Segurança e distribuição — 1.33.0
 
+> **Atualização 1.35.0 (2026-09-03).** A identidade de assinatura foi
+> **regerada** para a 1.35.0 (`scripts/initialize-signing.ps1`), pois a
+> identidade anterior não estava mais disponível. A chave legada (Android 7/8,
+> `38d4c191…efcb`) é a mesma; a **chave de produção mudou** para o certificado
+> `32b13173f273b1decd060d38b65a8a1012e3ed4bc7c6bfd548f7f06d3f2748bd`, agora
+> fixado em `GithubUpdateClient.PRODUCTION_CERTIFICATE`. Consequência: uma
+> instalação da 1.34.0 (chave `c3a9a8b7…`) **não atualiza por cima** da 1.35.0
+> no Android 9+ — é preciso reinstalar. Guarde `%LOCALAPPDATA%\AuroraPlay\signing`
+> com cuidado; perder essa chave quebra as próximas atualizações.
+
 O aviso “A verificação do app é recomendada” é uma solicitação de análise do
 Google Play Protect. A assinatura de produção não é um certificado de aprovação
 do Google e não garante que a mensagem deixe de aparecer. A orientação na

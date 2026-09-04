@@ -121,7 +121,10 @@ internal class GithubUpdateClient @Inject constructor(@param:ApplicationContext 
     }
 
     companion object {
-        const val PRODUCTION_CERTIFICATE = "c3a9a8b7a2ebdf68415765c17f82da39910c4f414ad00f696985e669ec65323b"
+        // Production signing key rotated for the 1.35.0 release (new key minted
+        // by scripts/initialize-signing.ps1). The legacy (pre-rotation) key is
+        // unchanged, so Android 7/8 v2 verification still matches.
+        const val PRODUCTION_CERTIFICATE = "32b13173f273b1decd060d38b65a8a1012e3ed4bc7c6bfd548f7f06d3f2748bd"
         const val LEGACY_CERTIFICATE = "38d4c19104024257daef47ebea8e60c5c764fe8423fb768b728caebedd00efcb"
     }
 }
