@@ -1,7 +1,9 @@
 package com.auroraplay.iptv.sync
 
 import android.content.Context
+import androidx.work.Constraints
 import androidx.work.ExistingWorkPolicy
+import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkInfo
@@ -39,6 +41,11 @@ class CatalogSyncScheduler @Inject constructor(@param:ApplicationContext private
             .setInputData(workDataOf(CONNECTION_ID to connectionId))
             .addTag(TAG).addTag(CONNECTION_TAG + connectionId)
             .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+            // Without this, a sync requested with no network runs immediately,
+            // fails every call in one shot, and only retries whenever the app
+            // happens to ask again — instead of WorkManager itself waiting for
+            // connectivity, same as NewEpisodeScheduler already does.
+            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
             .build()
         workManager.enqueueUniqueWork(name, ExistingWorkPolicy.KEEP, request).await()
         request.id
