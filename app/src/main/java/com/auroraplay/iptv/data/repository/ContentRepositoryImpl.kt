@@ -1,5 +1,6 @@
 package com.auroraplay.iptv.data.repository
 
+import com.auroraplay.iptv.core.util.AppLog
 import com.auroraplay.iptv.core.util.Resource
 import com.auroraplay.iptv.core.util.MetadataSanitizer
 import com.auroraplay.iptv.data.api.XtreamApiService
@@ -231,6 +232,7 @@ class ContentRepositoryImpl @Inject constructor(
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {
+            AppLog.w("ContentSync", "syncConnection failed for $connectionId", e)
             connectionDao.updateStatus(connectionId, "OFFLINE")
             emit(Resource.Error(mapSyncError(e), e))
         }

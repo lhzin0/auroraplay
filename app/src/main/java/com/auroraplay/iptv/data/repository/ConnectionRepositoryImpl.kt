@@ -1,6 +1,7 @@
 package com.auroraplay.iptv.data.repository
 
 import androidx.room.withTransaction
+import com.auroraplay.iptv.core.util.AppLog
 import com.auroraplay.iptv.core.util.Resource
 import com.auroraplay.iptv.data.api.XtreamApiService
 import com.auroraplay.iptv.data.api.XtreamUrlBuilder
@@ -89,6 +90,7 @@ class ConnectionRepositoryImpl @Inject constructor(
 
             emit(Resource.Success(entity.toDomain()))
         } catch (e: Exception) {
+            AppLog.w("Connection", "addConnection failed for $serverUrl", e)
             emit(Resource.Error(mapConnectionError(e), e))
         }
     }
@@ -132,6 +134,7 @@ class ConnectionRepositoryImpl @Inject constructor(
             dao.updateStatus(id, if (isAuthOk) ConnectionStatus.ONLINE.name else ConnectionStatus.OFFLINE.name)
             if (isAuthOk) emit(Resource.Success(Unit)) else emit(Resource.Error("Servidor recusou as credenciais."))
         } catch (e: Exception) {
+            AppLog.w("Connection", "testConnection failed for $id", e)
             dao.updateStatus(id, ConnectionStatus.OFFLINE.name)
             emit(Resource.Error(mapConnectionError(e), e))
         }

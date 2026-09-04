@@ -6,6 +6,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import com.auroraplay.iptv.core.util.AppLog
 import com.auroraplay.iptv.core.util.Resource
 import com.auroraplay.iptv.domain.repository.ContentRepository
 import com.auroraplay.iptv.domain.repository.SyncStage
@@ -46,7 +47,8 @@ class CatalogSyncWorker @AssistedInject constructor(
             }
         } catch (e: CancellationException) {
             throw e
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            AppLog.w("CatalogSync", "sync failed for connection $connectionId", e)
             error = "Não foi possível sincronizar. Tente atualizar novamente."
         }
         return when {

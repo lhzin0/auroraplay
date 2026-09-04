@@ -17,6 +17,7 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import com.google.android.gms.cast.framework.CastContext
 import com.google.android.gms.cast.framework.CastSession
 import com.google.android.gms.cast.framework.SessionManagerListener
+import com.auroraplay.iptv.core.util.AppLog
 import com.auroraplay.iptv.player.download.PlaybackCacheReadOnly
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -176,6 +177,7 @@ class PlayerManager @Inject constructor(
             if (!triedLiveTsFallback && (url != null && (url.contains("/live/") && url.endsWith(".m3u8")))) {
                 triedLiveTsFallback = true
                 val tsUrl = url.removeSuffix(".m3u8") + ".ts"
+                AppLog.w("Player", "playback error on .m3u8 (code=${error.errorCode}); retrying as .ts", error)
                 val player = activePlayer()
                 player.setMediaItem(MediaItem.fromUri(tsUrl))
                 player.prepare()
@@ -184,6 +186,7 @@ class PlayerManager @Inject constructor(
                 _state.value = _state.value.copy(isBuffering = true, errorMessage = null)
                 return
             }
+            AppLog.e("Player", "playback error (code=${error.errorCode}) for $url", error)
             _state.value = _state.value.copy(errorMessage = "Não foi possível reproduzir este conteúdo.")
         }
 
