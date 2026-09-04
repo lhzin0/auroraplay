@@ -293,7 +293,7 @@ class PlayerViewModel @Inject constructor(
                     isFavorite = false,
                 )
 
-                runCatching { scrubPreview.open(dl.uri) }
+                // Scrub preview opens lazily on the first scrub (audit #21).
                 startProgressLoop()
             }.onFailure { error ->
                 _loadState.value = _loadState.value.copy(
@@ -340,12 +340,12 @@ class PlayerViewModel @Inject constructor(
 
                 startProgressLoop()
 
-                // Scrub-preview decoder setup is auxiliary — do it off the load
-                // path so it never delays the first frame (audit #18 / #21).
-                launch {
-                    if (!_loadState.value.isLive) runCatching { scrubPreview.open(url) }
-                    else runCatching { scrubPreview.close() }
-                }
+                // Audit #21: the scrub-preview decoder is NOT spun up here. For
+                // live it is torn down (never used); for VOD it is opened
+                // lazily on the first scrub (see requestScrubThumbnail), so a
+                // decoder isn't running and caching frames before the user has
+                // touched the timeline.
+                if (_loadState.value.isLive) launch { runCatching { scrubPreview.close() } }
             }.onFailure { error ->
                 _loadState.value = _loadState.value.copy(
                     loadError = error.message?.takeIf { it.isNotBlank() }
@@ -635,6 +635,9 @@ class PlayerViewModel @Inject constructor(
      */
     fun requestScrubThumbnail(positionMillis: Long) {
         if (_loadState.value.isLive || !scrubPreview.available) return
+        // Audit #21: open the off-screen decoder on the first scrub, not at
+        // load time. open() has a fast path so repeat calls are cheap.
+        _loadState.value.streamUrl?.takeIf { it.isNotBlank() }?.let { scrubPreview.open(it) }
         scrubTargetMillis = positionMillis
         scrubPreview.requestAt(positionMillis)
         _scrubThumbnail.value = scrubPreview.nearest(positionMillis) ?: _scrubThumbnail.value
@@ -655,6 +658,15 @@ class PlayerViewModel @Inject constructor(
         scrubCollector = null
         scrubPreview.setIdle()
         _scrubThumbnail.value = null
+    }
+
+    /** Leaving the player: tear the off-screen decoder down now rather than
+     * waiting for onCleared (audit #21). It re-opens on the next scrub. */
+    fun closeScrubPreview() {
+        scrubCollector?.cancel()
+        scrubCollector = null
+        _scrubThumbnail.value = null
+        runCatching { scrubPreview.close() }
     }
 
     private fun startProgressLoop() {

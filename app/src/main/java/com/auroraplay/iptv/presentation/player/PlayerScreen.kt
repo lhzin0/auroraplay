@@ -137,6 +137,7 @@ fun PlayerScreen(
             window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             controller?.show(WindowInsetsCompat.Type.systemBars())
             viewModel.persistProgressNow()
+            viewModel.closeScrubPreview()
         }
     }
 
