@@ -1,3 +1,37 @@
+## 1.37.0 — 2026-09-04
+
+Passo de robustez e desempenho (23 pontos de uma auditoria interna de
+segurança, confiabilidade e desempenho). Reunidos aqui os efeitos visíveis
+para quem usa o app; a lista completa fica no histórico de commits.
+
+- **Downloads realmente offline**: a tela de Downloads agora resolve tudo
+  pelo próprio registro do download — sem depender da conexão ativa nem do
+  catálogo. Um filme ou episódio baixado continua tocando mesmo sem internet
+  e mesmo depois de remover a playlist de origem.
+- **Notificação de novo episódio** volta a funcionar — a checagem comparava
+  contagens que nunca mudavam e nunca disparava.
+- **Retomar série**: volta para o episódio realmente assistido por último,
+  não mais o primeiro da lista que tinha algum progresso salvo.
+- **Qualidade de vídeo** (Alta/Média/Baixa/Automática) agora limita a
+  resolução de verdade durante a reprodução, em vez de só aparecer salva
+  nos Ajustes.
+- **Busca**: ganhou "Carregar mais" (não para mais em 60 resultados) e passa
+  a ignorar acentos ao comparar títulos.
+- **Perfis protegidos**: editar ou excluir um perfil com bloqueio ou modo
+  infantil agora exige autenticação antes, em qualquer tela de onde a ação
+  seja aberta.
+- **Guia de programação**: horários de "Agora" e "A seguir" corrigidos nos
+  limites exatos entre programas.
+- **Sincronização mais confiável**: se só uma parte do catálogo atualizar
+  (canais, mas não filmes, por exemplo), o app não marca mais como concluída
+  — tenta de novo sozinho.
+- **Excluir a conexão padrão** agora promove outra automaticamente, em vez
+  de deixar o app sem playlist ativa.
+- **Segurança**: os dados de login da playlist não ficam mais guardados
+  dentro dos links salvos no app (catálogo, histórico, downloads).
+- Diversas otimizações internas: abertura de filmes/séries/canais mais
+  rápida, menos trabalho fora de tela e durante a digitação na busca.
+
 ## 1.36.0 — 2026-09-04
 
 - **Próximo episódio automático** volta a pular para o episódio seguinte. A

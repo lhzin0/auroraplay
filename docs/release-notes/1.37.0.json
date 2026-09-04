@@ -1,0 +1,13 @@
+[
+  "Downloads agora tocam totalmente offline: sem depender da conexão ativa nem do catálogo, e continuam disponíveis mesmo depois de remover a playlist.",
+  "Notificação de novo episódio disponível volta a funcionar.",
+  "Retomar uma série agora leva ao episódio realmente assistido por último.",
+  "O ajuste de Qualidade (Alta/Média/Baixa/Automática) passa a limitar a resolução de verdade durante a reprodução.",
+  "Busca ganhou \"Carregar mais\" — não para mais em 60 resultados — e passa a ignorar acentos ao comparar títulos.",
+  "Perfis com bloqueio ou modo infantil agora exigem autenticação antes de editar ou excluir o perfil.",
+  "Guia de programação (Agora/A seguir) com horários corrigidos.",
+  "Sincronização mais confiável: se uma parte falhar, o app tenta de novo sozinho em vez de marcar como concluída.",
+  "Excluir a conexão padrão promove outra automaticamente, sem deixar o app sem playlist ativa.",
+  "Reforço de segurança: os dados de login da playlist não ficam mais guardados dentro dos links salvos no app.",
+  "Abertura de filmes, séries e canais mais rápida, com várias otimizações internas de desempenho."
+]
