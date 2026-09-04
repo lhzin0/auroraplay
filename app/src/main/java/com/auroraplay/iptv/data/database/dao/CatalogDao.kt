@@ -99,6 +99,9 @@ interface SeriesDao {
     @Query("SELECT * FROM series WHERE id = :id AND connectionId = :connectionId LIMIT 1")
     suspend fun getById(connectionId: String, id: String): SeriesEntity?
 
+    @Query("UPDATE series SET episodesSyncedAtMillis = :millis WHERE id = :seriesId AND connectionId = :connectionId")
+    suspend fun touchEpisodesSyncedAt(connectionId: String, seriesId: String, millis: Long)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(series: List<SeriesEntity>)
 

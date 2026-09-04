@@ -58,7 +58,7 @@ class AppDatabaseMigrationTest {
             assertNotNull(progress)
             assertEquals("Filme A", progress!!.title)
             assertEquals(300000L, progress.positionMillis)
-            assertEquals(10, db.openHelper.readableDatabase.version)
+            assertEquals(11, db.openHelper.readableDatabase.version)
         } finally {
             db.close()
         }
@@ -160,6 +160,24 @@ class AppDatabaseMigrationTest {
         }
         db.query("SELECT containerExtension FROM episodes WHERE id = 'e1'").use {
             assertEquals(true, it.moveToFirst()); assertEquals("mp4", it.getString(0))
+        }
+        db.close()
+    }
+
+    /** Audit #7: 10 -> 11 adds the per-series episode-fetch timestamp,
+     * additively, defaulting existing rows to 0 ("never fetched"). */
+    @Test
+    fun migrate_10_to_11_adds_episode_sync_timestamp_defaulting_to_zero() {
+        helper.createDatabase(testDb, 10).apply {
+            execSQL(
+                "INSERT INTO series(id, connectionId, name, posterUrl, backdropUrl, categoryId, categoryName, year, genre, plot, rating, audioLabel, addedAtMillis) " +
+                    "VALUES('s1', 'conn', 'Série', NULL, NULL, 'g', 'Geral', NULL, NULL, NULL, NULL, NULL, 5)",
+            )
+            close()
+        }
+        val db = helper.runMigrationsAndValidate(testDb, 11, true, *AppDatabaseMigrations.ALL)
+        db.query("SELECT episodesSyncedAtMillis FROM series WHERE id = 's1'").use {
+            assertEquals(true, it.moveToFirst()); assertEquals(0L, it.getLong(0))
         }
         db.close()
     }

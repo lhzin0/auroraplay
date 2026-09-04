@@ -33,6 +33,18 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/** How long a cached episode list stays fresh before the next open of a series
+ * re-fetches it (audit #7). Six hours: long enough that repeatedly opening a
+ * series in one sitting never re-hits the network, short enough that a
+ * weekly-airing show's new episode shows up the same day. */
+internal const val EPISODE_TTL_MILLIS: Long = 6L * 60L * 60L * 1000L
+
+/** Pure so the TTL decision is unit-testable without a repository. A
+ * [syncedAtMillis] of 0 or less ("never fetched") is always stale, regardless
+ * of the clock. */
+internal fun episodesAreStale(syncedAtMillis: Long, nowMillis: Long, ttlMillis: Long): Boolean =
+    syncedAtMillis <= 0L || nowMillis - syncedAtMillis >= ttlMillis
+
 @Singleton
 class ContentRepositoryImpl @Inject constructor(
     private val api: XtreamApiService,
@@ -283,12 +295,19 @@ class ContentRepositoryImpl @Inject constructor(
         )
     }
 
-    override suspend fun getSeriesDetail(connectionId: String, seriesId: String): Series? {
+    override suspend fun getSeriesDetail(
+        connectionId: String,
+        seriesId: String,
+        forceRefresh: Boolean,
+        allowStaleRefresh: Boolean,
+    ): Series? {
         val entity = seriesDao.getById(connectionId, seriesId) ?: return null
         val urlBuilder = urlBuilderFor(connectionId)
         var episodes = episodeDao.getForSeries(connectionId, seriesId)
 
-        if (episodes.isEmpty() && urlBuilder != null) {
+        val needsFetch = episodes.isEmpty() || forceRefresh ||
+            (allowStaleRefresh && episodesAreStale(entity.episodesSyncedAtMillis, System.currentTimeMillis(), EPISODE_TTL_MILLIS))
+        if (needsFetch && urlBuilder != null) {
             fetchAndStoreEpisodes(connectionId, seriesId, urlBuilder)?.let { episodes = it }
         }
 
@@ -335,6 +354,7 @@ class ContentRepositoryImpl @Inject constructor(
         }.orEmpty()
         if (episodes.isEmpty()) return null
         episodeDao.replaceForSeries(connectionId, seriesId, episodes)
+        seriesDao.touchEpisodesSyncedAt(connectionId, seriesId, System.currentTimeMillis())
         return episodes
     }
 

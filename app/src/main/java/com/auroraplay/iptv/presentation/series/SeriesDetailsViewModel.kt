@@ -45,6 +45,8 @@ data class SeriesDetailsUiState(
     val similar: List<Series> = emptyList(),
     /** Official YouTube trailer id from TMDB — never an Xtream/episode URL. */
     val trailerYoutubeId: String? = null,
+    /** A manual "atualizar episódios" fetch is in flight (audit #7). */
+    val isRefreshingEpisodes: Boolean = false,
 )
 
 @HiltViewModel
@@ -74,6 +76,10 @@ class SeriesDetailsViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(SeriesDetailsUiState())
     val uiState: StateFlow<SeriesDetailsUiState> = _uiState.asStateFlow()
 
+    // Held so refresh() can push a re-fetched series into the same stream the
+    // init block's combine is collecting.
+    private lateinit var seriesFlow: MutableStateFlow<Series?>
+
     init {
         viewModelScope.launch {
             val connection = connectionRepository.getDefaultConnection()
@@ -88,7 +94,7 @@ class SeriesDetailsViewModel @Inject constructor(
             // Seeded from the local row + already-cached episodes (instant),
             // then upgraded once get_series_info / TMDB return. First paint no
             // longer waits on those round-trips.
-            val seriesFlow = MutableStateFlow(contentRepository.getCachedSeries(connection.id, seriesId))
+            seriesFlow = MutableStateFlow(contentRepository.getCachedSeries(connection.id, seriesId))
             if (seriesFlow.value == null) {
                 val fetched = contentRepository.getSeriesDetail(connection.id, seriesId)
                 if (fetched == null) {
@@ -176,6 +182,19 @@ class SeriesDetailsViewModel @Inject constructor(
 
     fun selectSeason(seasonNumber: Int) {
         _uiState.value = _uiState.value.copy(selectedSeasonNumber = seasonNumber)
+    }
+
+    /** Manual "atualizar episódios" (audit #7) — forces a `get_series_info`
+     * fetch past the TTL. On failure the existing episode list is kept. */
+    fun refresh() {
+        val connectionId = activeConnectionId ?: return
+        if (!::seriesFlow.isInitialized || _uiState.value.isRefreshingEpisodes) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isRefreshingEpisodes = true) }
+            runCatching { contentRepository.getSeriesDetail(connectionId, seriesId, forceRefresh = true) }
+                .getOrNull()?.let { seriesFlow.value = it }
+            _uiState.update { it.copy(isRefreshingEpisodes = false) }
+        }
     }
 
     fun toggleFavorite() {

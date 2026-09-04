@@ -339,7 +339,10 @@ class PlayerViewModel @Inject constructor(
         val seriesId = contentId.substringBefore(":").trim()
         val episodeId = contentId.substringAfter(":", "").ifBlank { null }
         if (seriesId.isBlank()) error("ID da série inválido.")
-        val series = contentRepository.getSeriesDetail(connectionId, seriesId)
+        // allowStaleRefresh = false: never make starting playback wait on a
+        // get_series_info round-trip (audit #7 / #18). A still-empty episode
+        // list still fetches once.
+        val series = contentRepository.getSeriesDetail(connectionId, seriesId, allowStaleRefresh = false)
             ?: error("Não foi possível encontrar esta série.")
         if (!contentPolicy.allows(isKids, series)) error("Este conteúdo não está disponível neste perfil.")
         val allEpisodes = series.seasons.flatMap { it.episodes }

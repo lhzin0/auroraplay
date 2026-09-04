@@ -19,6 +19,10 @@ data class SeriesEntity(
      * sync, before the display name is cleaned); null otherwise. */
     val audioLabel: String? = null,
     val addedAtMillis: Long,
+    /** Epoch millis of the last successful `get_series_info` episode fetch for
+     * this series; 0 = never. Drives the episode-list TTL (audit #7) so an
+     * already-opened series still picks up new episodes without a full sync. */
+    val episodesSyncedAtMillis: Long = 0,
 )
 
 // Audit #4: the authenticated episode URL (server/series/<user>/<pass>/<id>.ext)

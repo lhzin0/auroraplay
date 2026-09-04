@@ -234,13 +234,36 @@ fun SeriesDetailsScreen(
                     if (series.seasons.isNotEmpty()) {
                         item {
                             Spacer(Modifier.height(28.dp))
-                            Text(
-                                "Episódios",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.SemiBold,
-                                color = AuroraColors.TextPrimary,
-                                modifier = Modifier.padding(horizontal = 20.dp),
-                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    "Episódios",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = AuroraColors.TextPrimary,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                IconButton(
+                                    onClick = { viewModel.refresh() },
+                                    enabled = !state.isRefreshingEpisodes,
+                                ) {
+                                    if (state.isRefreshingEpisodes) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(18.dp),
+                                            strokeWidth = 2.dp,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                    } else {
+                                        Icon(
+                                            Icons.Default.Refresh,
+                                            contentDescription = "Atualizar episódios",
+                                            tint = AuroraColors.TextPrimary,
+                                        )
+                                    }
+                                }
+                            }
                             Spacer(Modifier.height(12.dp))
                             SeasonDropdown(
                                 seasons = series.seasons.map { it.seasonNumber },

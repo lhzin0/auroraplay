@@ -16,7 +16,20 @@ interface ContentRepository {
     fun observeMovies(connectionId: String, categoryId: String? = null): Flow<List<Movie>>
     fun observeSeries(connectionId: String, categoryId: String? = null): Flow<List<Series>>
 
-    suspend fun getSeriesDetail(connectionId: String, seriesId: String): Series?
+    /**
+     * The series row plus its episodes. Episodes are (re-)fetched from the
+     * provider when none are cached, when [forceRefresh] is set (manual
+     * "atualizar"), or — only if [allowStaleRefresh] — when the cached copy is
+     * older than the episode TTL (audit #7). The player passes
+     * [allowStaleRefresh] = false so starting playback never waits on a
+     * `get_series_info` round-trip (audit #18).
+     */
+    suspend fun getSeriesDetail(
+        connectionId: String,
+        seriesId: String,
+        forceRefresh: Boolean = false,
+        allowStaleRefresh: Boolean = true,
+    ): Series?
     suspend fun getMovieDetail(connectionId: String, movieId: String): Movie?
 
     /**
