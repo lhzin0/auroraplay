@@ -111,6 +111,19 @@ class PlayerManager @Inject constructor(
                     .build()
             )
             .setHandleAudioBecomingNoisy(true)
+            // Audit #23: explicit audio focus. USAGE_MEDIA + CONTENT_TYPE_MOVIE
+            // (live TV counts as a "movie" content type for focus purposes) with
+            // handleAudioFocus = true makes ExoPlayer itself request focus on
+            // play, release it on pause/stop, duck or pause on a transient loss
+            // (a call, a notification sound) and resume playback when focus is
+            // regained — without any of that being hand-rolled here.
+            .setAudioAttributes(
+                androidx.media3.common.AudioAttributes.Builder()
+                    .setUsage(C.USAGE_MEDIA)
+                    .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
+                    .build(),
+                /* handleAudioFocus = */ true,
+            )
             .build()
     }
 
@@ -338,9 +351,12 @@ class PlayerManager @Inject constructor(
         _state.value = _state.value.copy(playbackSpeed = speed)
     }
 
+    /** Routed to whichever player is effectively active (audit #23): during a
+     * Cast session this reaches the CastPlayer — and therefore the receiver —
+     * instead of silently changing a local player nobody is listening to. */
     fun setVolume(volume: Float) {
         val clamped = volume.coerceIn(0f, 1f)
-        exoPlayer.volume = clamped
+        activePlayer().volume = clamped
         _state.value = _state.value.copy(volume = clamped)
     }
 
