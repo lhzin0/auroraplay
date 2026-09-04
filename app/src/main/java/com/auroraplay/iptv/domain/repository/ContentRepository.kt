@@ -19,6 +19,16 @@ interface ContentRepository {
     suspend fun getSeriesDetail(connectionId: String, seriesId: String): Series?
     suspend fun getMovieDetail(connectionId: String, movieId: String): Movie?
 
+    /**
+     * Pulls the current episode list for a single series straight from the
+     * provider (`get_series_info`) and replaces the local copy transactionally.
+     * Returns the episode ids now known for the series, or null when the
+     * provider couldn't be reached or returned nothing — the local data is left
+     * untouched in that case. Does not touch the rest of the catalog; used by
+     * the "new episode available" background check.
+     */
+    suspend fun refreshSeriesEpisodes(connectionId: String, seriesId: String): List<String>?
+
     /** Local-only, no network: the catalog row (and, for a series, whatever
      * episodes are already cached). Returned instantly so the detail page can
      * paint before [getMovieDetail] / [getSeriesDetail] finish enriching. */

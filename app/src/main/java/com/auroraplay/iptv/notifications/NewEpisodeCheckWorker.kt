@@ -16,6 +16,7 @@ import androidx.work.WorkerParameters
 import com.auroraplay.iptv.MainActivity
 import com.auroraplay.iptv.data.datastore.EpisodeCountStore
 import com.auroraplay.iptv.data.datastore.NotificationStore
+import com.auroraplay.iptv.data.datastore.hasNewEpisodes
 import com.auroraplay.iptv.domain.model.ContentType
 import com.auroraplay.iptv.domain.repository.ConnectionRepository
 import com.auroraplay.iptv.domain.repository.ContentRepository
@@ -26,10 +27,11 @@ import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.first
 
 /**
- * Xtream never marks an episode as "new" — the only signal available is a
- * series' own episode count growing between checks. This worker re-syncs
- * each connection, then compares every favorited series against the count
- * [EpisodeCountStore] saved last time it ran.
+ * Xtream never marks an episode as "new" — the only signal is a favorited
+ * series gaining an episode id it didn't have before. For each connection this
+ * worker pulls just the `get_series_info` of the series the user actually
+ * favorited (never a whole-catalog sync) and diffs the id set against what
+ * [EpisodeCountStore] saved last run.
  */
 @HiltWorker
 class NewEpisodeCheckWorker @AssistedInject constructor(
@@ -57,31 +59,33 @@ class NewEpisodeCheckWorker @AssistedInject constructor(
         val newlyAvailable = mutableListOf<String>()
 
         connections.forEach { connection ->
-            // Best-effort refresh: an unreachable server just means this run
-            // finds nothing new, not a failed job — retrying hourly on a
-            // server that's down would only drain the battery for nothing.
-            runCatching { contentRepository.syncConnection(connection.id).collect {} }
-
             val favoriteSeriesIds = profiles
                 .flatMap { runCatching { favoriteRepository.observeFavorites(connection.id, it.id, ContentType.SERIES).first() }.getOrDefault(emptyList()) }
                 .map { it.contentId }
                 .toSet()
             if (favoriteSeriesIds.isEmpty()) return@forEach
 
-            val allSeries = runCatching { contentRepository.observeSeries(connection.id).first() }.getOrDefault(emptyList())
-            allSeries.filter { it.id in favoriteSeriesIds }.forEach { series ->
-                val episodeCount = series.seasons.sumOf { it.episodes.size }
-                val known = episodeCountStore.getKnownEpisodeCount(series.id)
-                episodeCountStore.setKnownEpisodeCount(series.id, episodeCount)
-                // null means "first time seeing this series" — not a growth,
-                // or every favorite would notify once right after being added.
-                if (known != null && episodeCount > known) {
-                    newlyAvailable += series.name
+            // Local, no network — just to label the notification with the show name.
+            val nameById = runCatching { contentRepository.observeSeries(connection.id).first() }
+                .getOrDefault(emptyList())
+                .associate { it.id to it.name }
+
+            favoriteSeriesIds.forEach { seriesId ->
+                // One get_series_info per favorited series. null = server
+                // unreachable or empty response — skip, keep last known ids,
+                // never notify off stale data.
+                val currentIds = runCatching { contentRepository.refreshSeriesEpisodes(connection.id, seriesId) }
+                    .getOrNull()?.toSet() ?: return@forEach
+
+                val known = episodeCountStore.getKnownEpisodeIds(connection.id, seriesId)
+                episodeCountStore.setKnownEpisodeIds(connection.id, seriesId, currentIds)
+                if (hasNewEpisodes(currentIds, known)) {
+                    newlyAvailable += (nameById[seriesId] ?: "Série")
                 }
             }
         }
 
-        if (newlyAvailable.isNotEmpty()) notify(newlyAvailable)
+        if (newlyAvailable.isNotEmpty()) notify(newlyAvailable.distinct())
         return Result.success()
     }
 

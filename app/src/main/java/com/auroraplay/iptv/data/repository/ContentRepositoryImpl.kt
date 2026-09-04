@@ -288,18 +288,8 @@ class ContentRepositoryImpl @Inject constructor(
         val urlBuilder = urlBuilderFor(connectionId)
         var episodes = episodeDao.getForSeries(connectionId, seriesId)
 
-        if (episodes.isEmpty()) {
-            if (urlBuilder != null) {
-                runCatching { api.getSeriesInfo(urlBuilder.seriesInfo(seriesId)) }.getOrNull()?.let { info ->
-                    val allEpisodes = info.episodes?.flatMap { (seasonKey, eps) ->
-                        val seasonNumber = seasonKey.toIntOrNull() ?: eps.firstOrNull()?.season ?: 1
-                        eps.map { it.toEntity(seriesId, connectionId, seasonNumber) }
-                    }.orEmpty()
-                    episodeDao.clearForSeries(connectionId, seriesId)
-                    episodeDao.upsertAll(allEpisodes)
-                    episodes = allEpisodes
-                }
-            }
+        if (episodes.isEmpty() && urlBuilder != null) {
+            fetchAndStoreEpisodes(connectionId, seriesId, urlBuilder)?.let { episodes = it }
         }
 
         val seasons = seasonsOf(episodes, urlBuilder)
@@ -320,6 +310,32 @@ class ContentRepositoryImpl @Inject constructor(
         }
 
         return enriched.toDomain().copy(seasons = seasons)
+    }
+
+    override suspend fun refreshSeriesEpisodes(connectionId: String, seriesId: String): List<String>? {
+        val urlBuilder = urlBuilderFor(connectionId) ?: return null
+        return fetchAndStoreEpisodes(connectionId, seriesId, urlBuilder)?.map { it.id }
+    }
+
+    /**
+     * One `get_series_info` call, then a transactional replace of the local
+     * episodes for [seriesId]. Returns null (and leaves local data untouched)
+     * when the provider can't be reached or returns no episodes — never
+     * replaces a real episode list with an empty one.
+     */
+    private suspend fun fetchAndStoreEpisodes(
+        connectionId: String,
+        seriesId: String,
+        urlBuilder: XtreamUrlBuilder,
+    ): List<com.auroraplay.iptv.data.database.entity.EpisodeEntity>? {
+        val info = runCatching { api.getSeriesInfo(urlBuilder.seriesInfo(seriesId)) }.getOrNull() ?: return null
+        val episodes = info.episodes?.flatMap { (seasonKey, eps) ->
+            val seasonNumber = seasonKey.toIntOrNull() ?: eps.firstOrNull()?.season ?: 1
+            eps.map { it.toEntity(seriesId, connectionId, seasonNumber) }
+        }.orEmpty()
+        if (episodes.isEmpty()) return null
+        episodeDao.replaceForSeries(connectionId, seriesId, episodes)
+        return episodes
     }
 
     override suspend fun getMovieDetail(connectionId: String, movieId: String): Movie? {

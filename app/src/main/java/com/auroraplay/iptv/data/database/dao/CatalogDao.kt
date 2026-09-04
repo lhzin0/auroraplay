@@ -123,4 +123,12 @@ interface EpisodeDao {
 
     @Query("DELETE FROM episodes WHERE seriesId = :seriesId AND connectionId = :connectionId")
     suspend fun clearForSeries(connectionId: String, seriesId: String)
+
+    /** Atomic swap of one series' episode list — see [CategoryDao.replace]. A
+     * reader (or a crash) never sees the series with zero episodes mid-update. */
+    @Transaction
+    suspend fun replaceForSeries(connectionId: String, seriesId: String, episodes: List<EpisodeEntity>) {
+        clearForSeries(connectionId, seriesId)
+        upsertAll(episodes)
+    }
 }
