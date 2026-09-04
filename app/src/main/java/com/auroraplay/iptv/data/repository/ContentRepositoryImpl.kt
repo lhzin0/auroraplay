@@ -47,6 +47,27 @@ internal fun episodesAreStale(syncedAtMillis: Long, nowMillis: Long, ttlMillis: 
     syncedAtMillis <= 0L || nowMillis - syncedAtMillis >= ttlMillis
 
 /**
+ * Audit #15: "agora" and "a seguir" from an ordered EPG timeline.
+ *  - current = the program whose half-open window [start, end) actually
+ *    contains [nowMillis]; null when none does (never the first row as a
+ *    fallback — that invented a "current" program hours out of date).
+ *  - next = the earliest program that starts at or after the current
+ *    program's end (a back-to-back program starting exactly on the boundary
+ *    counts), or, when there is no current program, the earliest one that
+ *    hasn't started yet.
+ */
+internal fun pickNowAndNext(
+    programs: List<com.auroraplay.iptv.domain.model.EpgProgram>,
+    nowMillis: Long,
+): Pair<com.auroraplay.iptv.domain.model.EpgProgram?, com.auroraplay.iptv.domain.model.EpgProgram?> {
+    val ordered = programs.sortedBy { it.startMillis }
+    val current = ordered.firstOrNull { nowMillis >= it.startMillis && nowMillis < it.endMillis }
+    val threshold = current?.endMillis ?: nowMillis
+    val next = ordered.firstOrNull { it !== current && it.startMillis >= threshold }
+    return current to next
+}
+
+/**
  * Audit #10: given which sync sections reached the server, decide the outcome.
  * [SyncStage.DONE] only when every section reached (so `lastSyncMillis` may be
  * bumped); [SyncStage.PARTIAL] when some but not all did (keep old rows, don't
@@ -465,16 +486,8 @@ class ContentRepositoryImpl @Inject constructor(
     override suspend fun getShortEpg(
         connectionId: String,
         channelId: String,
-    ): Pair<com.auroraplay.iptv.domain.model.EpgProgram?, com.auroraplay.iptv.domain.model.EpgProgram?> {
-        val programs = getEpgTimeline(connectionId, channelId, limit = 4)
-        val now = System.currentTimeMillis()
-        // Xtream's short EPG is ordered but doesn't flag which entry is
-        // "now" — the one whose window actually contains the current
-        // time is current; anything after that is upcoming.
-        val current = programs.firstOrNull { now in it.startMillis until it.endMillis } ?: programs.firstOrNull()
-        val next = programs.firstOrNull { it.startMillis > (current?.endMillis ?: now) }
-        return current to next
-    }
+    ): Pair<com.auroraplay.iptv.domain.model.EpgProgram?, com.auroraplay.iptv.domain.model.EpgProgram?> =
+        pickNowAndNext(getEpgTimeline(connectionId, channelId, limit = 4), System.currentTimeMillis())
 
     override suspend fun getEpgTimeline(
         connectionId: String,
