@@ -22,6 +22,9 @@ interface CategoryDao {
     @Query("DELETE FROM categories WHERE connectionId = :connectionId AND type = :type")
     suspend fun clear(connectionId: String, type: String)
 
+    @Query("DELETE FROM categories WHERE connectionId = :connectionId")
+    suspend fun clearAll(connectionId: String)
+
     /** Atomic swap: observers of [observe] never see the empty gap between the
      * delete and the re-insert during a sync. */
     @Transaction
@@ -132,6 +135,9 @@ interface EpisodeDao {
 
     @Query("DELETE FROM episodes WHERE seriesId = :seriesId AND connectionId = :connectionId")
     suspend fun clearForSeries(connectionId: String, seriesId: String)
+
+    @Query("DELETE FROM episodes WHERE connectionId = :connectionId")
+    suspend fun clearForConnection(connectionId: String)
 
     /** Atomic swap of one series' episode list — see [CategoryDao.replace]. A
      * reader (or a crash) never sees the series with zero episodes mid-update. */

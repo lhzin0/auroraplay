@@ -15,6 +15,9 @@ interface ConnectionDao {
     @Query("SELECT * FROM connections WHERE isDefault = 1 LIMIT 1")
     suspend fun getDefault(): ConnectionEntity?
 
+    @Query("SELECT * FROM connections ORDER BY isDefault DESC, name ASC")
+    suspend fun getAllOnce(): List<ConnectionEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(connection: ConnectionEntity)
 

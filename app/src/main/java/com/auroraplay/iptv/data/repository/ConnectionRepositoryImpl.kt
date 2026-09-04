@@ -1,9 +1,16 @@
 package com.auroraplay.iptv.data.repository
 
+import androidx.room.withTransaction
 import com.auroraplay.iptv.core.util.Resource
 import com.auroraplay.iptv.data.api.XtreamApiService
 import com.auroraplay.iptv.data.api.XtreamUrlBuilder
+import com.auroraplay.iptv.data.database.AppDatabase
+import com.auroraplay.iptv.data.database.dao.CategoryDao
+import com.auroraplay.iptv.data.database.dao.ChannelDao
 import com.auroraplay.iptv.data.database.dao.ConnectionDao
+import com.auroraplay.iptv.data.database.dao.EpisodeDao
+import com.auroraplay.iptv.data.database.dao.MovieDao
+import com.auroraplay.iptv.data.database.dao.SeriesDao
 import com.auroraplay.iptv.data.database.entity.ConnectionEntity
 import com.auroraplay.iptv.data.datastore.SecureCredentialStore
 import com.auroraplay.iptv.data.mapper.toDomain
@@ -21,7 +28,13 @@ import javax.inject.Singleton
 
 @Singleton
 class ConnectionRepositoryImpl @Inject constructor(
+    private val db: AppDatabase,
     private val dao: ConnectionDao,
+    private val categoryDao: CategoryDao,
+    private val channelDao: ChannelDao,
+    private val movieDao: MovieDao,
+    private val seriesDao: SeriesDao,
+    private val episodeDao: EpisodeDao,
     private val api: XtreamApiService,
     private val secureStore: SecureCredentialStore,
 ) : ConnectionRepository {
@@ -95,7 +108,7 @@ class ConnectionRepositoryImpl @Inject constructor(
     }
 
     override suspend fun deleteConnection(id: String) {
-        dao.delete(id)
+        deleteConnectionAtomically(db, dao, categoryDao, channelDao, movieDao, seriesDao, episodeDao, id)
         secureStore.deletePassword(id)
     }
 
@@ -130,5 +143,40 @@ class ConnectionRepositoryImpl @Inject constructor(
         is java.net.UnknownHostException -> "Não foi possível conectar ao servidor."
         is java.net.SocketTimeoutException -> "O servidor demorou para responder. Tente novamente."
         else -> "Não foi possível conectar ao servidor."
+    }
+}
+
+/**
+ * Audit #16: delete a connection + its re-syncable catalog orphans, and, when
+ * it was the default and other playlists remain, promote another — all in one
+ * transaction so the app is never left "connected to nothing" while playlists
+ * exist. `favorites` / `watch_progress` for the connection are personal data
+ * and are intentionally NOT deleted here. Extracted so an instrumented test
+ * can exercise it against a real in-memory database without the network deps.
+ */
+internal suspend fun deleteConnectionAtomically(
+    db: AppDatabase,
+    dao: ConnectionDao,
+    categoryDao: CategoryDao,
+    channelDao: ChannelDao,
+    movieDao: MovieDao,
+    seriesDao: SeriesDao,
+    episodeDao: EpisodeDao,
+    id: String,
+) {
+    db.withTransaction {
+        val wasDefault = dao.getById(id)?.isDefault == true
+        dao.delete(id)
+        categoryDao.clearAll(id)
+        channelDao.clear(id)
+        movieDao.clear(id)
+        seriesDao.clear(id)
+        episodeDao.clearForConnection(id)
+        if (wasDefault) {
+            dao.getAllOnce().firstOrNull()?.let { next ->
+                dao.clearDefaults()
+                dao.markDefault(next.id)
+            }
+        }
     }
 }
