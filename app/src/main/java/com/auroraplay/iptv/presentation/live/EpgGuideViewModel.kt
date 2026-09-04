@@ -11,7 +11,9 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -45,28 +47,39 @@ class EpgGuideViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val connection = connectionRepository.getDefaultConnection()
-            connectionId = connection?.id
-            if (connection == null) {
-                _uiState.value = EpgGuideUiState(isLoading = false)
-                return@launch
-            }
-            val profile = profileRepository.observeActiveProfile().first()
+            // React to a profile / default-connection switch (audit #11).
+            combine(
+                profileRepository.observeActiveProfile(),
+                connectionRepository.observeDefaultConnection(),
+            ) { profile, connection -> profile to connection }
+                .distinctUntilChanged()
+                .collectLatest { (profile, connection) ->
+                    connectionId = connection?.id
+                    if (connection == null) {
+                        _uiState.value = EpgGuideUiState(isLoading = false)
+                        return@collectLatest
+                    }
+                    // A channel id is only unique within one connection — reset
+                    // so a leftover row from the old playlist can't be mistaken
+                    // for a same-id channel on the new one (audit #3-class bug).
+                    fetchedAtMillis.clear()
+                    _uiState.value = EpgGuideUiState(isLoading = true)
 
-            contentRepository.observeChannels(connection.id).collect { channels ->
-                val visible = contentPolicy.channels(profile?.isKids == true, channels)
+                    contentRepository.observeChannels(connection.id).collect { channels ->
+                        val visible = contentPolicy.channels(profile?.isKids == true, channels)
 
-                // Preserve whatever timelines were already fetched for
-                // channels that are still present, instead of resetting
-                // every row back to empty each time the catalog re-syncs.
-                val existingById = _uiState.value.rows.associateBy { it.channel.id }
-                _uiState.value = EpgGuideUiState(
-                    isLoading = false,
-                    rows = visible.map { channel ->
-                        existingById[channel.id]?.copy(channel = channel) ?: ChannelEpgRow(channel)
-                    },
-                )
-            }
+                        // Preserve whatever timelines were already fetched for
+                        // channels that are still present, instead of resetting
+                        // every row back to empty each time the catalog re-syncs.
+                        val existingById = _uiState.value.rows.associateBy { it.channel.id }
+                        _uiState.value = EpgGuideUiState(
+                            isLoading = false,
+                            rows = visible.map { channel ->
+                                existingById[channel.id]?.copy(channel = channel) ?: ChannelEpgRow(channel)
+                            },
+                        )
+                    }
+                }
         }
     }
 

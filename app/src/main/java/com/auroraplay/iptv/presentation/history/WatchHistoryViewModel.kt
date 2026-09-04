@@ -13,8 +13,10 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -69,32 +71,39 @@ class WatchHistoryViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val profile = profileRepository.observeActiveProfile().first()
-            val connection = connectionRepository.getDefaultConnection()
-            profileId = profile?.id
-            isKids = profile?.isKids == true
-            if (profile == null) {
-                _uiState.value = WatchHistoryUiState(loading = false)
-                return@launch
-            }
-
-            // The catalog flows are optional context — the history itself is
-            // the source of truth (audit #17: it must survive a title leaving
-            // the catalog, or the connection being removed).
-            val moviesFlow = connection?.let { contentRepository.observeMovies(it.id) }
-                ?: kotlinx.coroutines.flow.flowOf(emptyList())
-            val seriesFlow = connection?.let { contentRepository.observeSeries(it.id) }
-                ?: kotlinx.coroutines.flow.flowOf(emptyList())
-
+            // React to a profile / default-connection switch (audit #11) — the
+            // history list itself is connection-agnostic by design (audit #17),
+            // but the catalog enrichment (title/poster/"disponível") below
+            // isn't, so it must re-derive when the playlist changes too.
             combine(
-                watchProgressRepository.observeWatchHistory(profile.id),
-                moviesFlow,
-                seriesFlow,
-            ) { history, movies, series ->
-                buildEntries(history, movies.associateBy { it.id }, series.associateBy { it.id })
-            }.collect { entries ->
-                _uiState.value = WatchHistoryUiState(loading = false, entries = entries)
-            }
+                profileRepository.observeActiveProfile(),
+                connectionRepository.observeDefaultConnection(),
+            ) { profile, connection -> profile to connection }
+                .distinctUntilChanged()
+                .collectLatest { (profile, connection) ->
+                    profileId = profile?.id
+                    isKids = profile?.isKids == true
+                    if (profile == null) {
+                        _uiState.value = WatchHistoryUiState(loading = false)
+                        return@collectLatest
+                    }
+
+                    // The catalog flows are optional context — the history itself is
+                    // the source of truth (audit #17: it must survive a title leaving
+                    // the catalog, or the connection being removed).
+                    val moviesFlow = connection?.let { contentRepository.observeMovies(it.id) } ?: flowOf(emptyList())
+                    val seriesFlow = connection?.let { contentRepository.observeSeries(it.id) } ?: flowOf(emptyList())
+
+                    combine(
+                        watchProgressRepository.observeWatchHistory(profile.id),
+                        moviesFlow,
+                        seriesFlow,
+                    ) { history, movies, series ->
+                        buildEntries(history, movies.associateBy { it.id }, series.associateBy { it.id })
+                    }.collect { entries ->
+                        _uiState.value = WatchHistoryUiState(loading = false, entries = entries)
+                    }
+                }
         }
     }
 
