@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+@androidx.compose.runtime.Immutable
 data class LiveTvUiState(
     val isLoading: Boolean = true,
     val categories: List<Category> = emptyList(),

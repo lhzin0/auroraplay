@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+@androidx.compose.runtime.Immutable
 data class MovieDetailsUiState(
     val isLoading: Boolean = true,
     val movie: Movie? = null,

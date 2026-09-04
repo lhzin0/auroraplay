@@ -48,6 +48,7 @@ data class HistoryEntry(
     val episodes: List<HistoryEpisode> = emptyList(),
 )
 
+@androidx.compose.runtime.Immutable
 data class WatchHistoryUiState(
     val loading: Boolean = true,
     val entries: List<HistoryEntry> = emptyList(),

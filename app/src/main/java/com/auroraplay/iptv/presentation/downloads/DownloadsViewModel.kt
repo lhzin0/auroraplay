@@ -38,6 +38,7 @@ data class DownloadGroup(
     val soleItem: DownloadState? get() = items.singleOrNull()
 }
 
+@androidx.compose.runtime.Immutable
 data class DownloadsUiState(
     val isLoading: Boolean = true,
     val groups: List<DownloadGroup> = emptyList(),

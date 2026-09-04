@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+@androidx.compose.runtime.Immutable
 data class HomeUiState(
     val isLoading: Boolean = true,
     val hasConnection: Boolean = true,

@@ -1,5 +1,6 @@
 package com.auroraplay.iptv.domain.model
 
+@androidx.compose.runtime.Immutable
 data class Profile(
     val id: String,
     val name: String,

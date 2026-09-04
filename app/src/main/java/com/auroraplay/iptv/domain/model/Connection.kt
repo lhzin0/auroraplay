@@ -1,6 +1,7 @@
 package com.auroraplay.iptv.domain.model
 
 /** A user-configured Xtream connection. Credentials never leave the device. */
+@androidx.compose.runtime.Immutable
 data class XtreamConnection(
     val id: String,
     val name: String,

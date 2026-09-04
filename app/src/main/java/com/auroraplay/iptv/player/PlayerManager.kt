@@ -37,6 +37,7 @@ data class TrackOption(
     val language: String? = null,
 )
 
+@androidx.compose.runtime.Immutable
 data class PlaybackUiState(
     val isPlaying: Boolean = false,
     val isBuffering: Boolean = true,

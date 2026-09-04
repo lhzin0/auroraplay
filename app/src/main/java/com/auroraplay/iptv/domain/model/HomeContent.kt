@@ -1,21 +1,25 @@
 package com.auroraplay.iptv.domain.model
 
 /** Any playable item, used to render homogeneous carousels/search results across types. */
+@androidx.compose.runtime.Immutable
 sealed class MediaItem {
     abstract val id: String
     abstract val title: String
     abstract val imageUrl: String?
 
+    @androidx.compose.runtime.Immutable
     data class ChannelItem(val channel: Channel) : MediaItem() {
         override val id = channel.id
         override val title = channel.name
         override val imageUrl = channel.logoUrl
     }
+    @androidx.compose.runtime.Immutable
     data class MovieItem(val movie: Movie) : MediaItem() {
         override val id = movie.id
         override val title = movie.name
         override val imageUrl = movie.posterUrl
     }
+    @androidx.compose.runtime.Immutable
     data class SeriesItem(val series: Series) : MediaItem() {
         override val id = series.id
         override val title = series.name
@@ -23,6 +27,7 @@ sealed class MediaItem {
     }
 }
 
+@androidx.compose.runtime.Immutable
 data class HomeSection(
     val id: String,
     val title: String,
@@ -34,6 +39,7 @@ data class HomeSection(
 enum class SectionLayout { POSTER, LANDSCAPE, CHANNEL }
 
 /** A continue-watching entry: the item plus where the user stopped. */
+@androidx.compose.runtime.Immutable
 data class ResumeInfo(
     val contentId: String,
     val fraction: Float,
@@ -52,6 +58,7 @@ data class ResumeInfo(
     }
 }
 
+@androidx.compose.runtime.Immutable
 data class HomeContent(
     /** Rotating highlights shown in the hero carousel. */
     val heroItems: List<MediaItem>,

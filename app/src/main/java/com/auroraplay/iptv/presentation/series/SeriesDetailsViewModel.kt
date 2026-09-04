@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+@androidx.compose.runtime.Immutable
 data class SeriesDetailsUiState(
     val isLoading: Boolean = true,
     val series: Series? = null,

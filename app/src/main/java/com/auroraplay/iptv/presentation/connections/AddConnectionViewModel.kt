@@ -16,6 +16,7 @@ import javax.inject.Inject
 
 enum class AddConnectionStep { FORM, CONNECTING, SYNC_CHANNELS, SYNC_MOVIES, SYNC_SERIES, DONE, ERROR }
 
+@androidx.compose.runtime.Immutable
 data class AddConnectionUiState(
     val step: AddConnectionStep = AddConnectionStep.FORM,
     val errorMessage: String? = null,

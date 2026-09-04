@@ -1,5 +1,6 @@
 package com.auroraplay.iptv.domain.model
 
+@androidx.compose.runtime.Immutable
 data class Series(
     val id: String,
     val connectionId: String,
@@ -20,12 +21,14 @@ data class Series(
     val seasons: List<Season> = emptyList(),
 )
 
+@androidx.compose.runtime.Immutable
 data class Season(
     val seasonNumber: Int,
     val name: String,
     val episodes: List<Episode>,
 )
 
+@androidx.compose.runtime.Immutable
 data class Episode(
     val id: String,
     val seriesId: String,

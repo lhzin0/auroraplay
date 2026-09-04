@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+@androidx.compose.runtime.Immutable
 data class MoviesUiState(
     val isLoading: Boolean = true,
     /** Genre filter chips derived from real content, not raw playlist names. */

@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+@androidx.compose.runtime.Immutable
 data class ProfileEditorUiState(
     val isEditing: Boolean = false,
     val profileId: String? = null,

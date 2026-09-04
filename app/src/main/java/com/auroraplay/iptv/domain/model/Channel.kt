@@ -1,5 +1,6 @@
 package com.auroraplay.iptv.domain.model
 
+@androidx.compose.runtime.Immutable
 data class Channel(
     val id: String,
     val connectionId: String,
@@ -14,6 +15,7 @@ data class Channel(
     val nextProgram: EpgProgram? = null,
 )
 
+@androidx.compose.runtime.Immutable
 data class EpgProgram(
     val id: String,
     val title: String,

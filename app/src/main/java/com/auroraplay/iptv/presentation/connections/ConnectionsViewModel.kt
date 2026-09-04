@@ -19,6 +19,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
+@androidx.compose.runtime.Immutable
 data class ConnectionsUiState(
     val connections: List<XtreamConnection> = emptyList(),
     val isLoading: Boolean = true,

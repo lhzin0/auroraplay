@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+@androidx.compose.runtime.Immutable
 data class SeriesListUiState(
     val isLoading: Boolean = true,
     val genreChips: List<String> = emptyList(),

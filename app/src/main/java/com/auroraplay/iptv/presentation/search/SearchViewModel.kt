@@ -22,6 +22,7 @@ enum class SearchFilter { ALL, MOVIES, SERIES, CHANNELS }
 /** Result-list page size for "carregar mais" (audit #20). */
 private const val SEARCH_PAGE = 60
 
+@androidx.compose.runtime.Immutable
 data class SearchUiState(
     /** Live text in the field — updated synchronously on every keystroke. */
     val query: String = "",

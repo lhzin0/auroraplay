@@ -19,6 +19,7 @@ import javax.inject.Inject
 
 data class ChannelEpgRow(val channel: Channel, val programs: List<EpgProgram> = emptyList())
 
+@androidx.compose.runtime.Immutable
 data class EpgGuideUiState(
     val isLoading: Boolean = true,
     val rows: List<ChannelEpgRow> = emptyList(),

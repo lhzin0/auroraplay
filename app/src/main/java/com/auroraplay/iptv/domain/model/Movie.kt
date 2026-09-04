@@ -1,5 +1,6 @@
 package com.auroraplay.iptv.domain.model
 
+@androidx.compose.runtime.Immutable
 data class Movie(
     val id: String,
     val connectionId: String,
