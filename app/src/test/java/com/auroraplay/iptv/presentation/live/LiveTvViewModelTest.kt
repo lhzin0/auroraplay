@@ -213,6 +213,36 @@ class LiveTvViewModelTest {
     }
 
     @Test
+    fun `toggling favorites after a category was selected clears the category, showing favorites across all of them`() = runTest {
+        val vm = viewModel(
+            connectionFlow = MutableStateFlow(connection("a")),
+            profileFlow = MutableStateFlow(profile()),
+            categoriesByConnection = mapOf("a" to listOf(category("esportes"), category("filmes"))),
+            channelsByConnection = mapOf(
+                "a" to MutableStateFlow(
+                    listOf(channel("1", "a", category = "esportes"), channel("2", "a", category = "filmes")),
+                ),
+            ),
+            // The favorite is in "filmes" — a different category than the one selected below.
+            favoritesByConnection = mapOf("a" to listOf(Favorite("a", "2", ContentType.LIVE, "p"))),
+        )
+        dispatcher.scheduler.advanceUntilIdle()
+
+        vm.selectCategory("esportes")
+        dispatcher.scheduler.advanceUntilIdle()
+        vm.toggleFavoritesFilter()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val state = vm.uiState.value
+        // Regression: the stale "esportes" selection used to survive the
+        // toggle, so a favorite from a different category never showed up
+        // (and both chips read as selected at once).
+        assertNull(state.selectedCategoryId)
+        assertTrue(state.showOnlyFavorites)
+        assertEquals(listOf("2"), state.visibleChannels.map { it.id })
+    }
+
+    @Test
     fun `toggleFavorite routes through with the active profile and connection`() = runTest {
         val favoriteRepository = RecordingFavoriteRepository()
         val vm = viewModel(

@@ -114,6 +114,7 @@ fun MovieDetailsScreen(
                                     label,
                                     style = MaterialTheme.typography.labelMedium,
                                     color = MaterialTheme.colorScheme.primary,
+                                    softWrap = false,
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(6.dp))
                                         .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f))

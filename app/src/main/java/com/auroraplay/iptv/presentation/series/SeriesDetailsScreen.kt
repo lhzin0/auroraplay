@@ -96,7 +96,7 @@ fun SeriesDetailsScreen(
                             DetailMediaPager(
                                 title = series.name,
                                 backdropUrl = series.backdropUrl ?: series.posterUrl,
-                                subtitle = listOfNotNull(series.year, series.genre, "${series.seasons.size} temporada(s)", series.audioLabel).joinToString("  •  "),
+                                subtitle = listOfNotNull(series.year, series.genre, "${series.seasons.size} temporada(s)", series.audioLabel).joinToString("  •  "),
                                 trailerYoutubeId = state.trailerYoutubeId,
                             )
                         }
@@ -111,9 +111,18 @@ fun SeriesDetailsScreen(
                                 overflow = TextOverflow.Ellipsis,
                             )
                             Spacer(Modifier.height(8.dp))
-                            val metaLine = listOfNotNull(series.year, series.genre, "${series.seasons.size} temporada(s)")
+                            val seasonCountLabel = "${series.seasons.size} temporada(s)"
+                            val metaLine = listOfNotNull(series.year, series.genre, seasonCountLabel)
                             if (metaLine.isNotEmpty() || series.audioLabel != null) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                // FlowRow, not Row: when the label + genre list don't
+                                // fit on one line, the audioLabel badge must wrap down
+                                // as a whole unit onto its own line — plain Row instead
+                                // let it get squeezed to near-zero width, which forced
+                                // Compose to wrap "Legendado" one letter per line.
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
                                     if (metaLine.isNotEmpty()) {
                                         Text(
                                             text = metaLine.joinToString("  •  "),
@@ -122,11 +131,11 @@ fun SeriesDetailsScreen(
                                         )
                                     }
                                     series.audioLabel?.let { label ->
-                                        if (metaLine.isNotEmpty()) Spacer(Modifier.width(8.dp))
                                         Text(
                                             label,
                                             style = MaterialTheme.typography.labelMedium,
                                             color = MaterialTheme.colorScheme.primary,
+                                            softWrap = false,
                                             modifier = Modifier
                                                 .clip(RoundedCornerShape(6.dp))
                                                 .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f))

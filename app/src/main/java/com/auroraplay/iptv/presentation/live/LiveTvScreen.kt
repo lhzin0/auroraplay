@@ -153,7 +153,7 @@ fun LiveTvScreen(
             item {
                 CategoryChip(
                     text = "Todos",
-                    selected = state.selectedCategoryId == null,
+                    selected = state.selectedCategoryId == null && !state.showOnlyFavorites,
                     onClick = { viewModel.selectCategory(null) },
                 )
             }

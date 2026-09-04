@@ -118,6 +118,11 @@ class LiveTvViewModel @Inject constructor(
     }
 
     fun toggleFavoritesFilter() {
+        // "Favoritos" is exclusive with a category chip, the same way selectCategory()
+        // clears showOnlyFavorites — otherwise a category chosen earlier stays selected
+        // underneath, so turning Favoritos on shows only that category's favorites (often
+        // empty) instead of every favorited channel, and both chips render as active.
+        selectedCategoryId.value = null
         _uiState.value = _uiState.value.copy(showOnlyFavorites = !_uiState.value.showOnlyFavorites)
     }
 
