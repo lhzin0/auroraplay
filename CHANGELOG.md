@@ -1,3 +1,22 @@
+## 1.35.0 — 2026-09-03
+
+- Busca por gênero mais precisa: casa por palavra inteira (fim dos falsos
+  positivos tipo "ação" trazendo "coração") e reconhece mais gêneros em
+  português e inglês (drama, aventura, crime, mistério, fantasia, biografia,
+  esporte, novela, dorama, entre outros).
+- Novo card **Histórico** nas Configurações, abaixo de **Perfil**: lista os
+  filmes e séries assistidos no perfil, com progresso. Fica salvo até você
+  tocar em **Limpar** — sem limpeza automática — e entra no backup.
+- **Remover de Continuar assistindo** agora só tira o card da fileira: o
+  histórico e o tempo assistido são mantidos, e retomar o título traz o card
+  de volta. Em séries, remove todos os episódios de uma vez.
+- Card de atualização unificado no card **Versão**, no fim das Configurações;
+  o card separado "Atualizações do app" saiu, sem informação duplicada.
+- Tela **Editar Perfil** redesenhada para o mesmo visual do resto do app
+  (cards agrupados, campos e botões padronizados), sem mudar as funções.
+- Card **Backup** reposicionado logo abaixo de **Dados**.
+- Primeira versão publicada nas Releases do GitHub.
+
 ## 1.34.0 — 2026-09-03
 
 - Atualizações pelo GitHub, consulta diária e download automático em redes não tarifadas.
