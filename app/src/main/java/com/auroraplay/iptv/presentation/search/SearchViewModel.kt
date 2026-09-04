@@ -156,14 +156,22 @@ class SearchViewModel @Inject constructor(
                     emptyList()
                 } else {
                     val needle = com.auroraplay.iptv.core.util.MetadataSanitizer.fold(q)
-                    // A short query is also tried as a genre/category term, so
+                    // A query is also tried as a genre/category term, so
                     // "romance", "drama", "dorama", "ação"… surface the whole
                     // strand, not just titles that literally contain the word.
-                    val genreNeedles = (GENRE_SYNONYMS[needle] ?: emptySet()) + needle
+                    // Terms match on a word boundary (see containsWord), so
+                    // "ação" no longer drags in "coração", and only terms of
+                    // 3+ chars act as a genre needle.
+                    val genreNeedles = ((GENRE_SYNONYMS[needle] ?: emptySet()) + needle)
+                        .filter { it.length >= 3 }
                     pool.asSequence()
                         .filter { item ->
                             item.title.contains(q, ignoreCase = true) ||
-                                haystacksFor(item).any { hay -> genreNeedles.any(hay::contains) }
+                                (genreNeedles.isNotEmpty() && haystacksFor(item).any { hay ->
+                                    genreNeedles.any { term ->
+                                        com.auroraplay.iptv.core.util.MetadataSanitizer.containsWord(hay, term)
+                                    }
+                                })
                         }
                         .take(60)
                         .toList()
@@ -260,23 +268,51 @@ class SearchViewModel @Inject constructor(
 
     private companion object {
         /** Both directions so a PT query hits an EN tag and vice-versa. Values
-         * are already folded/lower-case, matched as substrings. */
-        val GENRE_SYNONYMS: Map<String, Set<String>> = mapOf(
-            "acao" to setOf("action"),
-            "action" to setOf("acao"),
-            "comedia" to setOf("comedy"),
-            "comedy" to setOf("comedia"),
-            "romance" to setOf("romantic", "romantico"),
-            "terror" to setOf("horror"),
-            "horror" to setOf("terror"),
-            "ficcao cientifica" to setOf("sci-fi", "science fiction", "ficcao"),
-            "dorama" to setOf("doramas", "k-drama", "kdrama", "coreano", "coreana", "asiatica", "asiatico"),
-            "animacao" to setOf("animation", "anime", "desenho"),
-            "documentario" to setOf("documentary", "docs"),
-            "guerra" to setOf("war"),
-            "faroeste" to setOf("western"),
-            "suspense" to setOf("thriller"),
+         * are already folded/lower-case and matched on a word boundary
+         * (MetadataSanitizer.containsWord). */
+        val GENRE_SYNONYMS: Map<String, Set<String>> = buildGenreSynonyms(
+            setOf("acao", "action"),
+            setOf("aventura", "adventure"),
+            setOf("comedia", "comedy"),
+            setOf("comedia romantica", "romantic comedy", "rom-com", "romcom"),
+            setOf("romance", "romantico", "romantica", "romantic"),
+            setOf("drama", "dramatico", "dramatica"),
+            setOf("terror", "horror"),
+            setOf("suspense", "thriller"),
+            setOf("misterio", "mystery"),
+            setOf("crime", "policial", "true crime", "detetive"),
+            setOf("ficcao cientifica", "ficcao", "sci-fi", "scifi", "science fiction"),
+            setOf("fantasia", "fantasy"),
+            setOf("animacao", "animation", "anime", "desenho", "desenho animado", "cartoon"),
+            setOf("documentario", "documentary", "docs", "doc"),
+            setOf("guerra", "war"),
+            setOf("faroeste", "western", "velho oeste"),
+            setOf("familia", "family", "familiar"),
+            setOf("infantil", "kids", "criancas", "crianca", "para criancas"),
+            setOf("musical", "music", "musica"),
+            setOf("biografia", "biografico", "cinebiografia", "biography", "biographical", "biopic"),
+            setOf("historia", "historico", "historica", "history", "historical"),
+            setOf("esporte", "esportes", "sport", "sports"),
+            setOf("novela", "novelas", "soap opera"),
+            setOf("reality", "reality show", "realities"),
+            setOf("dorama", "doramas", "k-drama", "kdrama", "coreano", "coreana", "asiatica", "asiatico"),
+            setOf("classico", "classicos", "classic", "classics"),
+            setOf("nacional", "brasileiro", "brasileira", "cinema nacional"),
+            setOf("religioso", "religiosa", "gospel", "fe", "cristao"),
+            setOf("stand up", "stand-up", "standup"),
         )
+
+        /** Expands each equivalence group into a full bidirectional map:
+         * every term points at all the others in its group. */
+        private fun buildGenreSynonyms(vararg groups: Set<String>): Map<String, Set<String>> {
+            val out = HashMap<String, MutableSet<String>>()
+            for (group in groups) {
+                for (term in group) {
+                    out.getOrPut(term) { mutableSetOf() }.addAll(group - term)
+                }
+            }
+            return out
+        }
     }
 
     private fun newestFirst(item: MediaItem): Long = when (item) {

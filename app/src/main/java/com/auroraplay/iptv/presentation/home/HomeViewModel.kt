@@ -84,17 +84,18 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    /** Drops a title from the "Continuar assistindo" row. */
+    /**
+     * "Remover de Continuar assistindo". Only drops the card from that rail —
+     * history, watched time and progress are kept, so resuming the title later
+     * picks up where it stopped. For a series, every episode is removed from
+     * the rail at once.
+     */
     fun removeFromContinueWatching(item: MediaItem) {
         val profileId = _uiState.value.activeProfileId ?: return
-        val resume = _uiState.value.content?.resumeByItemId?.get(item.id) ?: return
-        val type = when (item) {
-            is MediaItem.ChannelItem -> ContentType.LIVE
-            is MediaItem.MovieItem -> ContentType.MOVIE
-            is MediaItem.SeriesItem -> ContentType.SERIES
-        }
+        if (item is MediaItem.ChannelItem) return
+        val isSeries = item is MediaItem.SeriesItem
         viewModelScope.launch {
-            watchProgressRepository.removeProgress(profileId, resume.contentId, type)
+            watchProgressRepository.removeFromContinueWatching(profileId, item.id, isSeries)
         }
     }
 

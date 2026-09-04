@@ -33,7 +33,7 @@ import com.auroraplay.iptv.data.database.entity.WatchProgressEntity
         FavoriteEntity::class,
         WatchProgressEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {

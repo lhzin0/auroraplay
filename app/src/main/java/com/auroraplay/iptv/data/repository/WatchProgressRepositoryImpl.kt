@@ -28,6 +28,16 @@ class WatchProgressRepositoryImpl @Inject constructor(
     override suspend fun removeProgress(profileId: String, contentId: String, type: ContentType) =
         dao.delete(profileId, contentId, type.name)
 
+    override fun observeWatchHistory(profileId: String): Flow<List<WatchProgress>> =
+        dao.observeWatchHistory(profileId).map { list -> list.map { it.toDomain() } }
+
+    override suspend fun clearWatchHistory(profileId: String) = dao.clearWatchHistory(profileId)
+
+    override suspend fun removeFromContinueWatching(profileId: String, contentId: String, isSeries: Boolean) {
+        if (isSeries) dao.hideSeriesFromContinue(profileId, contentId)
+        else dao.hideFromContinue(profileId, contentId)
+    }
+
     override fun observeChannelHistory(profileId: String): Flow<List<WatchProgress>> =
         dao.observeChannelHistory(profileId).map { list -> list.map { it.toDomain() } }
 

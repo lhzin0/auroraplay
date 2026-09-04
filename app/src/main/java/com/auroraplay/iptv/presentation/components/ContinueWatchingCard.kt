@@ -191,7 +191,7 @@ private fun ContinueWatchingSheet(
                 SheetRow(Icons.Outlined.Info, "Mais informações") { onDismiss(); it() }
             }
             onRemove?.let {
-                SheetRow(Icons.Default.Close, "Remover da fileira") { onDismiss(); it() }
+                SheetRow(Icons.Default.Close, "Remover de Continuar assistindo") { onDismiss(); it() }
             }
         }
     }

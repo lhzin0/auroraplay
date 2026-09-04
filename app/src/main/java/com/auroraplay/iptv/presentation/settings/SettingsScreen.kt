@@ -124,9 +124,6 @@ fun SettingsScreen(
                     }
                 }
 
-                item { FileBackupSection() }
-                item { com.auroraplay.iptv.update.AppUpdateSection() }
-
                 item {
                     SettingsSection(title = "Reprodução") {
                         SettingsSwitchRow(
@@ -242,15 +239,17 @@ fun SettingsScreen(
                     }
                 }
 
+                // Backup fica logo abaixo de "Dados": os dois tratam do que é
+                // guardado e restaurado, então ficam lado a lado.
+                item { FileBackupSection() }
+
                 item {
-                    SettingsSection(title = "Aplicativo") {
-                        // Plain info, not a navigation target — a chevron here
-                        // would promise a tap does something, when it doesn't.
-                        SettingsInfoRow(
-                            icon = Icons.Default.Info,
-                            title = "Versão",
-                            subtitle = com.auroraplay.iptv.BuildConfig.VERSION_NAME,
-                        )
+                    // Card "Versão" no fim das Configurações: concentra a versão
+                    // instalada e as atualizações disponíveis num lugar só, sem
+                    // card separado de "Atualização do App".
+                    SettingsSection(title = "Versão") {
+                        com.auroraplay.iptv.update.AppUpdateSection()
+                        SettingsDivider()
                         SettingsInfoRow(
                             icon = Icons.Default.PrivacyTip,
                             title = "Sobre e privacidade",

@@ -232,6 +232,28 @@ object MetadataSanitizer {
      * (search by genre: "acao" must match "AÇÃO", "romance" a "Romance" tag). */
     fun fold(s: String): String = foldAccents(s.lowercase()).trim()
 
+    /**
+     * Whole-word containment on an already-[fold]ed haystack. `"acao"` matches
+     * `"acao"` and `"filmes de acao"` but **not** `"coracao"` — the raw
+     * substring check that genre search used before produced exactly that kind
+     * of false positive. A term with its own separators ("k-drama", "sci-fi",
+     * "science fiction") still matches because only the term's outer edges are
+     * checked against letters/digits.
+     */
+    fun containsWord(haystack: String, term: String): Boolean {
+        if (term.isEmpty()) return false
+        var from = 0
+        while (true) {
+            val i = haystack.indexOf(term, from)
+            if (i < 0) return false
+            val before = if (i == 0) ' ' else haystack[i - 1]
+            val afterIndex = i + term.length
+            val after = if (afterIndex >= haystack.length) ' ' else haystack[afterIndex]
+            if (!before.isLetterOrDigit() && !after.isLetterOrDigit()) return true
+            from = i + 1
+        }
+    }
+
     /** A radio (not TV) category. IPTV providers label these explicitly —
      * "RÁDIOS", "RÁDIO FM", "WEB RÁDIO" — so a folded "radio" substring is a
      * precise match with essentially no false positives on real TV channels. */

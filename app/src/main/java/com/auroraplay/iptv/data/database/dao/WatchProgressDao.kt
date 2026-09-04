@@ -7,9 +7,35 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface WatchProgressDao {
     @Query("""SELECT * FROM watch_progress WHERE profileId = :profileId
+        AND hiddenFromContinue = 0
         AND (positionMillis * 1.0 / MAX(durationMillis, 1)) BETWEEN 0.02 AND 0.95
         ORDER BY lastWatchedMillis DESC""")
     fun observeContinueWatching(profileId: String): Flow<List<WatchProgressEntity>>
+
+    /** Full watch history for the profile — every film/episode ever played,
+     * finished or not, hidden from the rail or not. Newest first. Backs the
+     * "Histórico" card; kept until the user clears it. LIVE channel rows are
+     * excluded (they live in "Canais recentes"). */
+    @Query("""SELECT * FROM watch_progress WHERE profileId = :profileId
+        AND type <> 'LIVE'
+        ORDER BY lastWatchedMillis DESC""")
+    fun observeWatchHistory(profileId: String): Flow<List<WatchProgressEntity>>
+
+    /** Manual "Limpar histórico" — never called automatically. */
+    @Query("DELETE FROM watch_progress WHERE profileId = :profileId AND type <> 'LIVE'")
+    suspend fun clearWatchHistory(profileId: String)
+
+    /** "Remover de Continuar assistindo" for a single movie — keeps the row,
+     * the progress and the history; only drops it from the rail. */
+    @Query("UPDATE watch_progress SET hiddenFromContinue = 1 WHERE profileId = :profileId AND contentId = :contentId")
+    suspend fun hideFromContinue(profileId: String, contentId: String)
+
+    /** Same, for a whole series: episode rows are stored as "<seriesId>:<episodeId>",
+     * so match the series id itself and every "<seriesId>:*" episode. */
+    @Query("""UPDATE watch_progress SET hiddenFromContinue = 1
+        WHERE profileId = :profileId
+        AND (contentId = :seriesId OR contentId LIKE :seriesId || ':%')""")
+    suspend fun hideSeriesFromContinue(profileId: String, seriesId: String)
 
     @Query("SELECT * FROM watch_progress WHERE profileId = :profileId AND contentId = :contentId LIMIT 1")
     suspend fun get(profileId: String, contentId: String): WatchProgressEntity?
