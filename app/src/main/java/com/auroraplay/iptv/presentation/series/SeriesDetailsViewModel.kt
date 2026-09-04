@@ -24,7 +24,9 @@ data class SeriesDetailsUiState(
     val isLoading: Boolean = true,
     val series: Series? = null,
     val isFavorite: Boolean = false,
-    val selectedSeasonNumber: Int = 1,
+    /** null = no season chosen yet (audit #14: never use a real season number
+     * as the "unset" sentinel). The screen falls back to the first season. */
+    val selectedSeasonNumber: Int? = null,
     val errorMessage: String? = null,
     // Last episode + position saved for this profile. The detail page uses
     // this for a true one-tap resume action.
@@ -79,6 +81,11 @@ class SeriesDetailsViewModel @Inject constructor(
     // Held so refresh() can push a re-fetched series into the same stream the
     // init block's combine is collecting.
     private lateinit var seriesFlow: MutableStateFlow<Series?>
+
+    /** Once the user taps a season, external re-emissions (favourite toggle,
+     * download progress ticks, resume-progress updates) must not move the
+     * selection off it (audit #14). */
+    private var userPickedSeason = false
 
     init {
         viewModelScope.launch {
@@ -135,15 +142,12 @@ class SeriesDetailsViewModel @Inject constructor(
             }
 
             val favoriteFlow = if (profile != null) favoriteRepository.isFavorite(connection.id, profile.id, seriesId, com.auroraplay.iptv.domain.model.ContentType.SERIES) else flowOf(false)
-            // Most recently watched episode of this series, recomputed if the
-            // episode list grows when the full fetch lands. Every episode is
-            // eligible (even near-complete ones) so Resume never skips a chapter.
-            val latestProgressFlow = seriesFlow.map { s ->
+            // Most recently watched episode of this series — one indexed query
+            // ordered by lastWatchedMillis (audit #14), recomputed when the
+            // episode list changes so Resume tracks new progress.
+            val latestProgressFlow = seriesFlow.map { _ ->
                 val p = profile ?: return@map null
-                s?.seasons.orEmpty()
-                    .flatMap { it.episodes }
-                    .mapNotNull { episode -> watchProgressRepository.getProgress(connection.id, p.id, "$seriesId:${episode.id}", com.auroraplay.iptv.domain.model.ContentType.SERIES) }
-                    .maxByOrNull { it.lastWatchedMillis }
+                watchProgressRepository.getLatestSeriesProgress(connection.id, p.id, seriesId)
             }
 
             combine(seriesFlow, similarFlow, latestProgressFlow, favoriteFlow, downloadTracker.downloads) { series, similar, latestProgress, isFav, downloads ->
@@ -162,9 +166,14 @@ class SeriesDetailsViewModel @Inject constructor(
                     series = series,
                     isFavorite = isFav,
                     similar = similar,
-                    selectedSeasonNumber = _uiState.value.selectedSeasonNumber.takeIf { it != 1 }
-                        ?: latestProgress?.seasonNumber
-                        ?: (series.seasons.firstOrNull()?.seasonNumber ?: 1),
+                    // A manual pick is sticky; otherwise track the resume
+                    // season (or the first season) and keep updating it until
+                    // the user chooses.
+                    selectedSeasonNumber = if (userPickedSeason) {
+                        _uiState.value.selectedSeasonNumber
+                    } else {
+                        latestProgress?.seasonNumber ?: series.seasons.firstOrNull()?.seasonNumber
+                    },
                     resumeEpisodeId = latestProgress?.contentId?.substringAfter(":")?.ifBlank { null },
                     resumeSeasonNumber = latestProgress?.seasonNumber,
                     resumeEpisodeNumber = latestProgress?.episodeNumber,
@@ -181,6 +190,7 @@ class SeriesDetailsViewModel @Inject constructor(
     }
 
     fun selectSeason(seasonNumber: Int) {
+        userPickedSeason = true
         _uiState.value = _uiState.value.copy(selectedSeasonNumber = seasonNumber)
     }
 

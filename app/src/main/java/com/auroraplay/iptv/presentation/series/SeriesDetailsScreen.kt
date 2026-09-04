@@ -267,7 +267,10 @@ fun SeriesDetailsScreen(
                             Spacer(Modifier.height(12.dp))
                             SeasonDropdown(
                                 seasons = series.seasons.map { it.seasonNumber },
-                                selectedSeason = state.selectedSeasonNumber,
+                                // state.selectedSeasonNumber is null until chosen; fall back to
+                                // the resolved season so the dropdown always shows something real.
+                                selectedSeason = selectedSeason?.seasonNumber
+                                    ?: series.seasons.firstOrNull()?.seasonNumber ?: 1,
                                 onSelect = viewModel::selectSeason,
                                 modifier = Modifier.padding(horizontal = 20.dp),
                             )

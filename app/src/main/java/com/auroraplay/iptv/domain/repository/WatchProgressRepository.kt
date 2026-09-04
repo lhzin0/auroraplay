@@ -7,6 +7,11 @@ import kotlinx.coroutines.flow.Flow
 interface WatchProgressRepository {
     fun observeContinueWatching(connectionId: String, profileId: String): Flow<List<WatchProgress>>
     suspend fun getProgress(connectionId: String, profileId: String, contentId: String, type: ContentType): WatchProgress?
+
+    /** The most-recently-watched episode of [seriesId] for this profile, or
+     * null if none was ever played. Audit #14: resume the real last episode,
+     * not the first one that happens to have progress. */
+    suspend fun getLatestSeriesProgress(connectionId: String, profileId: String, seriesId: String): WatchProgress?
     /** [progress] carries the connectionId. */
     suspend fun saveProgress(progress: WatchProgress)
     suspend fun removeProgress(connectionId: String, profileId: String, contentId: String, type: ContentType)

@@ -51,6 +51,19 @@ interface WatchProgressDao {
     @Query("SELECT * FROM watch_progress WHERE connectionId = :connectionId AND profileId = :profileId AND contentId = :contentId AND type = :type LIMIT 1")
     suspend fun get(connectionId: String, profileId: String, contentId: String, type: String): WatchProgressEntity?
 
+    /**
+     * The single most-recently-watched episode of one series (rows are stored
+     * as "<seriesId>:<episodeId>"). Audit #14: pick by lastWatchedMillis, not
+     * by list order, so "continuar" resumes the actual last episode.
+     */
+    @Query(
+        """SELECT * FROM watch_progress
+        WHERE connectionId = :connectionId AND profileId = :profileId AND type = 'SERIES'
+        AND (contentId = :seriesId OR contentId LIKE :seriesId || ':%')
+        ORDER BY lastWatchedMillis DESC LIMIT 1""",
+    )
+    suspend fun getLatestForSeries(connectionId: String, profileId: String, seriesId: String): WatchProgressEntity?
+
     /** Every row — for the local backup snapshot. */
     @Query("SELECT * FROM watch_progress")
     suspend fun getAll(): List<WatchProgressEntity>

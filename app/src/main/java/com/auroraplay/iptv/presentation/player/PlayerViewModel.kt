@@ -432,13 +432,15 @@ class PlayerViewModel @Inject constructor(
         val allEpisodes = series.seasons.flatMap { it.episodes }
         if (allEpisodes.isEmpty()) error("Esta série não possui episódios disponíveis.")
 
-        // With no explicit episode, resume the last one this profile watched.
+        // With no explicit episode, resume the episode this profile watched
+        // most recently — a single indexed query ordered by lastWatchedMillis,
+        // not "the first episode in the list that has any progress" (audit #14).
         val episode = when {
             episodeId != null -> allEpisodes.find { it.id == episodeId }
             else -> profileId?.let { pid ->
-                allEpisodes.firstNotNullOfOrNull { ep ->
-                    watchProgressRepository.getProgress(connectionId, pid, "$seriesId:${ep.id}", ContentType.SERIES)?.let { ep to it }
-                }?.first
+                watchProgressRepository.getLatestSeriesProgress(connectionId, pid, seriesId)
+                    ?.contentId?.substringAfter(":")?.ifBlank { null }
+                    ?.let { lastId -> allEpisodes.find { it.id == lastId } }
             }
         } ?: allEpisodes.first()
 

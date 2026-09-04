@@ -23,6 +23,9 @@ class WatchProgressRepositoryImpl @Inject constructor(
     override suspend fun getProgress(connectionId: String, profileId: String, contentId: String, type: ContentType): WatchProgress? =
         dao.get(connectionId, profileId, contentId, type.name)?.toDomain()
 
+    override suspend fun getLatestSeriesProgress(connectionId: String, profileId: String, seriesId: String): WatchProgress? =
+        dao.getLatestForSeries(connectionId, profileId, seriesId)?.toDomain()
+
     override suspend fun saveProgress(progress: WatchProgress) = dao.upsert(progress.toEntity())
 
     override suspend fun removeProgress(connectionId: String, profileId: String, contentId: String, type: ContentType) =

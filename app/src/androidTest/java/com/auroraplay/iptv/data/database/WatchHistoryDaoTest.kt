@@ -103,6 +103,26 @@ class WatchHistoryDaoTest {
     }
 
     @Test
+    fun getLatestForSeries_returns_the_most_recently_watched_episode_not_the_first() = runBlocking {
+        // ep-1 is earlier in id order but ep-3 was watched last.
+        dao.upsert(row("series-7:ep-1", "SERIES", season = 1, episode = 1, watchedAt = 100))
+        dao.upsert(row("series-7:ep-3", "SERIES", season = 2, episode = 3, watchedAt = 300))
+        dao.upsert(row("series-7:ep-2", "SERIES", season = 1, episode = 2, watchedAt = 200))
+        // a same-prefix different series must not leak in
+        dao.upsert(row("series-70:ep-9", "SERIES", season = 9, episode = 9, watchedAt = 999))
+
+        val latest = dao.getLatestForSeries(conn, profile, "series-7")
+        assertEquals("series-7:ep-3", latest?.contentId)
+        assertEquals(2, latest?.seasonNumber)
+    }
+
+    @Test
+    fun getLatestForSeries_is_null_when_the_series_was_never_watched() = runBlocking {
+        dao.upsert(row("movie-1", "MOVIE"))
+        assertNull(dao.getLatestForSeries(conn, profile, "series-x"))
+    }
+
+    @Test
     fun clearWatchHistory_keeps_live_channel_rows() = runBlocking {
         dao.upsert(row("movie-1", "MOVIE"))
         dao.upsert(row("series-1:ep-1", "SERIES", season = 1, episode = 1))
