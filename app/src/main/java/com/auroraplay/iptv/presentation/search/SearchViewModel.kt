@@ -2,7 +2,6 @@ package com.auroraplay.iptv.presentation.search
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.auroraplay.iptv.core.util.KidsContentFilter
 import com.auroraplay.iptv.domain.model.MediaItem
 import com.auroraplay.iptv.domain.repository.ConnectionRepository
 import com.auroraplay.iptv.domain.repository.ContentRepository
@@ -51,6 +50,7 @@ class SearchViewModel @Inject constructor(
     private val watchProgressRepository: WatchProgressRepository,
     private val settingsRepository: SettingsRepository,
     private val smartCategoryBuilder: SmartCategoryBuilder,
+    private val contentPolicy: com.auroraplay.iptv.domain.policy.ContentPolicy,
 ) : ViewModel() {
 
     private val query = MutableStateFlow("")
@@ -105,21 +105,21 @@ class SearchViewModel @Inject constructor(
             ) { movies, series, channels ->
                 val cleanMovie = movies
                     .asSequence()
-                    .filter { !isKids || KidsContentFilter.isKidsAppropriate(it.categoryName, it.genre) }
+                    .filter { contentPolicy.allows(isKids, it) }
                     .distinctBy { smartCategoryBuilder.cleanTitle(it.name).lowercase() to it.year }
                     .map { MediaItem.MovieItem(it) }
                     .toList()
 
                 val cleanSeries = series
                     .asSequence()
-                    .filter { !isKids || KidsContentFilter.isKidsAppropriate(it.categoryName, it.genre) }
+                    .filter { contentPolicy.allows(isKids, it) }
                     .distinctBy { smartCategoryBuilder.cleanTitle(it.name).lowercase() to it.year }
                     .map { MediaItem.SeriesItem(it) }
                     .toList()
 
                 val cleanChannels = channels
                     .asSequence()
-                    .filter { !isKids || KidsContentFilter.isKidsAppropriate(it.categoryName) }
+                    .filter { contentPolicy.allows(isKids, it) }
                     .map { MediaItem.ChannelItem(it) }
                     .toList()
 

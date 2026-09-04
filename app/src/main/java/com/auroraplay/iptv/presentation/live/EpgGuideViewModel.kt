@@ -2,7 +2,6 @@ package com.auroraplay.iptv.presentation.live
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.auroraplay.iptv.core.util.KidsContentFilter
 import com.auroraplay.iptv.domain.model.Channel
 import com.auroraplay.iptv.domain.model.EpgProgram
 import com.auroraplay.iptv.domain.repository.ConnectionRepository
@@ -35,6 +34,7 @@ class EpgGuideViewModel @Inject constructor(
     private val connectionRepository: ConnectionRepository,
     private val contentRepository: ContentRepository,
     private val profileRepository: ProfileRepository,
+    private val contentPolicy: com.auroraplay.iptv.domain.policy.ContentPolicy,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(EpgGuideUiState())
@@ -54,9 +54,7 @@ class EpgGuideViewModel @Inject constructor(
             val profile = profileRepository.observeActiveProfile().first()
 
             contentRepository.observeChannels(connection.id).collect { channels ->
-                val visible = if (profile?.isKids == true) {
-                    channels.filter { KidsContentFilter.isKidsAppropriate(it.categoryName) }
-                } else channels
+                val visible = contentPolicy.channels(profile?.isKids == true, channels)
 
                 // Preserve whatever timelines were already fetched for
                 // channels that are still present, instead of resetting

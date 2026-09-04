@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.auroraplay.iptv.domain.model.ContentType
 import com.auroraplay.iptv.domain.model.WatchProgress
+import com.auroraplay.iptv.domain.policy.ContentPolicy
 import com.auroraplay.iptv.domain.repository.ConnectionRepository
 import com.auroraplay.iptv.domain.repository.ContentRepository
 import com.auroraplay.iptv.domain.repository.ProfileRepository
@@ -56,7 +57,10 @@ class WatchHistoryViewModel @Inject constructor(
     private val contentRepository: ContentRepository,
     private val profileRepository: ProfileRepository,
     private val watchProgressRepository: WatchProgressRepository,
+    private val contentPolicy: ContentPolicy,
 ) : ViewModel() {
+
+    private var isKids = false
 
     private var profileId: String? = null
 
@@ -68,6 +72,7 @@ class WatchHistoryViewModel @Inject constructor(
             val profile = profileRepository.observeActiveProfile().first()
             val connection = connectionRepository.getDefaultConnection()
             profileId = profile?.id
+            isKids = profile?.isKids == true
             if (profile == null) {
                 _uiState.value = WatchHistoryUiState(loading = false)
                 return@launch
@@ -119,6 +124,18 @@ class WatchHistoryViewModel @Inject constructor(
             val movie = movieById[parentId]
             val series = seriesById[parentId]
             val label = episodeLabelOf(wp)
+
+            // A kids profile shouldn't see history for content it isn't allowed
+            // to watch. Use the full policy when the catalog row is present;
+            // fall back to the loose check on the stored title otherwise.
+            if (isKids) {
+                val allowed = when {
+                    movie != null -> contentPolicy.allows(true, movie)
+                    series != null -> contentPolicy.allows(true, series)
+                    else -> contentPolicy.visibleLoose(true, wp.title)
+                }
+                if (!allowed) continue
+            }
 
             val group = acc.getOrPut(parentId) {
                 Acc(

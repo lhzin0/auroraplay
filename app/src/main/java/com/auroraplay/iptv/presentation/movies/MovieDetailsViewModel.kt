@@ -49,6 +49,7 @@ class MovieDetailsViewModel @Inject constructor(
     private val downloadTracker: DownloadTracker,
     private val watchProgressRepository: com.auroraplay.iptv.domain.repository.WatchProgressRepository,
     private val metadataEnricher: MetadataEnricher,
+    private val contentPolicy: com.auroraplay.iptv.domain.policy.ContentPolicy,
 ) : ViewModel() {
 
     private val movieId: String = checkNotNull(savedStateHandle["movieId"])
@@ -85,6 +86,14 @@ class MovieDetailsViewModel @Inject constructor(
                 }
             }
 
+            // A kids profile must not reach a non-kids title through a deep link
+            // or a stale recommendation.
+            val isKids = profile?.isKids == true
+            if (isKids && movieFlow.value?.let { contentPolicy.allows(true, it) } != true) {
+                _uiState.value = MovieDetailsUiState(isLoading = false, errorMessage = "Este conteúdo não está disponível neste perfil.")
+                return@launch
+            }
+
             val progress = profile?.let { watchProgressRepository.getProgress(it.id, movieId) }
             val remaining = progress?.let { p ->
                 val remainingSeconds = ((p.durationMillis - p.positionMillis) / 1000).coerceAtLeast(0)
@@ -97,7 +106,7 @@ class MovieDetailsViewModel @Inject constructor(
             val similarFlow = MutableStateFlow<List<Movie>>(emptyList())
             launch {
                 val genre = movieFlow.value?.genre
-                val allMovies = contentRepository.observeMovies(connection.id).first()
+                val allMovies = contentPolicy.movies(isKids, contentRepository.observeMovies(connection.id).first())
                 similarFlow.value = allMovies
                     .filter { it.id != movieId && it.genre != null && it.genre == genre }
                     .take(12)

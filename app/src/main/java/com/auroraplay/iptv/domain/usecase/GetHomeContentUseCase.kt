@@ -1,6 +1,5 @@
 package com.auroraplay.iptv.domain.usecase
 
-import com.auroraplay.iptv.core.util.KidsContentFilter
 import com.auroraplay.iptv.domain.model.Channel
 import com.auroraplay.iptv.domain.model.Favorite
 import com.auroraplay.iptv.domain.model.HomeContent
@@ -32,6 +31,7 @@ class GetHomeContentUseCase @Inject constructor(
     private val favoriteRepository: FavoriteRepository,
     private val watchProgressRepository: WatchProgressRepository,
     private val smartCategoryBuilder: SmartCategoryBuilder,
+    private val contentPolicy: com.auroraplay.iptv.domain.policy.ContentPolicy,
 ) {
     operator fun invoke(connectionId: String, profileId: String, isKids: Boolean = false): Flow<HomeContent> = combine(
         contentRepository.observeChannels(connectionId),
@@ -67,9 +67,9 @@ class GetHomeContentUseCase @Inject constructor(
         // content — an allowlist, not just adult content hidden — so
         // "Ação"/"Terror"/general genre rails never surface for this profile
         // even though they aren't adult either.
-        val channels = if (isKids) rawChannels.filter { KidsContentFilter.isKidsAppropriate(it.categoryName) } else rawChannels
-        val movies = if (isKids) rawMovies.filter { KidsContentFilter.isKidsAppropriate(it.categoryName, it.genre) } else rawMovies
-        val series = if (isKids) rawSeries.filter { KidsContentFilter.isKidsAppropriate(it.categoryName, it.genre) } else rawSeries
+        val channels = contentPolicy.channels(isKids, rawChannels)
+        val movies = contentPolicy.movies(isKids, rawMovies)
+        val series = contentPolicy.series(isKids, rawSeries)
 
         val favoriteIds = favorites.map { it.contentId }.toSet()
 

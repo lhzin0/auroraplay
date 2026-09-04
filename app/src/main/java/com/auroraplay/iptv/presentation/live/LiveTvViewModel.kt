@@ -46,6 +46,7 @@ class LiveTvViewModel @Inject constructor(
     private val profileRepository: ProfileRepository,
     private val favoriteRepository: FavoriteRepository,
     private val toggleFavoriteUseCase: ToggleFavoriteUseCase,
+    private val contentPolicy: com.auroraplay.iptv.domain.policy.ContentPolicy,
 ) : ViewModel() {
 
     private val selectedCategoryId = MutableStateFlow<String?>(null)
@@ -72,16 +73,10 @@ class LiveTvViewModel @Inject constructor(
 
             val categoriesFlow = contentRepository.observeCategories(connection.id, ContentType.LIVE)
                 .map { list ->
-                    if (profile?.isKids == true) {
-                        list.filter { com.auroraplay.iptv.core.util.KidsContentFilter.isKidsAppropriate(it.name) }
-                    } else list
+                    if (profile?.isKids == true) list.filter { contentPolicy.allowsFields(true, it.name) } else list
                 }
             val channelsFlow = selectedCategoryId.flatMapLatest { contentRepository.observeChannels(connection.id, it) }
-                .map { list ->
-                    if (profile?.isKids == true) {
-                        list.filter { com.auroraplay.iptv.core.util.KidsContentFilter.isKidsAppropriate(it.categoryName) }
-                    } else list
-                }
+                .map { list -> contentPolicy.channels(profile?.isKids == true, list) }
             val favoritesFlow = profile?.let { favoriteRepository.observeFavorites(it.id, ContentType.LIVE) }
                 ?: flowOf(emptyList())
 

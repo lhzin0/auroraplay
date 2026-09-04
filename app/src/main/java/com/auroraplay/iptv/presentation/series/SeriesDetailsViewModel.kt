@@ -58,6 +58,7 @@ class SeriesDetailsViewModel @Inject constructor(
     private val watchProgressRepository: WatchProgressRepository,
     private val downloadTracker: DownloadTracker,
     private val metadataEnricher: MetadataEnricher,
+    private val contentPolicy: com.auroraplay.iptv.domain.policy.ContentPolicy,
 ) : ViewModel() {
 
     private val seriesId: String = checkNotNull(savedStateHandle["seriesId"])
@@ -98,13 +99,18 @@ class SeriesDetailsViewModel @Inject constructor(
                     contentRepository.getSeriesDetail(connection.id, seriesId)?.let { seriesFlow.value = it }
                 }
             }
+            val isKids = profile?.isKids == true
+            if (isKids && seriesFlow.value?.let { contentPolicy.allows(true, it) } != true) {
+                _uiState.value = SeriesDetailsUiState(isLoading = false, errorMessage = "Este conteúdo não está disponível neste perfil.")
+                return@launch
+            }
             loadedSeriesName = seriesFlow.value?.name
             loadedSeriesPoster = seriesFlow.value?.posterUrl
 
             val similarFlow = MutableStateFlow<List<Series>>(emptyList())
             launch {
                 val genre = seriesFlow.value?.genre
-                val allSeries = contentRepository.observeSeries(connection.id).first()
+                val allSeries = contentPolicy.series(isKids, contentRepository.observeSeries(connection.id).first())
                 similarFlow.value = allSeries
                     .filter { it.id != seriesId && it.genre != null && it.genre == genre }
                     .take(12)

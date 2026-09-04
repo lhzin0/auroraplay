@@ -42,6 +42,7 @@ class MoviesViewModel @Inject constructor(
     private val smartCategoryBuilder: SmartCategoryBuilder,
     private val syncContentUseCase: SyncContentUseCase,
     private val watchProgressRepository: com.auroraplay.iptv.domain.repository.WatchProgressRepository,
+    private val contentPolicy: com.auroraplay.iptv.domain.policy.ContentPolicy,
 ) : ViewModel() {
 
     private val selectedGenre = MutableStateFlow<String?>(null)
@@ -68,7 +69,7 @@ class MoviesViewModel @Inject constructor(
             val watchedIds = watched.map { it.contentId.substringBefore(":") }.toSet()
 
             val allMoviesFlow = contentRepository.observeMovies(connection.id)
-                .map { list -> if (profile?.isKids == true) list.filter { com.auroraplay.iptv.core.util.KidsContentFilter.isKidsAppropriate(it.categoryName, it.genre) } else list }
+                .map { list -> contentPolicy.movies(profile?.isKids == true, list) }
             val favoritesFlow = if (profile != null) {
                 favoriteRepository.observeFavorites(profile.id, ContentType.MOVIE)
             } else {

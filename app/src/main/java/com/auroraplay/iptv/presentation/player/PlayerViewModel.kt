@@ -17,6 +17,7 @@ import com.auroraplay.iptv.domain.repository.ContentRepository
 import com.auroraplay.iptv.domain.repository.FavoriteRepository
 import com.auroraplay.iptv.domain.repository.ProfileRepository
 import com.auroraplay.iptv.domain.repository.WatchProgressRepository
+import com.auroraplay.iptv.domain.policy.ContentPolicy
 import com.auroraplay.iptv.domain.usecase.SaveWatchProgressUseCase
 import com.auroraplay.iptv.domain.usecase.ToggleFavoriteUseCase
 import com.auroraplay.iptv.player.PlayerManager
@@ -68,7 +69,13 @@ class PlayerViewModel @Inject constructor(
     private val toggleFavoriteUseCase: ToggleFavoriteUseCase,
     private val scrubPreview: ScrubPreviewEngine,
     private val settingsRepository: com.auroraplay.iptv.domain.repository.SettingsRepository,
+    private val contentPolicy: ContentPolicy,
 ) : ViewModel() {
+
+    /** Active profile's kids flag — every content-load and channel-switch path
+     * is gated by ContentPolicy so a kids profile can't reach a blocked title
+     * through the player, a deep link, or the quick channel switcher. */
+    private var activeProfileIsKids = false
 
     /** ±10 or ±5 — drives the seek buttons' jump and their "10"/"5" glyph. */
     private val _seekSeconds = MutableStateFlow(10)
@@ -226,11 +233,12 @@ class PlayerViewModel @Inject constructor(
                     ?: error("Nenhuma conexão ativa foi encontrada.")
                 val profile = profileRepository.observeActiveProfile().first()
                 activeProfileId = profile?.id
+                activeProfileIsKids = profile?.isKids == true
 
                 when (contentType) {
-                    ContentType.LIVE -> loadLive(connection.id, contentId, profile?.id)
-                    ContentType.MOVIE -> loadMovie(connection.id, contentId, profile?.id)
-                    ContentType.SERIES -> loadSeries(connection.id, contentId, profile?.id)
+                    ContentType.LIVE -> loadLive(connection.id, contentId, profile?.id, activeProfileIsKids)
+                    ContentType.MOVIE -> loadMovie(connection.id, contentId, profile?.id, activeProfileIsKids)
+                    ContentType.SERIES -> loadSeries(connection.id, contentId, profile?.id, activeProfileIsKids)
                 }
 
                 val url = _loadState.value.streamUrl?.trim()
@@ -255,9 +263,10 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    private suspend fun loadLive(connectionId: String, contentId: String, profileId: String?) {
+    private suspend fun loadLive(connectionId: String, contentId: String, profileId: String?, isKids: Boolean) {
         val channels = contentRepository.observeChannels(connectionId).first()
         val channel = channels.find { it.id == contentId } ?: channels.firstOrNull() ?: return
+        if (!contentPolicy.allows(isKids, channel)) error("Este conteúdo não está disponível neste perfil.")
         val isFav = profileId?.let { favoriteRepository.isFavorite(it, channel.id).first() } ?: false
         // channel.currentProgram is always null straight out of the DB — the
         // catalog sync never calls the short-EPG endpoint, so this is the
@@ -272,7 +281,7 @@ class PlayerViewModel @Inject constructor(
             isLive = true,
             contentType = ContentType.LIVE,
             contentId = channel.id,
-            liveChannels = channels,
+            liveChannels = contentPolicy.channels(isKids, channels),
             resumePositionMillis = 0L,
             isFavorite = isFav,
             currentProgramLabel = current?.title,
@@ -289,10 +298,11 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    private suspend fun loadMovie(connectionId: String, contentId: String, profileId: String?) {
+    private suspend fun loadMovie(connectionId: String, contentId: String, profileId: String?, isKids: Boolean) {
         if (contentId.isBlank()) error("ID do filme inválido.")
         val movie = contentRepository.getMovieDetail(connectionId, contentId)
             ?: error("Não foi possível encontrar este filme.")
+        if (!contentPolicy.allows(isKids, movie)) error("Este conteúdo não está disponível neste perfil.")
         // Resume exactly where this profile left off (Netflix-style "continuar assistindo").
         val saved = profileId?.let { watchProgressRepository.getProgress(it, movie.id) }
         val isFav = profileId?.let { favoriteRepository.isFavorite(it, movie.id).first() } ?: false
@@ -313,13 +323,14 @@ class PlayerViewModel @Inject constructor(
         )
     }
 
-    private suspend fun loadSeries(connectionId: String, contentId: String, profileId: String?) {
+    private suspend fun loadSeries(connectionId: String, contentId: String, profileId: String?, isKids: Boolean) {
         // contentId format: "<seriesId>:<episodeId>"
         val seriesId = contentId.substringBefore(":").trim()
         val episodeId = contentId.substringAfter(":", "").ifBlank { null }
         if (seriesId.isBlank()) error("ID da série inválido.")
         val series = contentRepository.getSeriesDetail(connectionId, seriesId)
             ?: error("Não foi possível encontrar esta série.")
+        if (!contentPolicy.allows(isKids, series)) error("Este conteúdo não está disponível neste perfil.")
         val allEpisodes = series.seasons.flatMap { it.episodes }
         if (allEpisodes.isEmpty()) error("Esta série não possui episódios disponíveis.")
 
@@ -374,6 +385,9 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun switchChannel(channel: Channel) {
+        // Belt-and-braces: liveChannels is already filtered, but never let a
+        // blocked channel through the quick switcher for a kids profile.
+        if (!contentPolicy.allows(activeProfileIsKids, channel)) return
         _loadState.value = _loadState.value.copy(
             title = channel.name,
             subtitle = channel.categoryName,

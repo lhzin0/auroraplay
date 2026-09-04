@@ -3,12 +3,15 @@ package com.auroraplay.iptv.presentation.downloads
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.exoplayer.offline.Download
+import com.auroraplay.iptv.domain.policy.ContentPolicy
+import com.auroraplay.iptv.domain.repository.ProfileRepository
 import com.auroraplay.iptv.player.download.DownloadState
 import com.auroraplay.iptv.player.download.DownloadTracker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -43,6 +46,8 @@ data class DownloadsUiState(
 @HiltViewModel
 class DownloadsViewModel @Inject constructor(
     private val downloadTracker: DownloadTracker,
+    private val profileRepository: ProfileRepository,
+    private val contentPolicy: ContentPolicy,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DownloadsUiState())
@@ -50,7 +55,10 @@ class DownloadsViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            downloadTracker.downloads.collect { map ->
+            combine(
+                downloadTracker.downloads,
+                profileRepository.observeActiveProfile(),
+            ) { map, profile -> map to (profile?.isKids == true) }.collect { (map, isKids) ->
                 // Map is insertion-ordered (built by successive `+`), so a
                 // later index means a more recently queued download — used to
                 // sort finished groups newest-first.
@@ -77,6 +85,10 @@ class DownloadsViewModel @Inject constructor(
                         compareByDescending<DownloadGroup> { it.anyDownloading }
                             .thenByDescending { g -> g.items.maxOf { recency[it.contentId] ?: 0 } }
                     )
+                    // A kids profile must not see downloads that look adult. The
+                    // download index carries only a title, so this is the loose
+                    // check (full per-profile scoping of downloads is audit #3/#8).
+                    .filter { contentPolicy.visibleLoose(isKids, it.title) }
 
                 _uiState.value = DownloadsUiState(isLoading = false, groups = groups)
             }

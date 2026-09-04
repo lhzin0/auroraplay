@@ -2,7 +2,6 @@ package com.auroraplay.iptv.presentation.series
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.auroraplay.iptv.core.util.KidsContentFilter
 import com.auroraplay.iptv.domain.model.Series
 import com.auroraplay.iptv.domain.repository.ConnectionRepository
 import com.auroraplay.iptv.domain.repository.ContentRepository
@@ -37,6 +36,7 @@ class SeriesViewModel @Inject constructor(
     private val smartCategoryBuilder: SmartCategoryBuilder,
     private val syncContentUseCase: SyncContentUseCase,
     private val watchProgressRepository: WatchProgressRepository,
+    private val contentPolicy: com.auroraplay.iptv.domain.policy.ContentPolicy,
 ) : ViewModel() {
 
     private val selectedGenre = MutableStateFlow<String?>(null)
@@ -66,9 +66,7 @@ class SeriesViewModel @Inject constructor(
                 selectedGenre,
                 query.debounce(200),
             ) { all, genre, q ->
-                val kidsFiltered = if (profile?.isKids == true) {
-                    all.filter { KidsContentFilter.isKidsAppropriate(it.categoryName, it.genre) }
-                } else all
+                val kidsFiltered = contentPolicy.series(profile?.isKids == true, all)
                 val deduped = kidsFiltered.distinctBy { smartCategoryBuilder.cleanTitle(it.name).lowercase() to it.year }
 
                 val genreFiltered = if (genre == null) deduped else {
