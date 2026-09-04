@@ -154,11 +154,11 @@ dependencies {
     implementation("androidx.hilt:hilt-navigation-compose:1.3.0")
 
     // Hilt
-    implementation("com.google.dagger:hilt-android:2.57")
-    ksp("com.google.dagger:hilt-android-compiler:2.57")
+    implementation("com.google.dagger:hilt-android:2.60.1")
+    ksp("com.google.dagger:hilt-android-compiler:2.60.1")
 
     // Coroutines
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
 
     // Networking
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
@@ -208,7 +208,7 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     // ViewModel tests need a substitute for Dispatchers.Main (viewModelScope
     // uses it) and virtual-time control over delay()/debounce().
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test:runner:1.6.2")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
