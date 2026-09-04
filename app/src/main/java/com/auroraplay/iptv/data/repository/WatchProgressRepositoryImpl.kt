@@ -17,16 +17,16 @@ class WatchProgressRepositoryImpl @Inject constructor(
     private val dao: WatchProgressDao,
 ) : WatchProgressRepository {
 
-    override fun observeContinueWatching(profileId: String): Flow<List<WatchProgress>> =
-        dao.observeContinueWatching(profileId).map { list -> list.map { it.toDomain() } }
+    override fun observeContinueWatching(connectionId: String, profileId: String): Flow<List<WatchProgress>> =
+        dao.observeContinueWatching(connectionId, profileId).map { list -> list.map { it.toDomain() } }
 
-    override suspend fun getProgress(profileId: String, contentId: String, type: ContentType): WatchProgress? =
-        dao.get(profileId, contentId, type.name)?.toDomain()
+    override suspend fun getProgress(connectionId: String, profileId: String, contentId: String, type: ContentType): WatchProgress? =
+        dao.get(connectionId, profileId, contentId, type.name)?.toDomain()
 
     override suspend fun saveProgress(progress: WatchProgress) = dao.upsert(progress.toEntity())
 
-    override suspend fun removeProgress(profileId: String, contentId: String, type: ContentType) =
-        dao.delete(profileId, contentId, type.name)
+    override suspend fun removeProgress(connectionId: String, profileId: String, contentId: String, type: ContentType) =
+        dao.delete(connectionId, profileId, contentId, type.name)
 
     override fun observeWatchHistory(profileId: String): Flow<List<WatchProgress>> =
         dao.observeWatchHistory(profileId).map { list -> list.map { it.toDomain() } }
@@ -39,17 +39,18 @@ class WatchProgressRepositoryImpl @Inject constructor(
     override suspend fun deleteSeriesFromHistory(profileId: String, seriesId: String) =
         dao.deleteSeriesHistory(profileId, seriesId)
 
-    override suspend fun removeFromContinueWatching(profileId: String, contentId: String, isSeries: Boolean) {
-        if (isSeries) dao.hideSeriesFromContinue(profileId, contentId)
-        else dao.hideFromContinue(profileId, contentId, ContentType.MOVIE.name)
+    override suspend fun removeFromContinueWatching(connectionId: String, profileId: String, contentId: String, isSeries: Boolean) {
+        if (isSeries) dao.hideSeriesFromContinue(connectionId, profileId, contentId)
+        else dao.hideFromContinue(connectionId, profileId, contentId, ContentType.MOVIE.name)
     }
 
-    override fun observeChannelHistory(profileId: String): Flow<List<WatchProgress>> =
-        dao.observeChannelHistory(profileId).map { list -> list.map { it.toDomain() } }
+    override fun observeChannelHistory(connectionId: String, profileId: String): Flow<List<WatchProgress>> =
+        dao.observeChannelHistory(connectionId, profileId).map { list -> list.map { it.toDomain() } }
 
-    override suspend fun recordChannelWatch(profileId: String, channelId: String) {
+    override suspend fun recordChannelWatch(connectionId: String, profileId: String, channelId: String) {
         dao.upsert(
             WatchProgressEntity(
+                connectionId = connectionId,
                 contentId = channelId,
                 type = ContentType.LIVE.name,
                 profileId = profileId,
@@ -60,6 +61,6 @@ class WatchProgressRepositoryImpl @Inject constructor(
                 lastWatchedMillis = System.currentTimeMillis(),
             )
         )
-        dao.trimChannelHistory(profileId)
+        dao.trimChannelHistory(connectionId, profileId)
     }
 }

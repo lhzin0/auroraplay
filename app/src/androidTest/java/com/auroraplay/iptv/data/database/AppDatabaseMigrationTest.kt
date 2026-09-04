@@ -14,11 +14,11 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Audit #5: no `fallbackToDestructiveMigration`, so a real database must open
- * with the shipped migration list without losing data. Audit #3: the 7 -> 8
- * migration puts `type` in the primary key of `favorites` / `watch_progress`.
- * `MigrationTestHelper` also validates each committed `schemas/N.json` against
- * the `@Database` entities.
+ * Audit #5: no `fallbackToDestructiveMigration`, so a real database opens with
+ * the shipped migration list without losing data. Audit #3: `type` (7 -> 8) and
+ * then `connectionId` (8 -> 9) enter the primary key of `favorites` /
+ * `watch_progress`. `MigrationTestHelper` also validates every committed
+ * `schemas/N.json` against the `@Database` entities.
  */
 @RunWith(AndroidJUnit4::class)
 class AppDatabaseMigrationTest {
@@ -52,19 +52,44 @@ class AppDatabaseMigrationTest {
             .build()
         try {
             assertEquals("João", db.profileDao().getById("p1")!!.name)
-            val progress = db.watchProgressDao().get("p1", "movie-1", "MOVIE")
+            // Pre-8/9 rows are backfilled with an empty connectionId (no
+            // connections in this test DB) — the data is not lost.
+            val progress = db.watchProgressDao().get("", "p1", "movie-1", "MOVIE")
             assertNotNull(progress)
             assertEquals("Filme A", progress!!.title)
             assertEquals(300000L, progress.positionMillis)
-            assertEquals(8, db.openHelper.readableDatabase.version)
+            assertEquals(9, db.openHelper.readableDatabase.version)
         } finally {
             db.close()
         }
     }
 
     @Test
-    fun migrate_7_to_8_keeps_rows_and_lets_same_id_coexist_across_types() {
+    fun migrate_7_to_8_lets_same_id_coexist_across_types() {
         helper.createDatabase(testDb, 7).apply {
+            execSQL(
+                "INSERT INTO watch_progress(contentId, type, profileId, positionMillis, durationMillis, seasonNumber, episodeNumber, lastWatchedMillis, hiddenFromContinue, title, posterUrl) " +
+                    "VALUES('500', 'MOVIE', 'p1', 10, 100, NULL, NULL, 5, 0, 'Filme', NULL)",
+            )
+            close()
+        }
+        val db = helper.runMigrationsAndValidate(testDb, 8, true, *AppDatabaseMigrations.ALL)
+        db.query("SELECT title FROM watch_progress WHERE contentId = '500' AND type = 'MOVIE' AND profileId = 'p1'").use {
+            assertEquals(true, it.moveToFirst()); assertEquals("Filme", it.getString(0))
+        }
+        db.execSQL(
+            "INSERT INTO watch_progress(contentId, type, profileId, positionMillis, durationMillis, seasonNumber, episodeNumber, lastWatchedMillis, hiddenFromContinue, title, posterUrl) " +
+                "VALUES('500', 'LIVE', 'p1', 0, 0, NULL, NULL, 7, 0, NULL, NULL)",
+        )
+        db.query("SELECT COUNT(*) FROM watch_progress WHERE contentId = '500' AND profileId = 'p1'").use {
+            it.moveToFirst(); assertEquals(2, it.getInt(0))
+        }
+        db.close()
+    }
+
+    @Test
+    fun migrate_8_to_9_backfills_connectionId_and_keeps_rows() {
+        helper.createDatabase(testDb, 8).apply {
             execSQL("INSERT INTO favorites(contentId, type, profileId, addedAtMillis) VALUES('500', 'MOVIE', 'p1', 1)")
             execSQL(
                 "INSERT INTO watch_progress(contentId, type, profileId, positionMillis, durationMillis, seasonNumber, episodeNumber, lastWatchedMillis, hiddenFromContinue, title, posterUrl) " +
@@ -72,20 +97,23 @@ class AppDatabaseMigrationTest {
             )
             close()
         }
+        val db = helper.runMigrationsAndValidate(testDb, 9, true, *AppDatabaseMigrations.ALL)
 
-        val db = helper.runMigrationsAndValidate(testDb, 8, true, *AppDatabaseMigrations.ALL)
-
-        db.query("SELECT title FROM watch_progress WHERE contentId = '500' AND type = 'MOVIE' AND profileId = 'p1'").use {
-            assertEquals(true, it.moveToFirst()); assertEquals("Filme", it.getString(0))
+        db.query("SELECT connectionId, title FROM watch_progress WHERE contentId = '500' AND type = 'MOVIE' AND profileId = 'p1'").use {
+            assertEquals(true, it.moveToFirst())
+            assertEquals("", it.getString(0)) // no connections seeded -> '' fallback
+            assertEquals("Filme", it.getString(1))
         }
-        db.query("SELECT COUNT(*) FROM favorites").use { it.moveToFirst(); assertEquals(1, it.getInt(0)) }
+        db.query("SELECT connectionId FROM favorites WHERE contentId = '500'").use {
+            assertEquals(true, it.moveToFirst()); assertEquals("", it.getString(0))
+        }
 
-        // A channel and a movie with the same numeric id can now both exist.
+        // Two playlists can now hold the same id independently.
         db.execSQL(
-            "INSERT INTO watch_progress(contentId, type, profileId, positionMillis, durationMillis, seasonNumber, episodeNumber, lastWatchedMillis, hiddenFromContinue, title, posterUrl) " +
-                "VALUES('500', 'LIVE', 'p1', 0, 0, NULL, NULL, 7, 0, NULL, NULL)",
+            "INSERT INTO watch_progress(connectionId, contentId, type, profileId, positionMillis, durationMillis, seasonNumber, episodeNumber, lastWatchedMillis, hiddenFromContinue, title, posterUrl) " +
+                "VALUES('conn-B', '500', 'MOVIE', 'p1', 20, 200, NULL, NULL, 9, 0, 'Outro Filme', NULL)",
         )
-        db.query("SELECT COUNT(*) FROM watch_progress WHERE contentId = '500' AND profileId = 'p1'").use {
+        db.query("SELECT COUNT(*) FROM watch_progress WHERE contentId = '500' AND type = 'MOVIE' AND profileId = 'p1'").use {
             it.moveToFirst(); assertEquals(2, it.getInt(0))
         }
         db.close()

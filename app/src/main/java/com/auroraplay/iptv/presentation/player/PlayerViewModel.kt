@@ -48,6 +48,8 @@ data class PlayerLoadState(
     val currentEpisodeId: String? = null,
     /** Poster of the current movie / series — snapshotted into the Histórico. */
     val posterUrl: String? = null,
+    /** Connection the current content belongs to (part of the progress identity). */
+    val connectionId: String = "",
     val liveChannels: List<Channel> = emptyList(),
     val resumePositionMillis: Long = 0L,
     val isFavorite: Boolean = false,
@@ -76,6 +78,11 @@ class PlayerViewModel @Inject constructor(
      * is gated by ContentPolicy so a kids profile can't reach a blocked title
      * through the player, a deep link, or the quick channel switcher. */
     private var activeProfileIsKids = false
+
+    /** Active connection — part of the favourites / watch-progress identity
+     * (audit #3), used by the channel-switch and favourite-toggle paths that
+     * run after the initial load. */
+    private var activeConnectionId: String? = null
 
     /** ±10 or ±5 — drives the seek buttons' jump and their "10"/"5" glyph. */
     private val _seekSeconds = MutableStateFlow(10)
@@ -234,6 +241,7 @@ class PlayerViewModel @Inject constructor(
                 val profile = profileRepository.observeActiveProfile().first()
                 activeProfileId = profile?.id
                 activeProfileIsKids = profile?.isKids == true
+                activeConnectionId = connection.id
 
                 when (contentType) {
                     ContentType.LIVE -> loadLive(connection.id, contentId, profile?.id, activeProfileIsKids)
@@ -267,7 +275,7 @@ class PlayerViewModel @Inject constructor(
         val channels = contentRepository.observeChannels(connectionId).first()
         val channel = channels.find { it.id == contentId } ?: channels.firstOrNull() ?: return
         if (!contentPolicy.allows(isKids, channel)) error("Este conteúdo não está disponível neste perfil.")
-        val isFav = profileId?.let { favoriteRepository.isFavorite(it, channel.id, ContentType.LIVE).first() } ?: false
+        val isFav = profileId?.let { favoriteRepository.isFavorite(connectionId, it, channel.id, ContentType.LIVE).first() } ?: false
         // channel.currentProgram is always null straight out of the DB — the
         // catalog sync never calls the short-EPG endpoint, so this is the
         // only place that actually populates "now playing" for the player.
@@ -281,6 +289,7 @@ class PlayerViewModel @Inject constructor(
             isLive = true,
             contentType = ContentType.LIVE,
             contentId = channel.id,
+            connectionId = connectionId,
             liveChannels = contentPolicy.channels(isKids, channels),
             resumePositionMillis = 0L,
             isFavorite = isFav,
@@ -293,8 +302,9 @@ class PlayerViewModel @Inject constructor(
     /** "Canais recentes" on Home — fire-and-forget, never blocks playback. */
     private fun recordChannelHistory(channelId: String) {
         val profileId = activeProfileId ?: return
+        val connectionId = activeConnectionId ?: return
         viewModelScope.launch {
-            runCatching { watchProgressRepository.recordChannelWatch(profileId, channelId) }
+            runCatching { watchProgressRepository.recordChannelWatch(connectionId, profileId, channelId) }
         }
     }
 
@@ -304,8 +314,8 @@ class PlayerViewModel @Inject constructor(
             ?: error("Não foi possível encontrar este filme.")
         if (!contentPolicy.allows(isKids, movie)) error("Este conteúdo não está disponível neste perfil.")
         // Resume exactly where this profile left off (Netflix-style "continuar assistindo").
-        val saved = profileId?.let { watchProgressRepository.getProgress(it, movie.id, ContentType.MOVIE) }
-        val isFav = profileId?.let { favoriteRepository.isFavorite(it, movie.id, ContentType.MOVIE).first() } ?: false
+        val saved = profileId?.let { watchProgressRepository.getProgress(connectionId, it, movie.id, ContentType.MOVIE) }
+        val isFav = profileId?.let { favoriteRepository.isFavorite(connectionId, it, movie.id, ContentType.MOVIE).first() } ?: false
         _loadState.value = _loadState.value.copy(
             title = movie.name,
             // No subtitle for movies: categoryName is the provider's raw
@@ -316,6 +326,7 @@ class PlayerViewModel @Inject constructor(
             isLive = false,
             contentType = ContentType.MOVIE,
             contentId = movie.id,
+            connectionId = connectionId,
             posterUrl = movie.posterUrl,
             nextEpisode = null,
             resumePositionMillis = saved?.positionMillis ?: 0L,
@@ -339,15 +350,15 @@ class PlayerViewModel @Inject constructor(
             episodeId != null -> allEpisodes.find { it.id == episodeId }
             else -> profileId?.let { pid ->
                 allEpisodes.firstNotNullOfOrNull { ep ->
-                    watchProgressRepository.getProgress(pid, "$seriesId:${ep.id}", ContentType.SERIES)?.let { ep to it }
+                    watchProgressRepository.getProgress(connectionId, pid, "$seriesId:${ep.id}", ContentType.SERIES)?.let { ep to it }
                 }?.first
             }
         } ?: allEpisodes.first()
 
         val progressKey = "$seriesId:${episode.id}"
-        val saved = profileId?.let { watchProgressRepository.getProgress(it, progressKey, ContentType.SERIES) }
+        val saved = profileId?.let { watchProgressRepository.getProgress(connectionId, it, progressKey, ContentType.SERIES) }
         val next = allEpisodes.getOrNull(allEpisodes.indexOf(episode) + 1)
-        val isFav = profileId?.let { favoriteRepository.isFavorite(it, seriesId, ContentType.SERIES).first() } ?: false
+        val isFav = profileId?.let { favoriteRepository.isFavorite(connectionId, it, seriesId, ContentType.SERIES).first() } ?: false
 
         // Drop the episode title from the subtitle when it just repeats the
         // series name (a very common provider habit: the "title" of every
@@ -364,6 +375,7 @@ class PlayerViewModel @Inject constructor(
             isLive = false,
             contentType = ContentType.SERIES,
             contentId = progressKey,
+            connectionId = connectionId,
             posterUrl = series.posterUrl,
             nextEpisode = next,
             episodes = allEpisodes,
@@ -438,8 +450,9 @@ class PlayerViewModel @Inject constructor(
         val profileId = activeProfileId ?: return
         val state = _loadState.value
         val targetId = if (state.contentType == ContentType.SERIES) state.contentId.substringBefore(":") else state.contentId
+        val connectionId = state.connectionId.ifBlank { activeConnectionId } ?: return
         viewModelScope.launch {
-            toggleFavoriteUseCase(profileId, targetId, state.contentType)
+            toggleFavoriteUseCase(connectionId, profileId, targetId, state.contentType)
             _loadState.value = _loadState.value.copy(isFavorite = !state.isFavorite)
         }
     }
@@ -566,6 +579,7 @@ class PlayerViewModel @Inject constructor(
         viewModelScope.launch {
             saveWatchProgressUseCase(
                 WatchProgress(
+                    connectionId = state.connectionId.ifBlank { activeConnectionId ?: "" },
                     contentId = state.contentId,
                     type = state.contentType,
                     profileId = profileId,

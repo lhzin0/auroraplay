@@ -16,18 +16,18 @@ class FavoriteRepositoryImpl @Inject constructor(
     private val dao: FavoriteDao,
 ) : FavoriteRepository {
 
-    override fun observeFavorites(profileId: String, type: ContentType?): Flow<List<Favorite>> =
-        dao.observe(profileId, type?.name).map { list -> list.map { it.toDomain() } }
+    override fun observeFavorites(connectionId: String, profileId: String, type: ContentType?): Flow<List<Favorite>> =
+        dao.observe(connectionId, profileId, type?.name).map { list -> list.map { it.toDomain() } }
 
-    override fun isFavorite(profileId: String, contentId: String, type: ContentType): Flow<Boolean> =
-        dao.observeIsFavorite(profileId, contentId, type.name)
+    override fun isFavorite(connectionId: String, profileId: String, contentId: String, type: ContentType): Flow<Boolean> =
+        dao.observeIsFavorite(connectionId, profileId, contentId, type.name)
 
-    override suspend fun toggleFavorite(profileId: String, contentId: String, type: ContentType) {
-        val existing = dao.get(profileId, contentId, type.name)
+    override suspend fun toggleFavorite(connectionId: String, profileId: String, contentId: String, type: ContentType) {
+        val existing = dao.get(connectionId, profileId, contentId, type.name)
         if (existing != null) {
-            dao.delete(profileId, contentId, type.name)
+            dao.delete(connectionId, profileId, contentId, type.name)
         } else {
-            dao.insert(FavoriteEntity(contentId, type.name, profileId, System.currentTimeMillis()))
+            dao.insert(FavoriteEntity(connectionId, contentId, type.name, profileId, System.currentTimeMillis()))
         }
     }
 }

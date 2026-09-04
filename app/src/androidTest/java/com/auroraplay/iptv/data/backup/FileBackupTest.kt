@@ -55,7 +55,7 @@ class FileBackupTest {
         db.profileDao().upsert(ProfileEntity("file-profile", "João", "#7C5CFF", "A", null, false, 1))
         db.connectionDao().upsert(ConnectionEntity("file-connection", "TV", "https://example.com", "test-user", true))
         credentials.savePassword("file-connection", "test-only-password-ç@/\\")
-        db.favoriteDao().insert(FavoriteEntity("movie-42", "MOVIE", "file-profile", 1))
+        db.favoriteDao().insert(FavoriteEntity("file-connection", "movie-42", "MOVIE", "file-profile", 1))
         // A synthetic downloaded file must neither be exported nor touched on restore.
         val media = File(context.getExternalFilesDir(null) ?: context.filesDir, "backup-test-${UUID.randomUUID()}.mp4")
         val mediaBytes = "DOWNLOADED_VIDEO_MUST_STAY_LOCAL".toByteArray()
@@ -84,7 +84,7 @@ class FileBackupTest {
             assertEquals("test-only-password-ç@/\\", credentials.getPassword("file-connection"))
             assertEquals("João", db.profileDao().getById("file-profile")?.name)
             assertEquals("OFFLINE", db.connectionDao().getById("file-connection")?.status)
-            assertEquals(1, db.favoriteDao().observe("file-profile", null).first().size)
+            assertEquals(1, db.favoriteDao().observe("file-connection", "file-profile", null).first().size)
             assertArrayEquals(mediaBytes, media.readBytes())
         } finally { media.delete() }
     }

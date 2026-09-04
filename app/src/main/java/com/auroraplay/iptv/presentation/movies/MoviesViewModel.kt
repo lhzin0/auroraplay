@@ -65,13 +65,13 @@ class MoviesViewModel @Inject constructor(
             }
 
             // Genres this profile has actually watched drive the suggestions.
-            val watched = profile?.let { watchProgressRepository.observeContinueWatching(it.id).first() }.orEmpty()
+            val watched = profile?.let { watchProgressRepository.observeContinueWatching(connection.id, it.id).first() }.orEmpty()
             val watchedIds = watched.map { it.contentId.substringBefore(":") }.toSet()
 
             val allMoviesFlow = contentRepository.observeMovies(connection.id)
                 .map { list -> contentPolicy.movies(profile?.isKids == true, list) }
             val favoritesFlow = if (profile != null) {
-                favoriteRepository.observeFavorites(profile.id, ContentType.MOVIE)
+                favoriteRepository.observeFavorites(connection.id, profile.id, ContentType.MOVIE)
             } else {
                 flowOf(emptyList())
             }
@@ -127,7 +127,8 @@ class MoviesViewModel @Inject constructor(
 
     fun toggleFavorite(movieId: String) {
         val profileId = activeProfileId ?: return
-        viewModelScope.launch { toggleFavoriteUseCase(profileId, movieId, ContentType.MOVIE) }
+        val connectionId = activeConnectionId ?: return
+        viewModelScope.launch { toggleFavoriteUseCase(connectionId, profileId, movieId, ContentType.MOVIE) }
     }
 
     /** Pull-to-refresh — same re-sync Home uses; the reactive movies flow

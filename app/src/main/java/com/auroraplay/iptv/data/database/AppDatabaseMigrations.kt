@@ -91,7 +91,45 @@ object AppDatabaseMigrations {
         }
     }
 
+    // Audit #3b: add `connectionId` to the identity of favourites and
+    // watch_progress so two playlists that reuse an Xtream numeric id for
+    // different titles don't bleed progress/favourites into each other. Table
+    // rebuild again (PK change). Existing rows are backfilled with the current
+    // default connection — the best available guess for data written before
+    // this column existed; a wrong guess only means a resume position not
+    // matching, never data loss.
+    private val MIGRATION_8_9 = object : Migration(8, 9) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            val defaultConn = db.query("SELECT `id` FROM `connections` WHERE `isDefault` = 1 LIMIT 1").use { c ->
+                if (c.moveToFirst()) c.getString(0) else null
+            } ?: db.query("SELECT `id` FROM `connections` LIMIT 1").use { c ->
+                if (c.moveToFirst()) c.getString(0) else ""
+            }
+
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `favorites_new` (`connectionId` TEXT NOT NULL, `contentId` TEXT NOT NULL, `type` TEXT NOT NULL, `profileId` TEXT NOT NULL, `addedAtMillis` INTEGER NOT NULL, PRIMARY KEY(`connectionId`, `contentId`, `type`, `profileId`))"
+            )
+            db.execSQL(
+                "INSERT INTO `favorites_new` (`connectionId`, `contentId`, `type`, `profileId`, `addedAtMillis`) SELECT ?, `contentId`, `type`, `profileId`, `addedAtMillis` FROM `favorites`",
+                arrayOf<Any?>(defaultConn),
+            )
+            db.execSQL("DROP TABLE `favorites`")
+            db.execSQL("ALTER TABLE `favorites_new` RENAME TO `favorites`")
+
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `watch_progress_new` (`connectionId` TEXT NOT NULL, `contentId` TEXT NOT NULL, `type` TEXT NOT NULL, `profileId` TEXT NOT NULL, `positionMillis` INTEGER NOT NULL, `durationMillis` INTEGER NOT NULL, `seasonNumber` INTEGER, `episodeNumber` INTEGER, `lastWatchedMillis` INTEGER NOT NULL, `hiddenFromContinue` INTEGER NOT NULL, `title` TEXT, `posterUrl` TEXT, PRIMARY KEY(`connectionId`, `contentId`, `type`, `profileId`))"
+            )
+            db.execSQL(
+                "INSERT INTO `watch_progress_new` (`connectionId`, `contentId`, `type`, `profileId`, `positionMillis`, `durationMillis`, `seasonNumber`, `episodeNumber`, `lastWatchedMillis`, `hiddenFromContinue`, `title`, `posterUrl`) " +
+                    "SELECT ?, `contentId`, `type`, `profileId`, `positionMillis`, `durationMillis`, `seasonNumber`, `episodeNumber`, `lastWatchedMillis`, `hiddenFromContinue`, `title`, `posterUrl` FROM `watch_progress`",
+                arrayOf<Any?>(defaultConn),
+            )
+            db.execSQL("DROP TABLE `watch_progress`")
+            db.execSQL("ALTER TABLE `watch_progress_new` RENAME TO `watch_progress`")
+        }
+    }
+
     val ALL: Array<Migration> = arrayOf(
-        MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8,
+        MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9,
     )
 }

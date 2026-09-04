@@ -58,7 +58,7 @@ class SeriesViewModel @Inject constructor(
 
             // Genres this profile has actually watched drive the suggestions —
             // same signal Movies uses, so both screens recommend consistently.
-            val watched = profile?.let { watchProgressRepository.observeContinueWatching(it.id).first() }.orEmpty()
+            val watched = profile?.let { watchProgressRepository.observeContinueWatching(connection.id, it.id).first() }.orEmpty()
             val watchedIds = watched.map { it.contentId.substringBefore(":") }.toSet()
 
             combine(

@@ -77,7 +77,7 @@ class LiveTvViewModel @Inject constructor(
                 }
             val channelsFlow = selectedCategoryId.flatMapLatest { contentRepository.observeChannels(connection.id, it) }
                 .map { list -> contentPolicy.channels(profile?.isKids == true, list) }
-            val favoritesFlow = profile?.let { favoriteRepository.observeFavorites(it.id, ContentType.LIVE) }
+            val favoritesFlow = profile?.let { favoriteRepository.observeFavorites(connection.id, it.id, ContentType.LIVE) }
                 ?: flowOf(emptyList())
 
             combine(categoriesFlow, channelsFlow, favoritesFlow, selectedCategoryId) { categories, channels, favorites, selectedId ->
@@ -118,7 +118,8 @@ class LiveTvViewModel @Inject constructor(
 
     fun toggleFavorite(channel: Channel) {
         val profileId = activeProfileId ?: return
-        viewModelScope.launch { toggleFavoriteUseCase(profileId, channel.id, ContentType.LIVE) }
+        val connectionId = activeConnectionId ?: return
+        viewModelScope.launch { toggleFavoriteUseCase(connectionId, profileId, channel.id, ContentType.LIVE) }
     }
 
     /**

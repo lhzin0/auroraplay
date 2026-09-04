@@ -2,12 +2,15 @@ package com.auroraplay.iptv.data.database.entity
 
 import androidx.room.Entity
 
-// `type` is part of the identity: an Xtream stream id is only unique within a
-// (provider, kind), so a channel and a movie can share the numeric id. Without
-// `type` in the key, a LIVE row and a MOVIE row with the same id + profile
-// clobbered each other (audit #3).
-@Entity(tableName = "watch_progress", primaryKeys = ["contentId", "type", "profileId"])
+// Composite identity (audit #3): an Xtream stream id is only unique within a
+// (provider, kind), so a channel and a movie can share the numeric id, and two
+// playlists can reuse the same id for different titles. The key is
+// connectionId + contentId + type (+ profileId for the user dimension).
+@Entity(tableName = "watch_progress", primaryKeys = ["connectionId", "contentId", "type", "profileId"])
 data class WatchProgressEntity(
+    // Default "" only so an older backup JSON (no connectionId) still
+    // deserializes; the schema column stays TEXT NOT NULL.
+    val connectionId: String = "",
     val contentId: String,
     val type: String,
     val profileId: String,

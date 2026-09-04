@@ -28,7 +28,7 @@ class BackupRestoreTest {
     private fun profile(id: String, name: String = id) = ProfileEntity(
         id, name, "#7C5CFF", "A", "content://old-device/photo", false, 1, "pin-hash", true,
     )
-    private fun progress(id: String, time: Long) = WatchProgressEntity(id, "MOVIE", "local", 500, 1000, null, null, time)
+    private fun progress(id: String, time: Long) = WatchProgressEntity("conn", id, "MOVIE", "local", 500, 1000, null, null, time)
 
     @Test fun restorePreservesLocalDataAndIsIdempotent() = runBlocking {
         db.profileDao().upsert(profile("local", "Local name"))
@@ -42,7 +42,7 @@ class BackupRestoreTest {
                 ConnectionEntity("local-connection", "Old TV", "https://old.example", "old-user", true),
                 ConnectionEntity("imported-connection", "Imported", "https://import.example", "user", true, "ONLINE", 100),
             ),
-            favorites = listOf(FavoriteEntity("fav", "MOVIE", "imported", 1)),
+            favorites = listOf(FavoriteEntity("conn", "fav", "MOVIE", "imported", 1)),
             watchProgress = listOf(progress("newer-locally", 100), progress("newer-remotely", 400)),
         )
         db.mergeBackup(snapshot)
@@ -60,9 +60,9 @@ class BackupRestoreTest {
         assertNull(restoredConnection.lastSyncMillis)
         assertFalse(restoredConnection.isDefault)
         assertEquals(1, db.connectionDao().observeAll().first().count { it.isDefault })
-        assertEquals(300L, db.watchProgressDao().get("local", "newer-locally", "MOVIE")?.lastWatchedMillis)
-        assertEquals(400L, db.watchProgressDao().get("local", "newer-remotely", "MOVIE")?.lastWatchedMillis)
-        assertEquals(1, db.favoriteDao().observe("imported", null).first().size)
+        assertEquals(300L, db.watchProgressDao().get("conn", "local", "newer-locally", "MOVIE")?.lastWatchedMillis)
+        assertEquals(400L, db.watchProgressDao().get("conn", "local", "newer-remotely", "MOVIE")?.lastWatchedMillis)
+        assertEquals(1, db.favoriteDao().observe("conn", "imported", null).first().size)
     }
 
     @Test fun freshRestoreKeepsOnlyOneDefaultAndDoesNotImportDeviceLocalFlags() = runBlocking {

@@ -63,7 +63,7 @@ class NewEpisodeCheckWorker @AssistedInject constructor(
             runCatching { contentRepository.syncConnection(connection.id).collect {} }
 
             val favoriteSeriesIds = profiles
-                .flatMap { runCatching { favoriteRepository.observeFavorites(it.id, ContentType.SERIES).first() }.getOrDefault(emptyList()) }
+                .flatMap { runCatching { favoriteRepository.observeFavorites(connection.id, it.id, ContentType.SERIES).first() }.getOrDefault(emptyList()) }
                 .map { it.contentId }
                 .toSet()
             if (favoriteSeriesIds.isEmpty()) return@forEach

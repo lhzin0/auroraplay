@@ -15,8 +15,8 @@ class BackupSnapshotTest {
         savedAt = 123456L, activeProfileId = "p",
         profiles = listOf(ProfileEntity("p", "Ana", "#7C5CFF", "A", "content://private/avatar", false, 12L, "pin-hash", true)),
         connections = listOf(ConnectionEntity("c", "TV", "https://example.com", "ana", true, profileId = "p")),
-        favorites = listOf(FavoriteEntity("42", "MOVIE", "p", 123)),
-        watchProgress = listOf(WatchProgressEntity("42", "MOVIE", "p", 1000, 6000, null, null, 123)),
+        favorites = listOf(FavoriteEntity("c", "42", "MOVIE", "p", 123)),
+        watchProgress = listOf(WatchProgressEntity("c", "42", "MOVIE", "p", 1000, 6000, null, null, 123)),
         settings = AppSettings(tmdbApiKey = "SECRET_API_KEY"),
         connectionPasswords = mapOf("c" to "test-only-ç@ss/word\"\\"),
     )
@@ -66,7 +66,7 @@ class BackupSnapshotTest {
         }.toString()
         assertThrows(IllegalArgumentException::class.java) { BackupSnapshotCodec.decode(nullName) }
         assertThrows(IllegalArgumentException::class.java) {
-            BackupSnapshotCodec.encode(snapshot().copy(favorites = listOf(FavoriteEntity("42", "MOVIE", "unknown", 1))))
+            BackupSnapshotCodec.encode(snapshot().copy(favorites = listOf(FavoriteEntity("c", "42", "MOVIE", "unknown", 1))))
         }
     }
 
@@ -75,7 +75,7 @@ class BackupSnapshotTest {
             BackupSnapshotCodec.encode(snapshot().copy(settings = AppSettings(accentColorHex = "broken")))
         }
         assertThrows(IllegalArgumentException::class.java) {
-            BackupSnapshotCodec.encode(snapshot().copy(favorites = listOf(FavoriteEntity("42", "EPISODE", "p", 1))))
+            BackupSnapshotCodec.encode(snapshot().copy(favorites = listOf(FavoriteEntity("c", "42", "EPISODE", "p", 1))))
         }
         assertThrows(IllegalArgumentException::class.java) {
             BackupSnapshotCodec.encode(snapshot().copy(watchProgress = listOf(snapshot().watchProgress.single().copy(positionMillis = -1))))

@@ -63,6 +63,7 @@ class SeriesDetailsViewModel @Inject constructor(
 
     private val seriesId: String = checkNotNull(savedStateHandle["seriesId"])
     private var activeProfileId: String? = null
+    private var activeConnectionId: String? = null
     // Kept only so toggleEpisodeDownload/downloadSeason can label a download
     // (series name + poster) without accepting the whole Series object as a
     // parameter everywhere. The poster travels with the download so the
@@ -82,6 +83,7 @@ class SeriesDetailsViewModel @Inject constructor(
             }
             val profile = profileRepository.observeActiveProfile().first()
             activeProfileId = profile?.id
+            activeConnectionId = connection.id
 
             // Seeded from the local row + already-cached episodes (instant),
             // then upgraded once get_series_info / TMDB return. First paint no
@@ -126,7 +128,7 @@ class SeriesDetailsViewModel @Inject constructor(
                 _uiState.update { it.copy(trailerYoutubeId = trailer) }
             }
 
-            val favoriteFlow = if (profile != null) favoriteRepository.isFavorite(profile.id, seriesId, com.auroraplay.iptv.domain.model.ContentType.SERIES) else flowOf(false)
+            val favoriteFlow = if (profile != null) favoriteRepository.isFavorite(connection.id, profile.id, seriesId, com.auroraplay.iptv.domain.model.ContentType.SERIES) else flowOf(false)
             // Most recently watched episode of this series, recomputed if the
             // episode list grows when the full fetch lands. Every episode is
             // eligible (even near-complete ones) so Resume never skips a chapter.
@@ -134,7 +136,7 @@ class SeriesDetailsViewModel @Inject constructor(
                 val p = profile ?: return@map null
                 s?.seasons.orEmpty()
                     .flatMap { it.episodes }
-                    .mapNotNull { episode -> watchProgressRepository.getProgress(p.id, "$seriesId:${episode.id}", com.auroraplay.iptv.domain.model.ContentType.SERIES) }
+                    .mapNotNull { episode -> watchProgressRepository.getProgress(connection.id, p.id, "$seriesId:${episode.id}", com.auroraplay.iptv.domain.model.ContentType.SERIES) }
                     .maxByOrNull { it.lastWatchedMillis }
             }
 
@@ -171,7 +173,8 @@ class SeriesDetailsViewModel @Inject constructor(
 
     fun toggleFavorite() {
         val profileId = activeProfileId ?: return
-        viewModelScope.launch { toggleFavoriteUseCase(profileId, seriesId, ContentType.SERIES) }
+        val connectionId = activeConnectionId ?: return
+        viewModelScope.launch { toggleFavoriteUseCase(connectionId, profileId, seriesId, ContentType.SERIES) }
     }
 
     /** Per-episode download toggle — mirrors MovieDetailsViewModel.toggleDownload,

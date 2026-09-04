@@ -20,10 +20,10 @@ internal suspend fun AppDatabase.mergeBackup(snapshot: BackupSnapshot) {
             }
         }
         snapshot.favorites.forEach {
-            if (favoriteDao().get(it.profileId, it.contentId, it.type) == null) favoriteDao().insert(it)
+            if (favoriteDao().get(it.connectionId, it.profileId, it.contentId, it.type) == null) favoriteDao().insert(it)
         }
         snapshot.watchProgress.forEach {
-            val local = watchProgressDao().get(it.profileId, it.contentId, it.type)
+            val local = watchProgressDao().get(it.connectionId, it.profileId, it.contentId, it.type)
             if (local == null || it.lastWatchedMillis > local.lastWatchedMillis) watchProgressDao().upsert(it)
         }
     }

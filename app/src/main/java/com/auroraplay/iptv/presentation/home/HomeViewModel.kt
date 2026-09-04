@@ -75,7 +75,7 @@ class HomeViewModel @Inject constructor(
         contentJob = viewModelScope.launch {
             combine(
                 getHomeContentUseCase(connectionId, profileId, isKids),
-                favoriteRepository.observeFavorites(profileId),
+                favoriteRepository.observeFavorites(connectionId, profileId),
             ) { content, favorites ->
                 content to favorites.map { it.contentId }.toSet()
             }.collect { (content, favoriteIds) ->
@@ -92,21 +92,23 @@ class HomeViewModel @Inject constructor(
      */
     fun removeFromContinueWatching(item: MediaItem) {
         val profileId = _uiState.value.activeProfileId ?: return
+        val connectionId = _uiState.value.activeConnectionId ?: return
         if (item is MediaItem.ChannelItem) return
         val isSeries = item is MediaItem.SeriesItem
         viewModelScope.launch {
-            watchProgressRepository.removeFromContinueWatching(profileId, item.id, isSeries)
+            watchProgressRepository.removeFromContinueWatching(connectionId, profileId, item.id, isSeries)
         }
     }
 
     fun toggleFavorite(item: MediaItem) {
         val profileId = _uiState.value.activeProfileId ?: return
+        val connectionId = _uiState.value.activeConnectionId ?: return
         val type = when (item) {
             is MediaItem.ChannelItem -> ContentType.LIVE
             is MediaItem.MovieItem -> ContentType.MOVIE
             is MediaItem.SeriesItem -> ContentType.SERIES
         }
-        viewModelScope.launch { toggleFavoriteUseCase(profileId, item.id, type) }
+        viewModelScope.launch { toggleFavoriteUseCase(connectionId, profileId, item.id, type) }
     }
 
     /** Pull-to-refresh: re-syncs the active connection against the server.

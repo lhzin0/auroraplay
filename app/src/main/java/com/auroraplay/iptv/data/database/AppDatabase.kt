@@ -33,7 +33,7 @@ import com.auroraplay.iptv.data.database.entity.WatchProgressEntity
         FavoriteEntity::class,
         WatchProgressEntity::class,
     ],
-    version = 8,
+    version = 9,
     // Schemas are exported to app/schemas/ and committed; the migration tests
     // validate against them. (Turned on at v7 — see build.gradle.kts.)
     exportSchema = true,

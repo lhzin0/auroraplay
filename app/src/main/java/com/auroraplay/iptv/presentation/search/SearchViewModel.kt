@@ -73,7 +73,7 @@ class SearchViewModel @Inject constructor(
             val isKids = profile?.isKids == true
 
             val watchedParentIds = profile
-                ?.let { watchProgressRepository.observeContinueWatching(it.id).first() }
+                ?.let { watchProgressRepository.observeContinueWatching(connection.id, it.id).first() }
                 .orEmpty()
                 .asSequence()
                 .map { it.contentId.substringBefore(":") }

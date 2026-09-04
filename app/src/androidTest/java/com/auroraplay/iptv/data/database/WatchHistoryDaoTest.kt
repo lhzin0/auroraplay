@@ -28,6 +28,7 @@ class WatchHistoryDaoTest {
     private lateinit var db: AppDatabase
     private lateinit var dao: WatchProgressDao
     private val profile = "p1"
+    private val conn = "c1"
 
     private fun row(
         contentId: String,
@@ -38,6 +39,7 @@ class WatchHistoryDaoTest {
         poster: String? = null,
         watchedAt: Long = 1_000L,
     ) = WatchProgressEntity(
+        connectionId = conn,
         contentId = contentId,
         type = type,
         profileId = profile,
@@ -83,7 +85,7 @@ class WatchHistoryDaoTest {
 
         assertEquals(listOf("series-1:ep-2"), dao.observeWatchHistory(profile).first().map { it.contentId })
         // progress row is gone, not just hidden
-        assertNull(dao.get(profile, "series-1:ep-1", "SERIES"))
+        assertNull(dao.get(conn, profile, "series-1:ep-1", "SERIES"))
     }
 
     @Test
@@ -109,6 +111,6 @@ class WatchHistoryDaoTest {
         dao.clearWatchHistory(profile)
 
         assertTrue(dao.observeWatchHistory(profile).first().isEmpty())
-        assertEquals(listOf("chan-1"), dao.observeChannelHistory(profile).first().map { it.contentId })
+        assertEquals(listOf("chan-1"), dao.observeChannelHistory(conn, profile).first().map { it.contentId })
     }
 }

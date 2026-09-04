@@ -38,10 +38,10 @@ class GetHomeContentUseCase @Inject constructor(
         contentRepository.observeMovies(connectionId),
         contentRepository.observeSeries(connectionId),
         combine(
-            watchProgressRepository.observeContinueWatching(profileId),
-            watchProgressRepository.observeChannelHistory(profileId),
+            watchProgressRepository.observeContinueWatching(connectionId, profileId),
+            watchProgressRepository.observeChannelHistory(connectionId, profileId),
         ) { progress, channelHistory -> progress to channelHistory },
-        favoriteRepository.observeFavorites(profileId),
+        favoriteRepository.observeFavorites(connectionId, profileId),
     ) { channels, movies, series, (progress, channelHistory), favorites ->
         build(channels, movies, series, progress, channelHistory, favorites, isKids)
     }

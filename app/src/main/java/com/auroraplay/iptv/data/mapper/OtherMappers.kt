@@ -37,6 +37,7 @@ fun ProfileEntity.toDomain() = Profile(
 )
 
 fun FavoriteEntity.toDomain() = Favorite(
+    connectionId = connectionId,
     contentId = contentId,
     type = ContentType.valueOf(type),
     profileId = profileId,
@@ -44,6 +45,7 @@ fun FavoriteEntity.toDomain() = Favorite(
 )
 
 fun WatchProgressEntity.toDomain() = WatchProgress(
+    connectionId = connectionId,
     contentId = contentId,
     type = ContentType.valueOf(type),
     profileId = profileId,
@@ -57,6 +59,7 @@ fun WatchProgressEntity.toDomain() = WatchProgress(
 )
 
 fun WatchProgress.toEntity() = WatchProgressEntity(
+    connectionId = connectionId,
     contentId = contentId,
     type = type.name,
     profileId = profileId,

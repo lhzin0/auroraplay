@@ -71,7 +71,7 @@ class UserDataBackup @Inject constructor(
                 connections = db.connectionDao().observeAll().first().map {
                     it.copy(profileId = it.profileId?.takeIf { id -> id in profileIds })
                 },
-                favorites = profiles.flatMap { db.favoriteDao().observe(it.id, null).first() },
+                favorites = db.favoriteDao().getAll().filter { it.profileId in profileIds },
                 watchProgress = db.watchProgressDao().getAll().filter { it.profileId in profileIds }, settings = settings,
             )
         }
