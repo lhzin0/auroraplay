@@ -19,6 +19,9 @@ import kotlinx.coroutines.launch
 
 enum class SearchFilter { ALL, MOVIES, SERIES, CHANNELS }
 
+/** Result-list page size for "carregar mais" (audit #20). */
+private const val SEARCH_PAGE = 60
+
 data class SearchUiState(
     /** Live text in the field — updated synchronously on every keystroke. */
     val query: String = "",
@@ -27,6 +30,8 @@ data class SearchUiState(
     val searchedQuery: String = "",
     val filter: SearchFilter = SearchFilter.ALL,
     val results: List<MediaItem> = emptyList(),
+    /** True when more matches exist beyond [results] — drives "carregar mais". */
+    val hasMoreResults: Boolean = false,
     val suggestions: List<MediaItem> = emptyList(),
     val recentSearches: List<String> = emptyList(),
     val isLoading: Boolean = true,
@@ -55,6 +60,9 @@ class SearchViewModel @Inject constructor(
 
     private val query = MutableStateFlow("")
     private val filter = MutableStateFlow(SearchFilter.ALL)
+    /** How many results to show. Grows by [SEARCH_PAGE] on "carregar mais"
+     * (audit #20); reset whenever the query or filter changes. */
+    private val resultLimit = MutableStateFlow(SEARCH_PAGE)
     private var activeProfileId: String? = null
 
     private val _uiState = MutableStateFlow(SearchUiState())
@@ -175,7 +183,8 @@ class SearchViewModel @Inject constructor(
                     .map(String::trim),
                 filter,
                 recentFlow,
-            ) { catalog, q, activeFilter, recent ->
+                resultLimit,
+            ) { catalog, q, activeFilter, recent, limit ->
                 val pool = when (activeFilter) {
                     SearchFilter.MOVIES -> catalog.movies
                     SearchFilter.SERIES -> catalog.series
@@ -183,8 +192,11 @@ class SearchViewModel @Inject constructor(
                     SearchFilter.ALL -> catalog.all
                 }
 
-                val results = if (q.isBlank()) {
-                    emptyList()
+                // The full match sequence, lazily evaluated. We pull one extra
+                // beyond `limit` so the UI knows whether "carregar mais" has
+                // anything left (audit #20).
+                val matched: Sequence<MediaItem> = if (q.isBlank()) {
+                    emptySequence()
                 } else {
                     // "ação, comédia" — a comma means "match BOTH genres". Each
                     // part is expanded with its synonyms; an item is kept only
@@ -195,41 +207,40 @@ class SearchViewModel @Inject constructor(
                             .map { part -> genreTermsFor(part) }
                             .filter { it.isNotEmpty() }
                         if (termSets.isEmpty()) {
-                            emptyList()
+                            emptySequence()
                         } else {
-                            pool.asSequence()
-                                .filter { item ->
-                                    val hays = haystacksFor(item)
-                                    termSets.all { terms ->
-                                        hays.any { hay ->
-                                            terms.any { t ->
-                                                com.auroraplay.iptv.core.util.MetadataSanitizer.containsWord(hay, t)
-                                            }
+                            pool.asSequence().filter { item ->
+                                val hays = haystacksFor(item)
+                                termSets.all { terms ->
+                                    hays.any { hay ->
+                                        terms.any { t ->
+                                            com.auroraplay.iptv.core.util.MetadataSanitizer.containsWord(hay, t)
                                         }
                                     }
                                 }
-                                .take(60)
-                                .toList()
+                            }
                         }
                     } else {
-                        // Single term: title match OR a genre/category match.
-                        // Terms match on a word boundary (see containsWord), so
-                        // "ação" no longer drags in "coração", and only terms of
-                        // 3+ chars act as a genre needle.
+                        // Single term: title match (accent- and case-insensitive,
+                        // audit #20) OR a genre/category word match. Title hits
+                        // are yielded first so they rank above genre hits.
+                        val foldedQuery = com.auroraplay.iptv.core.util.MetadataSanitizer.fold(q)
                         val genreNeedles = genreTermsFor(q)
-                        pool.asSequence()
-                            .filter { item ->
-                                item.title.contains(q, ignoreCase = true) ||
-                                    (genreNeedles.isNotEmpty() && haystacksFor(item).any { hay ->
-                                        genreNeedles.any { term ->
-                                            com.auroraplay.iptv.core.util.MetadataSanitizer.containsWord(hay, term)
-                                        }
-                                    })
+                        fun titleHit(item: MediaItem) =
+                            com.auroraplay.iptv.core.util.MetadataSanitizer.fold(item.title).contains(foldedQuery)
+                        fun genreHit(item: MediaItem) =
+                            genreNeedles.isNotEmpty() && haystacksFor(item).any { hay ->
+                                genreNeedles.any { term ->
+                                    com.auroraplay.iptv.core.util.MetadataSanitizer.containsWord(hay, term)
+                                }
                             }
-                            .take(60)
-                            .toList()
+                        pool.asSequence().filter { titleHit(it) } +
+                            pool.asSequence().filter { !titleHit(it) && genreHit(it) }
                     }
                 }
+                val head = matched.take(limit + 1).toList()
+                val results = head.take(limit)
+                val hasMore = head.size > limit
 
                 val suggestionPool = when (activeFilter) {
                     SearchFilter.MOVIES -> catalog.movies
@@ -261,6 +272,7 @@ class SearchViewModel @Inject constructor(
                     searchedQuery = q,
                     filter = activeFilter,
                     results = results,
+                    hasMoreResults = hasMore,
                     suggestions = suggestions,
                     recentSearches = recent,
                     isLoading = false,
@@ -278,12 +290,18 @@ class SearchViewModel @Inject constructor(
                         it.copy(
                             searchedQuery = snapshot.searchedQuery,
                             results = snapshot.results,
+                            hasMoreResults = snapshot.hasMoreResults,
                             suggestions = snapshot.suggestions,
                             recentSearches = snapshot.recentSearches,
                             isLoading = false,
                         )
                     }
                 }
+    }
+
+    /** "Carregar mais" — widen the result window by one page. */
+    fun loadMoreResults() {
+        resultLimit.value += SEARCH_PAGE
     }
 
     private fun genreOf(item: MediaItem): String? = when (item) {
@@ -371,6 +389,7 @@ class SearchViewModel @Inject constructor(
 
     fun updateQuery(newQuery: String) {
         query.value = newQuery
+        resultLimit.value = SEARCH_PAGE // a new query starts from the first page
         // Reflect the keystroke immediately; the debounced pipeline updates
         // results/searchedQuery a moment later.
         _uiState.update { it.copy(query = newQuery) }
@@ -378,6 +397,7 @@ class SearchViewModel @Inject constructor(
 
     fun updateFilter(newFilter: SearchFilter) {
         filter.value = newFilter
+        resultLimit.value = SEARCH_PAGE
         _uiState.update { it.copy(filter = newFilter) }
     }
 

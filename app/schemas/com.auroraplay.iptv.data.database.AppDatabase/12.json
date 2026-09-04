@@ -1,0 +1,690 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 12,
+    "identityHash": "89603a5fab76af0a4a7a1f31c755eaaf",
+    "entities": [
+      {
+        "tableName": "connections",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `serverUrl` TEXT NOT NULL, `username` TEXT NOT NULL, `isDefault` INTEGER NOT NULL, `status` TEXT NOT NULL, `lastSyncMillis` INTEGER, `profileId` TEXT, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "serverUrl",
+            "columnName": "serverUrl",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "username",
+            "columnName": "username",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isDefault",
+            "columnName": "isDefault",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastSyncMillis",
+            "columnName": "lastSyncMillis",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "profileId",
+            "columnName": "profileId",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "profiles",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `avatarColorHex` TEXT NOT NULL, `avatarEmoji` TEXT NOT NULL, `avatarUri` TEXT, `isKids` INTEGER NOT NULL, `createdAtMillis` INTEGER NOT NULL, `pinHash` TEXT, `biometricEnabled` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "avatarColorHex",
+            "columnName": "avatarColorHex",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "avatarEmoji",
+            "columnName": "avatarEmoji",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "avatarUri",
+            "columnName": "avatarUri",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "isKids",
+            "columnName": "isKids",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAtMillis",
+            "columnName": "createdAtMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pinHash",
+            "columnName": "pinHash",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "biometricEnabled",
+            "columnName": "biometricEnabled",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "categories",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `connectionId` TEXT NOT NULL, `name` TEXT NOT NULL, `type` TEXT NOT NULL, PRIMARY KEY(`id`, `connectionId`, `type`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "connectionId",
+            "columnName": "connectionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "type",
+            "columnName": "type",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id",
+            "connectionId",
+            "type"
+          ]
+        }
+      },
+      {
+        "tableName": "channels",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `connectionId` TEXT NOT NULL, `name` TEXT NOT NULL, `logoUrl` TEXT, `categoryId` TEXT NOT NULL, `categoryName` TEXT NOT NULL, `epgChannelId` TEXT, PRIMARY KEY(`id`, `connectionId`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "connectionId",
+            "columnName": "connectionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "logoUrl",
+            "columnName": "logoUrl",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "categoryId",
+            "columnName": "categoryId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "categoryName",
+            "columnName": "categoryName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "epgChannelId",
+            "columnName": "epgChannelId",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id",
+            "connectionId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_channels_connectionId_categoryId",
+            "unique": false,
+            "columnNames": [
+              "connectionId",
+              "categoryId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_channels_connectionId_categoryId` ON `${TABLE_NAME}` (`connectionId`, `categoryId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "movies",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `connectionId` TEXT NOT NULL, `name` TEXT NOT NULL, `posterUrl` TEXT, `backdropUrl` TEXT, `categoryId` TEXT NOT NULL, `categoryName` TEXT NOT NULL, `year` TEXT, `genre` TEXT, `plot` TEXT, `durationLabel` TEXT, `rating` REAL, `containerExtension` TEXT, `audioLabel` TEXT, `addedAtMillis` INTEGER NOT NULL, PRIMARY KEY(`id`, `connectionId`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "connectionId",
+            "columnName": "connectionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "posterUrl",
+            "columnName": "posterUrl",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "backdropUrl",
+            "columnName": "backdropUrl",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "categoryId",
+            "columnName": "categoryId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "categoryName",
+            "columnName": "categoryName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "year",
+            "columnName": "year",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "genre",
+            "columnName": "genre",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "plot",
+            "columnName": "plot",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "durationLabel",
+            "columnName": "durationLabel",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "rating",
+            "columnName": "rating",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "containerExtension",
+            "columnName": "containerExtension",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "audioLabel",
+            "columnName": "audioLabel",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "addedAtMillis",
+            "columnName": "addedAtMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id",
+            "connectionId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_movies_connectionId_categoryId",
+            "unique": false,
+            "columnNames": [
+              "connectionId",
+              "categoryId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_movies_connectionId_categoryId` ON `${TABLE_NAME}` (`connectionId`, `categoryId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "series",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `connectionId` TEXT NOT NULL, `name` TEXT NOT NULL, `posterUrl` TEXT, `backdropUrl` TEXT, `categoryId` TEXT NOT NULL, `categoryName` TEXT NOT NULL, `year` TEXT, `genre` TEXT, `plot` TEXT, `rating` REAL, `audioLabel` TEXT, `addedAtMillis` INTEGER NOT NULL, `episodesSyncedAtMillis` INTEGER NOT NULL, PRIMARY KEY(`id`, `connectionId`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "connectionId",
+            "columnName": "connectionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "posterUrl",
+            "columnName": "posterUrl",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "backdropUrl",
+            "columnName": "backdropUrl",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "categoryId",
+            "columnName": "categoryId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "categoryName",
+            "columnName": "categoryName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "year",
+            "columnName": "year",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "genre",
+            "columnName": "genre",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "plot",
+            "columnName": "plot",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "rating",
+            "columnName": "rating",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "audioLabel",
+            "columnName": "audioLabel",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "addedAtMillis",
+            "columnName": "addedAtMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "episodesSyncedAtMillis",
+            "columnName": "episodesSyncedAtMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id",
+            "connectionId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_series_connectionId_categoryId",
+            "unique": false,
+            "columnNames": [
+              "connectionId",
+              "categoryId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_series_connectionId_categoryId` ON `${TABLE_NAME}` (`connectionId`, `categoryId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "episodes",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `seriesId` TEXT NOT NULL, `connectionId` TEXT NOT NULL, `seasonNumber` INTEGER NOT NULL, `episodeNumber` INTEGER NOT NULL, `title` TEXT NOT NULL, `thumbnailUrl` TEXT, `durationLabel` TEXT, `plot` TEXT, `containerExtension` TEXT, PRIMARY KEY(`id`, `seriesId`, `connectionId`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "seriesId",
+            "columnName": "seriesId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "connectionId",
+            "columnName": "connectionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "seasonNumber",
+            "columnName": "seasonNumber",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "episodeNumber",
+            "columnName": "episodeNumber",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "thumbnailUrl",
+            "columnName": "thumbnailUrl",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "durationLabel",
+            "columnName": "durationLabel",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "plot",
+            "columnName": "plot",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "containerExtension",
+            "columnName": "containerExtension",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id",
+            "seriesId",
+            "connectionId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_episodes_seriesId_connectionId",
+            "unique": false,
+            "columnNames": [
+              "seriesId",
+              "connectionId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_episodes_seriesId_connectionId` ON `${TABLE_NAME}` (`seriesId`, `connectionId`)"
+          },
+          {
+            "name": "index_episodes_connectionId",
+            "unique": false,
+            "columnNames": [
+              "connectionId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_episodes_connectionId` ON `${TABLE_NAME}` (`connectionId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "favorites",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`connectionId` TEXT NOT NULL, `contentId` TEXT NOT NULL, `type` TEXT NOT NULL, `profileId` TEXT NOT NULL, `addedAtMillis` INTEGER NOT NULL, PRIMARY KEY(`connectionId`, `contentId`, `type`, `profileId`))",
+        "fields": [
+          {
+            "fieldPath": "connectionId",
+            "columnName": "connectionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "contentId",
+            "columnName": "contentId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "type",
+            "columnName": "type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "profileId",
+            "columnName": "profileId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "addedAtMillis",
+            "columnName": "addedAtMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "connectionId",
+            "contentId",
+            "type",
+            "profileId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_favorites_connectionId_profileId_type",
+            "unique": false,
+            "columnNames": [
+              "connectionId",
+              "profileId",
+              "type"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_favorites_connectionId_profileId_type` ON `${TABLE_NAME}` (`connectionId`, `profileId`, `type`)"
+          }
+        ]
+      },
+      {
+        "tableName": "watch_progress",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`connectionId` TEXT NOT NULL, `contentId` TEXT NOT NULL, `type` TEXT NOT NULL, `profileId` TEXT NOT NULL, `positionMillis` INTEGER NOT NULL, `durationMillis` INTEGER NOT NULL, `seasonNumber` INTEGER, `episodeNumber` INTEGER, `lastWatchedMillis` INTEGER NOT NULL, `hiddenFromContinue` INTEGER NOT NULL, `title` TEXT, `posterUrl` TEXT, PRIMARY KEY(`connectionId`, `contentId`, `type`, `profileId`))",
+        "fields": [
+          {
+            "fieldPath": "connectionId",
+            "columnName": "connectionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "contentId",
+            "columnName": "contentId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "type",
+            "columnName": "type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "profileId",
+            "columnName": "profileId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "positionMillis",
+            "columnName": "positionMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "durationMillis",
+            "columnName": "durationMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "seasonNumber",
+            "columnName": "seasonNumber",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "episodeNumber",
+            "columnName": "episodeNumber",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "lastWatchedMillis",
+            "columnName": "lastWatchedMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hiddenFromContinue",
+            "columnName": "hiddenFromContinue",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "posterUrl",
+            "columnName": "posterUrl",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "connectionId",
+            "contentId",
+            "type",
+            "profileId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_watch_progress_profileId_lastWatchedMillis",
+            "unique": false,
+            "columnNames": [
+              "profileId",
+              "lastWatchedMillis"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_watch_progress_profileId_lastWatchedMillis` ON `${TABLE_NAME}` (`profileId`, `lastWatchedMillis`)"
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '89603a5fab76af0a4a7a1f31c755eaaf')"
+    ]
+  }
+}

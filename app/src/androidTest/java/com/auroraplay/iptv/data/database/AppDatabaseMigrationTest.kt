@@ -58,7 +58,7 @@ class AppDatabaseMigrationTest {
             assertNotNull(progress)
             assertEquals("Filme A", progress!!.title)
             assertEquals(300000L, progress.positionMillis)
-            assertEquals(11, db.openHelper.readableDatabase.version)
+            assertEquals(12, db.openHelper.readableDatabase.version)
         } finally {
             db.close()
         }
@@ -179,6 +179,30 @@ class AppDatabaseMigrationTest {
         db.query("SELECT episodesSyncedAtMillis FROM series WHERE id = 's1'").use {
             assertEquals(true, it.moveToFirst()); assertEquals(0L, it.getLong(0))
         }
+        db.close()
+    }
+
+    /** Audit #20: 11 -> 12 only adds indexes — every row is preserved and the
+     * expected indexes exist afterwards. */
+    @Test
+    fun migrate_11_to_12_adds_indexes_without_touching_data() {
+        helper.createDatabase(testDb, 11).apply {
+            execSQL(
+                "INSERT INTO movies(id, connectionId, name, posterUrl, backdropUrl, categoryId, categoryName, year, genre, plot, durationLabel, rating, containerExtension, audioLabel, addedAtMillis) " +
+                    "VALUES('m1', 'c', 'Filme', NULL, NULL, 'g', 'G', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 1)",
+            )
+            close()
+        }
+        val db = helper.runMigrationsAndValidate(testDb, 12, true, *AppDatabaseMigrations.ALL)
+        db.query("SELECT name FROM movies WHERE id = 'm1'").use {
+            assertEquals(true, it.moveToFirst()); assertEquals("Filme", it.getString(0))
+        }
+        val indexes = mutableSetOf<String>()
+        db.query("SELECT name FROM sqlite_master WHERE type = 'index'").use { c ->
+            while (c.moveToNext()) indexes += c.getString(0)
+        }
+        assertEquals(true, indexes.contains("index_movies_connectionId_categoryId"))
+        assertEquals(true, indexes.contains("index_watch_progress_profileId_lastWatchedMillis"))
         db.close()
     }
 }

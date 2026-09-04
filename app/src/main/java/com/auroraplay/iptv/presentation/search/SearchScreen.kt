@@ -170,6 +170,18 @@ fun SearchScreen(
                         onClick = { open(item) },
                     )
                 }
+                if (!showingSuggestions && state.hasMoreResults) {
+                    item(key = "load-more") {
+                        androidx.compose.material3.TextButton(
+                            onClick = { viewModel.loadMoreResults() },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = Spacing.sm),
+                        ) {
+                            Text("Carregar mais", color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
             }
         }
     }

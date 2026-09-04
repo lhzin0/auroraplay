@@ -1,8 +1,14 @@
 package com.auroraplay.iptv.data.database.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 
-@Entity(tableName = "series", primaryKeys = ["id", "connectionId"])
+// Audit #20: index aligned to `observe(connectionId, categoryId?)`.
+@Entity(
+    tableName = "series",
+    primaryKeys = ["id", "connectionId"],
+    indices = [Index(value = ["connectionId", "categoryId"])],
+)
 data class SeriesEntity(
     val id: String,
     val connectionId: String,
@@ -28,7 +34,13 @@ data class SeriesEntity(
 // Audit #4: the authenticated episode URL (server/series/<user>/<pass>/<id>.ext)
 // is never stored. Only the episode id + container extension are kept; the URL
 // is rebuilt on demand from the connection's credentials.
-@androidx.room.Entity(tableName = "episodes", primaryKeys = ["id", "seriesId", "connectionId"])
+// Audit #20: PK leads with `id`, so lookups by series or by connection need
+// their own indexes (getForSeries / clearForConnection).
+@androidx.room.Entity(
+    tableName = "episodes",
+    primaryKeys = ["id", "seriesId", "connectionId"],
+    indices = [Index(value = ["seriesId", "connectionId"]), Index(value = ["connectionId"])],
+)
 data class EpisodeEntity(
     val id: String,
     val seriesId: String,

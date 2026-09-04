@@ -1,12 +1,19 @@
 package com.auroraplay.iptv.data.database.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 
 // Composite identity (audit #3): an Xtream stream id is only unique within a
 // (provider, kind), so a channel and a movie can share the numeric id, and two
 // playlists can reuse the same id for different titles. The key is
 // connectionId + contentId + type (+ profileId for the user dimension).
-@Entity(tableName = "watch_progress", primaryKeys = ["connectionId", "contentId", "type", "profileId"])
+// Audit #20: history / "continuar" / latest-episode queries all filter by
+// profileId and order by lastWatchedMillis.
+@Entity(
+    tableName = "watch_progress",
+    primaryKeys = ["connectionId", "contentId", "type", "profileId"],
+    indices = [Index(value = ["profileId", "lastWatchedMillis"])],
+)
 data class WatchProgressEntity(
     // Default "" only so an older backup JSON (no connectionId) still
     // deserializes; the schema column stays TEXT NOT NULL.

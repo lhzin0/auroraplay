@@ -200,7 +200,24 @@ object AppDatabaseMigrations {
         }
     }
 
+    // Audit #20: indexes aligned to the queries the app actually runs
+    // (list-by-connection+category, episodes-by-series/by-connection,
+    // favourites-by-connection+profile+type, history-by-profile ordered by
+    // lastWatchedMillis). Pure `CREATE INDEX IF NOT EXISTS` — additive, no data
+    // touched, matches the names Room generates so schema validation passes.
+    private val MIGRATION_11_12 = object : Migration(11, 12) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_channels_connectionId_categoryId` ON `channels` (`connectionId`, `categoryId`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_movies_connectionId_categoryId` ON `movies` (`connectionId`, `categoryId`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_series_connectionId_categoryId` ON `series` (`connectionId`, `categoryId`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_episodes_seriesId_connectionId` ON `episodes` (`seriesId`, `connectionId`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_episodes_connectionId` ON `episodes` (`connectionId`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_favorites_connectionId_profileId_type` ON `favorites` (`connectionId`, `profileId`, `type`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_watch_progress_profileId_lastWatchedMillis` ON `watch_progress` (`profileId`, `lastWatchedMillis`)")
+        }
+    }
+
     val ALL: Array<Migration> = arrayOf(
-        MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11,
+        MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12,
     )
 }
