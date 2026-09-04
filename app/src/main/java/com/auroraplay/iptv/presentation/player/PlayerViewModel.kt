@@ -106,6 +106,9 @@ class PlayerViewModel @Inject constructor(
                 playerManager.seekIncrementMs = settings.seekSeconds * 1000L
                 autoPlayNextEnabled = settings.autoPlayNext
                 _cinemaMode.value = settings.cinemaMode
+                // Audit #13: honour "Qualidade" — applied live, so changing it
+                // in Settings re-caps the currently playing stream.
+                playerManager.setMaxVideoQuality(settings.playbackQuality)
             }
         }
     }

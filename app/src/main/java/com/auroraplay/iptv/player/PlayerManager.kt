@@ -381,6 +381,26 @@ class PlayerManager @Inject constructor(
         _state.value = _state.value.copy(subtitlesEnabled = false)
     }
 
+    /**
+     * Applies the "Qualidade" preference (audit #13). It caps the video track
+     * ExoPlayer's adaptive selector may choose from an HLS/DASH stream; on a
+     * progressive stream with a single video track it simply has nothing to
+     * constrain, so playback is unaffected. `exceedVideoConstraintsIfNecessary`
+     * stays true, so even if every rendition is above the cap the lowest is
+     * still played — the picture is never dropped. Reapplied live whenever the
+     * setting changes, and persists across media items on the shared player.
+     */
+    fun setMaxVideoQuality(quality: String) {
+        val maxHeight = maxHeightForQuality(quality)
+        val player = activePlayer()
+        player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+            .apply {
+                if (maxHeight == null) clearVideoSizeConstraints()
+                else setMaxVideoSize(Int.MAX_VALUE, maxHeight)
+            }
+            .build()
+    }
+
     private fun selectTrack(option: TrackOption, type: Int) {
         val player = activePlayer()
         val tracks = player.currentTracks
@@ -428,4 +448,16 @@ class PlayerManager @Inject constructor(
         castPlayer?.removeListener(playerListener)
         castPlayer?.release()
     }
+}
+
+/**
+ * Maps a "Qualidade" setting value to a maximum video height, or null for
+ * "no cap" (adaptive/auto). Unknown values fall back to no cap so a future
+ * option can't accidentally throttle playback (audit #13).
+ */
+internal fun maxHeightForQuality(quality: String): Int? = when (quality) {
+    "low" -> 480
+    "medium" -> 720
+    "high" -> 1080
+    else -> null // "auto" and anything unrecognised
 }

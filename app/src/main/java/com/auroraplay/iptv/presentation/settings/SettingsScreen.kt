@@ -278,10 +278,11 @@ fun SettingsScreen(
             when (openPicker) {
                 "quality" -> SettingsPickerDialog(
                     title = "Qualidade de reprodução",
-                    options = listOf("auto" to "Automática", "high" to "Alta", "medium" to "Média", "low" to "Baixa"),
+                    options = listOf("auto" to "Automática", "high" to "Alta (até 1080p)", "medium" to "Média (até 720p)", "low" to "Baixa (até 480p)"),
                     selected = settings.playbackQuality,
                     onSelect = { value -> value?.let(viewModel::setPlaybackQuality) },
                     onDismiss = { openPicker = null },
+                    footnote = "O limite se aplica a streams com múltiplas resoluções. Um canal ou filme com uma única qualidade é reproduzido como está.",
                 )
                 "audio" -> SettingsPickerDialog(
                     title = "Áudio preferido",
@@ -456,6 +457,7 @@ private fun SettingsPickerDialog(
     selected: String?,
     onSelect: (String?) -> Unit,
     onDismiss: () -> Unit,
+    footnote: String? = null,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -480,6 +482,10 @@ private fun SettingsPickerDialog(
                         Spacer(Modifier.width(Spacing.sm))
                         Text(label, style = MaterialTheme.typography.bodyLarge, color = AuroraColors.TextPrimary)
                     }
+                }
+                if (footnote != null) {
+                    Spacer(Modifier.height(Spacing.sm))
+                    Text(footnote, style = MaterialTheme.typography.bodySmall, color = AuroraColors.TextSecondary)
                 }
             }
         },
