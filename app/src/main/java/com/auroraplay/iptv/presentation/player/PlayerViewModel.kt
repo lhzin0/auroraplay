@@ -338,14 +338,14 @@ class PlayerViewModel @Inject constructor(
                     error("O conteúdo não possui um endereço de reprodução válido.")
                 }
 
-                // Prepare the scrub-preview decoder once for this VOD/episode.
-                // Never lets a preview failure disturb playback.
-                if (!_loadState.value.isLive) {
-                    runCatching { scrubPreview.open(url) }
-                } else {
-                    runCatching { scrubPreview.close() }
-                }
                 startProgressLoop()
+
+                // Scrub-preview decoder setup is auxiliary — do it off the load
+                // path so it never delays the first frame (audit #18 / #21).
+                launch {
+                    if (!_loadState.value.isLive) runCatching { scrubPreview.open(url) }
+                    else runCatching { scrubPreview.close() }
+                }
             }.onFailure { error ->
                 _loadState.value = _loadState.value.copy(
                     loadError = error.message?.takeIf { it.isNotBlank() }
@@ -360,12 +360,6 @@ class PlayerViewModel @Inject constructor(
         val channel = channels.find { it.id == contentId } ?: channels.firstOrNull() ?: return
         if (!contentPolicy.allows(isKids, channel)) error("Este conteúdo não está disponível neste perfil.")
         val isFav = profileId?.let { favoriteRepository.isFavorite(connectionId, it, channel.id, ContentType.LIVE).first() } ?: false
-        // channel.currentProgram is always null straight out of the DB — the
-        // catalog sync never calls the short-EPG endpoint, so this is the
-        // only place that actually populates "now playing" for the player.
-        // "Next" isn't shown anywhere in the player UI yet, so it's discarded
-        // here rather than threaded through PlayerLoadState for no reader.
-        val (current, _) = runCatching { contentRepository.getShortEpg(connectionId, channel.id) }.getOrDefault(null to null)
         _loadState.value = _loadState.value.copy(
             title = channel.name,
             subtitle = channel.categoryName,
@@ -377,10 +371,22 @@ class PlayerViewModel @Inject constructor(
             liveChannels = contentPolicy.channels(isKids, channels),
             resumePositionMillis = 0L,
             isFavorite = isFav,
-            currentProgramLabel = current?.title,
-            programProgress = current?.progressFraction(),
+            currentProgramLabel = null,
+            programProgress = null,
         )
         recordChannelHistory(channel.id)
+        // "Agora" is a network call (get_short_epg) and is not needed to start
+        // playback — fetch it after the stream URL is already live (audit #18).
+        // Guarded so a slow response landing after a channel switch is dropped.
+        viewModelScope.launch {
+            val (current, _) = runCatching { contentRepository.getShortEpg(connectionId, channel.id) }.getOrDefault(null to null)
+            if (_loadState.value.contentId == channel.id) {
+                _loadState.value = _loadState.value.copy(
+                    currentProgramLabel = current?.title,
+                    programProgress = current?.progressFraction(),
+                )
+            }
+        }
     }
 
     /** "Canais recentes" on Home — fire-and-forget, never blocks playback. */
@@ -394,7 +400,11 @@ class PlayerViewModel @Inject constructor(
 
     private suspend fun loadMovie(connectionId: String, contentId: String, profileId: String?, isKids: Boolean) {
         if (contentId.isBlank()) error("ID do filme inválido.")
-        val movie = contentRepository.getMovieDetail(connectionId, contentId)
+        // Fast path: the cached catalog row already carries name + stream URL +
+        // poster. Only fall back to getMovieDetail (get_vod_info + TMDB, both
+        // network) when it's an actual cache miss (audit #18).
+        val movie = contentRepository.getCachedMovie(connectionId, contentId)
+            ?: contentRepository.getMovieDetail(connectionId, contentId)
             ?: error("Não foi possível encontrar este filme.")
         if (!contentPolicy.allows(isKids, movie)) error("Este conteúdo não está disponível neste perfil.")
         // Resume exactly where this profile left off (Netflix-style "continuar assistindo").
@@ -423,10 +433,13 @@ class PlayerViewModel @Inject constructor(
         val seriesId = contentId.substringBefore(":").trim()
         val episodeId = contentId.substringAfter(":", "").ifBlank { null }
         if (seriesId.isBlank()) error("ID da série inválido.")
-        // allowStaleRefresh = false: never make starting playback wait on a
-        // get_series_info round-trip (audit #7 / #18). A still-empty episode
-        // list still fetches once.
-        val series = contentRepository.getSeriesDetail(connectionId, seriesId, allowStaleRefresh = false)
+        // Fast path: cached series + cached episodes are all playback needs.
+        // Only hit the network (get_series_info) when episodes aren't cached
+        // yet; allowStaleRefresh = false keeps the TTL check off this path
+        // (audit #7 / #18).
+        val series = contentRepository.getCachedSeries(connectionId, seriesId)
+            ?.takeIf { s -> s.seasons.any { it.episodes.isNotEmpty() } }
+            ?: contentRepository.getSeriesDetail(connectionId, seriesId, allowStaleRefresh = false)
             ?: error("Não foi possível encontrar esta série.")
         if (!contentPolicy.allows(isKids, series)) error("Este conteúdo não está disponível neste perfil.")
         val allEpisodes = series.seasons.flatMap { it.episodes }
