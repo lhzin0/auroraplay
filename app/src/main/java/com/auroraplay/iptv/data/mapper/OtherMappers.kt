@@ -52,6 +52,8 @@ fun WatchProgressEntity.toDomain() = WatchProgress(
     seasonNumber = seasonNumber,
     episodeNumber = episodeNumber,
     lastWatchedMillis = lastWatchedMillis,
+    title = title,
+    posterUrl = posterUrl,
 )
 
 fun WatchProgress.toEntity() = WatchProgressEntity(
@@ -63,6 +65,8 @@ fun WatchProgress.toEntity() = WatchProgressEntity(
     seasonNumber = seasonNumber,
     episodeNumber = episodeNumber,
     lastWatchedMillis = lastWatchedMillis,
+    title = title,
+    posterUrl = posterUrl,
 )
 
 /** Xtream's get_short_epg sends title/description base64-encoded and start/stop

@@ -15,6 +15,10 @@ interface WatchProgressRepository {
     fun observeWatchHistory(profileId: String): Flow<List<WatchProgress>>
     /** Manual, user-initiated only. */
     suspend fun clearWatchHistory(profileId: String)
+    /** Remove one Histórico item — a movie or a single episode ("<seriesId>:<epId>"). */
+    suspend fun deleteHistoryItem(profileId: String, contentId: String)
+    /** Remove a whole series (its row + every episode) from the Histórico. */
+    suspend fun deleteSeriesFromHistory(profileId: String, seriesId: String)
 
     /** "Remover de Continuar assistindo". For [isSeries] every episode of the
      * series is dropped from the rail. Progress and history are kept. */

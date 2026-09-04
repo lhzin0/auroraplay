@@ -19,4 +19,11 @@ data class WatchProgressEntity(
      * default `false` again, so resuming brings the card back.
      */
     val hiddenFromContinue: Boolean = false,
+    /**
+     * Display snapshot captured at play time so the Histórico survives the
+     * title being removed from / not yet synced into the catalog. For an
+     * episode row this is the SERIES name (episodes group under it).
+     */
+    val title: String? = null,
+    val posterUrl: String? = null,
 )

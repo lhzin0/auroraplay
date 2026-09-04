@@ -45,6 +45,8 @@ data class PlayerLoadState(
      * quick episode switcher. Empty for movies/live. */
     val episodes: List<Episode> = emptyList(),
     val currentEpisodeId: String? = null,
+    /** Poster of the current movie / series — snapshotted into the Histórico. */
+    val posterUrl: String? = null,
     val liveChannels: List<Channel> = emptyList(),
     val resumePositionMillis: Long = 0L,
     val isFavorite: Boolean = false,
@@ -304,6 +306,7 @@ class PlayerViewModel @Inject constructor(
             isLive = false,
             contentType = ContentType.MOVIE,
             contentId = movie.id,
+            posterUrl = movie.posterUrl,
             nextEpisode = null,
             resumePositionMillis = saved?.positionMillis ?: 0L,
             isFavorite = isFav,
@@ -350,6 +353,7 @@ class PlayerViewModel @Inject constructor(
             isLive = false,
             contentType = ContentType.SERIES,
             contentId = progressKey,
+            posterUrl = series.posterUrl,
             nextEpisode = next,
             episodes = allEpisodes,
             currentEpisodeId = episode.id,
@@ -555,6 +559,10 @@ class PlayerViewModel @Inject constructor(
                     durationMillis = duration,
                     seasonNumber = episodeParts?.groupValues?.getOrNull(1)?.toIntOrNull(),
                     episodeNumber = episodeParts?.groupValues?.getOrNull(2)?.toIntOrNull(),
+                    // Snapshot for the Histórico (survives the title leaving the
+                    // catalog). For a series this is the show name.
+                    title = state.title.ifBlank { null },
+                    posterUrl = state.posterUrl,
                 )
             )
         }
