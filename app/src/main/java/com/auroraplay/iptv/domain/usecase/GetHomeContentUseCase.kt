@@ -1,6 +1,7 @@
 package com.auroraplay.iptv.domain.usecase
 
 import com.auroraplay.iptv.domain.model.Channel
+import com.auroraplay.iptv.domain.model.ContentType
 import com.auroraplay.iptv.domain.model.Favorite
 import com.auroraplay.iptv.domain.model.HomeContent
 import com.auroraplay.iptv.domain.model.HomeSection
@@ -71,12 +72,15 @@ class GetHomeContentUseCase @Inject constructor(
         val movies = contentPolicy.movies(isKids, rawMovies)
         val series = contentPolicy.series(isKids, rawSeries)
 
-        val favoriteIds = favorites.map { it.contentId }.toSet()
+        // Keyed by (type, id): an Xtream id is only unique within a kind, so a
+        // channel and a movie can share it — a plain id map would resolve a
+        // movie's progress to a same-id channel and vice versa (audit #3).
+        val favoriteKeys = favorites.map { it.type to it.contentId }.toSet()
 
         val allItems: List<MediaItem> = channels.map { MediaItem.ChannelItem(it) } +
             movies.map { MediaItem.MovieItem(it) } +
             series.map { MediaItem.SeriesItem(it) }
-        val byId = allItems.associateBy { it.id }
+        val byKey = allItems.associateBy { it.contentType() to it.id }
 
         val sections = mutableListOf<HomeSection>()
         val resumeMap = mutableMapOf<String, ResumeInfo>()
@@ -91,7 +95,7 @@ class GetHomeContentUseCase @Inject constructor(
             val isEpisode = wp.contentId.contains(":")
             val parentId = if (isEpisode) wp.contentId.substringBefore(":") else wp.contentId
             if (isEpisode && !seenSeries.add(parentId)) return@forEach
-            val item = byId[parentId] ?: return@forEach
+            val item = byKey[wp.type to parentId] ?: return@forEach
             continueItems += item
             resumeMap[parentId] = ResumeInfo(
                 contentId = wp.contentId,
@@ -108,7 +112,9 @@ class GetHomeContentUseCase @Inject constructor(
         // --- Minha lista ---
         // Keep the personalised list immediately after "Continuar assistindo"
         // so saved titles stay close to the primary resume action.
-        val favoriteItems = allItems.filter { favoriteIds.contains(it.id) && it !is MediaItem.ChannelItem }
+        val favoriteItems = allItems.filter {
+            it !is MediaItem.ChannelItem && favoriteKeys.contains(it.contentType() to it.id)
+        }
         if (favoriteItems.isNotEmpty()) {
             sections += HomeSection("favorites", "Minha lista", favoriteItems)
         }
@@ -169,4 +175,10 @@ class GetHomeContentUseCase @Inject constructor(
 
         return HomeContent(heroItems = heroPool, sections = sections, resumeByItemId = resumeMap)
     }
+}
+
+private fun MediaItem.contentType(): ContentType = when (this) {
+    is MediaItem.ChannelItem -> ContentType.LIVE
+    is MediaItem.MovieItem -> ContentType.MOVIE
+    is MediaItem.SeriesItem -> ContentType.SERIES
 }
