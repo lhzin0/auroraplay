@@ -44,6 +44,7 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onOpenConnections: () -> Unit,
     onOpenProfileEditor: (String) -> Unit = {},
+    onOpenHistory: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val settings by viewModel.settings.collectAsState()
@@ -109,6 +110,20 @@ fun SettingsScreen(
                                 showDivider = false,
                             )
                         }
+                    }
+                }
+
+                // Histórico fica logo abaixo do card de Perfil: é uma lista por
+                // perfil e só o usuário a apaga.
+                item {
+                    SettingsSection(title = "Histórico") {
+                        SettingsRow(
+                            icon = Icons.Default.History,
+                            title = "Conteúdos assistidos",
+                            subtitle = "Filmes e séries que você já assistiu neste perfil",
+                            onClick = onOpenHistory,
+                            showDivider = false,
+                        )
                     }
                 }
 

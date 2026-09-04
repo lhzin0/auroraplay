@@ -179,6 +179,15 @@ fun AuroraNavGraph(
                 onBack = { navController.popBackStack() },
                 onOpenConnections = { navController.navigate(Screen.Connections.route) },
                 onOpenProfileEditor = { id -> navController.navigate(Screen.EditProfile.createRoute(id)) },
+                onOpenHistory = { navController.navigate(Screen.History.route) },
+            )
+        }
+
+        composable(Screen.History.route) {
+            com.auroraplay.iptv.presentation.history.WatchHistoryScreen(
+                onBack = { navController.popBackStack() },
+                onOpenMovie = { id -> navController.navigate(Screen.MovieDetails.createRoute(id)) },
+                onOpenSeries = { id -> navController.navigate(Screen.SeriesDetails.createRoute(id)) },
             )
         }
 
@@ -296,6 +305,7 @@ private fun MainShell(isTvDevice: Boolean, initialTab: MainTab, navController: N
                     onBack = { currentTab = MainTab.HOME },
                     onOpenConnections = { navController.navigate(Screen.Connections.route) },
                     onOpenProfileEditor = { id -> navController.navigate(Screen.EditProfile.createRoute(id)) },
+                    onOpenHistory = { navController.navigate(Screen.History.route) },
                 )
             }
         }
