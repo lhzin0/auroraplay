@@ -83,12 +83,15 @@ object MetadataSanitizer {
 
     /**
      * Cleans a title for display: removes the trailing "(2015)" (shown
-     * separately as a metadata chip) and provider tags like "[L]" / "|BR|".
+     * separately as a metadata chip), provider tags like "[L]" / "|BR|", and a
+     * trailing decorative marker some providers tack on ("Silo *") — the same
+     * symbol set [categoryName] already treats as noise.
      */
     fun title(raw: String?): String {
         var value = raw?.trim().orEmpty()
         value = value.replace(Regex("\\s*\\((19|20)\\d{2}\\)\\s*$"), "")
         value = value.replace(Regex("\\s*[\\[|(]\\s*[A-Za-z0-9]{1,3}\\s*[\\]|)]\\s*"), " ")
+        value = value.replace(Regex("\\s*[➤►▶●•★☆♦◆※#*~_|]+\\s*$"), "")
         value = value.replace(Regex("\\s{2,}"), " ").trim()
         return value.ifEmpty { raw?.trim().orEmpty() }
     }
