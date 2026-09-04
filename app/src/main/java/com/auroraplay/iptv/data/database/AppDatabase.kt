@@ -34,7 +34,9 @@ import com.auroraplay.iptv.data.database.entity.WatchProgressEntity
         WatchProgressEntity::class,
     ],
     version = 7,
-    exportSchema = false,
+    // Schemas are exported to app/schemas/ and committed; the migration tests
+    // validate against them. (Turned on at v7 — see build.gradle.kts.)
+    exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun connectionDao(): ConnectionDao

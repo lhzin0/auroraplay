@@ -1,0 +1,69 @@
+package com.auroraplay.iptv.data.database
+
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
+
+/**
+ * Every explicit Room migration for [AppDatabase], from version 1 to the
+ * current version. Kept out of the DI module so the instrumented migration
+ * tests can use the exact same list the app ships with.
+ *
+ * There is **no** `fallbackToDestructiveMigration` any more (see
+ * `DatabaseModule`): a missing/failed migration must fail loudly, never wipe
+ * the user's profiles, favourites, watch history or downloads index. Every
+ * version bump has to add its migration here.
+ */
+object AppDatabaseMigrations {
+
+    private val MIGRATION_1_2 = object : Migration(1, 2) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE profiles ADD COLUMN avatarUri TEXT")
+        }
+    }
+
+    // Catches up two columns that were added straight to ProfileEntity without
+    // ever bumping the DB version — Room validates a schema hash at startup
+    // independent of the version number, so any install that already had a
+    // version-2 database (isKids added but never migrated) would fail that
+    // check and crash on open.
+    private val MIGRATION_2_3 = object : Migration(2, 3) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE profiles ADD COLUMN isKids INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE profiles ADD COLUMN pinHash TEXT")
+        }
+    }
+
+    private val MIGRATION_3_4 = object : Migration(3, 4) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE profiles ADD COLUMN biometricEnabled INTEGER NOT NULL DEFAULT 0")
+        }
+    }
+
+    // "Legendado" tag computed at sync from the raw provider name/category.
+    private val MIGRATION_4_5 = object : Migration(4, 5) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE movies ADD COLUMN audioLabel TEXT")
+            db.execSQL("ALTER TABLE series ADD COLUMN audioLabel TEXT")
+        }
+    }
+
+    // "Remover de Continuar assistindo": a per-row flag on watch_progress.
+    private val MIGRATION_5_6 = object : Migration(5, 6) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE watch_progress ADD COLUMN hiddenFromContinue INTEGER NOT NULL DEFAULT 0")
+        }
+    }
+
+    // Histórico offline: snapshot of title + poster so the list survives a
+    // title leaving the catalog. Nullable, additive.
+    private val MIGRATION_6_7 = object : Migration(6, 7) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE watch_progress ADD COLUMN title TEXT")
+            db.execSQL("ALTER TABLE watch_progress ADD COLUMN posterUrl TEXT")
+        }
+    }
+
+    val ALL: Array<Migration> = arrayOf(
+        MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
+    )
+}

@@ -91,6 +91,19 @@ android {
     packaging {
         resources.excludes.add("/META-INF/{AL2.0,LGPL2.1}")
     }
+
+    // Exported Room schemas (app/schemas/) are bundled into the instrumented
+    // test APK so MigrationTestHelper can validate every migration.
+    sourceSets.getByName("androidTest").assets.srcDir("$projectDir/schemas")
+}
+
+// Room exports the current schema version to app/schemas/ on every build. These
+// JSON files are committed and used by the migration tests. exportSchema was
+// turned on at DB version 7, so pre-7 schemas are not available — pre-7
+// upgrades still run through the hand-written MIGRATION_x_y objects.
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+    arg("room.generateKotlin", "true")
 }
 
 dependencies {
@@ -135,6 +148,7 @@ dependencies {
     implementation("androidx.room:room-runtime:2.7.1")
     implementation("androidx.room:room-ktx:2.7.1")
     ksp("androidx.room:room-compiler:2.7.1")
+    androidTestImplementation("androidx.room:room-testing:2.7.1")
 
     // DataStore
     implementation("androidx.datastore:datastore-preferences:1.1.7")

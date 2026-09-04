@@ -2,10 +2,9 @@ package com.auroraplay.iptv.core.di
 
 import android.content.Context
 import androidx.room.Room
-import androidx.room.migration.Migration
-import androidx.sqlite.db.SupportSQLiteDatabase
 import com.auroraplay.iptv.core.util.Constants
 import com.auroraplay.iptv.data.database.AppDatabase
+import com.auroraplay.iptv.data.database.AppDatabaseMigrations
 import com.auroraplay.iptv.data.database.dao.*
 import dagger.Module
 import dagger.Provides
@@ -18,64 +17,16 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
 
-    private val MIGRATION_1_2 = object : Migration(1, 2) {
-        override fun migrate(db: SupportSQLiteDatabase) {
-            db.execSQL("ALTER TABLE profiles ADD COLUMN avatarUri TEXT")
-        }
-    }
-
-    // Catches up two columns that were added straight to ProfileEntity
-    // without ever bumping the DB version — Room validates a schema hash at
-    // startup independent of the version number, so any install that
-    // already had a version-2 database (isKids added but never migrated)
-    // would fail that check and crash on open. This migration both adds the
-    // column isKids should have gotten then, and the new pinHash for the
-    // optional profile lock.
-    private val MIGRATION_2_3 = object : Migration(2, 3) {
-        override fun migrate(db: SupportSQLiteDatabase) {
-            db.execSQL("ALTER TABLE profiles ADD COLUMN isKids INTEGER NOT NULL DEFAULT 0")
-            db.execSQL("ALTER TABLE profiles ADD COLUMN pinHash TEXT")
-        }
-    }
-
-    private val MIGRATION_3_4 = object : Migration(3, 4) {
-        override fun migrate(db: SupportSQLiteDatabase) {
-            db.execSQL("ALTER TABLE profiles ADD COLUMN biometricEnabled INTEGER NOT NULL DEFAULT 0")
-        }
-    }
-
-    // "Legendado" tag computed at sync from the raw provider name/category.
-    private val MIGRATION_4_5 = object : Migration(4, 5) {
-        override fun migrate(db: SupportSQLiteDatabase) {
-            db.execSQL("ALTER TABLE movies ADD COLUMN audioLabel TEXT")
-            db.execSQL("ALTER TABLE series ADD COLUMN audioLabel TEXT")
-        }
-    }
-
-    // "Remover de Continuar assistindo": a per-row flag on watch_progress.
-    // Additive with a default, so existing progress/history is preserved.
-    private val MIGRATION_5_6 = object : Migration(5, 6) {
-        override fun migrate(db: SupportSQLiteDatabase) {
-            db.execSQL("ALTER TABLE watch_progress ADD COLUMN hiddenFromContinue INTEGER NOT NULL DEFAULT 0")
-        }
-    }
-
-    // Histórico offline: snapshot of title + poster so the list survives a
-    // title leaving the catalog. Nullable, additive — old rows keep working
-    // (they fall back to the catalog lookup until re-watched).
-    private val MIGRATION_6_7 = object : Migration(6, 7) {
-        override fun migrate(db: SupportSQLiteDatabase) {
-            db.execSQL("ALTER TABLE watch_progress ADD COLUMN title TEXT")
-            db.execSQL("ALTER TABLE watch_progress ADD COLUMN posterUrl TEXT")
-        }
-    }
-
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, Constants.DATABASE_NAME)
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
-            .fallbackToDestructiveMigration(dropAllTables = true)
+            .addMigrations(*AppDatabaseMigrations.ALL)
+            // No fallbackToDestructiveMigration: a missing or failed migration
+            // must throw on open (loud, recoverable by reinstalling the current
+            // app) rather than silently drop the user's profiles, favourites,
+            // watch history and downloads index. Every DB version bump adds its
+            // migration in AppDatabaseMigrations.
             .build()
 
     @Provides fun provideConnectionDao(db: AppDatabase): ConnectionDao = db.connectionDao()
