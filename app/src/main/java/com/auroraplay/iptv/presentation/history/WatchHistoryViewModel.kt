@@ -189,7 +189,7 @@ class WatchHistoryViewModel @Inject constructor(
             if (entry.type == ContentType.SERIES) {
                 watchProgressRepository.deleteSeriesFromHistory(id, entry.id)
             } else {
-                watchProgressRepository.deleteHistoryItem(id, entry.id)
+                watchProgressRepository.deleteHistoryItem(id, entry.id, entry.type)
             }
         }
     }
@@ -197,7 +197,7 @@ class WatchHistoryViewModel @Inject constructor(
     /** Remove a single episode from a series' Histórico. */
     fun deleteEpisode(contentId: String) {
         val id = profileId ?: return
-        viewModelScope.launch { watchProgressRepository.deleteHistoryItem(id, contentId) }
+        viewModelScope.launch { watchProgressRepository.deleteHistoryItem(id, contentId, ContentType.SERIES) }
     }
 
     /** Manual only — never called on a timer or on sign-out. */

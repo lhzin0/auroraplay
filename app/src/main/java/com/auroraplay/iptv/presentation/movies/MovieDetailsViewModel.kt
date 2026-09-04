@@ -94,7 +94,7 @@ class MovieDetailsViewModel @Inject constructor(
                 return@launch
             }
 
-            val progress = profile?.let { watchProgressRepository.getProgress(it.id, movieId) }
+            val progress = profile?.let { watchProgressRepository.getProgress(it.id, movieId, com.auroraplay.iptv.domain.model.ContentType.MOVIE) }
             val remaining = progress?.let { p ->
                 val remainingSeconds = ((p.durationMillis - p.positionMillis) / 1000).coerceAtLeast(0)
                 val minutes = remainingSeconds / 60
@@ -118,7 +118,7 @@ class MovieDetailsViewModel @Inject constructor(
                 _uiState.update { it.copy(trailerYoutubeId = trailerYoutubeId) }
             }
 
-            val favoriteFlow = if (profile != null) favoriteRepository.isFavorite(profile.id, movieId) else flowOf(false)
+            val favoriteFlow = if (profile != null) favoriteRepository.isFavorite(profile.id, movieId, com.auroraplay.iptv.domain.model.ContentType.MOVIE) else flowOf(false)
             combine(movieFlow, similarFlow, favoriteFlow, downloadTracker.downloads) { movie, similar, isFav, downloads ->
                 val download = downloads[movieId]
                 _uiState.value = _uiState.value.copy(

@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.Flow
 
 interface WatchProgressRepository {
     fun observeContinueWatching(profileId: String): Flow<List<WatchProgress>>
-    suspend fun getProgress(profileId: String, contentId: String): WatchProgress?
+    suspend fun getProgress(profileId: String, contentId: String, type: ContentType): WatchProgress?
     suspend fun saveProgress(progress: WatchProgress)
     suspend fun removeProgress(profileId: String, contentId: String, type: ContentType)
 
@@ -16,7 +16,7 @@ interface WatchProgressRepository {
     /** Manual, user-initiated only. */
     suspend fun clearWatchHistory(profileId: String)
     /** Remove one Histórico item — a movie or a single episode ("<seriesId>:<epId>"). */
-    suspend fun deleteHistoryItem(profileId: String, contentId: String)
+    suspend fun deleteHistoryItem(profileId: String, contentId: String, type: ContentType)
     /** Remove a whole series (its row + every episode) from the Histórico. */
     suspend fun deleteSeriesFromHistory(profileId: String, seriesId: String)
 

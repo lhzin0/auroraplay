@@ -126,7 +126,7 @@ class SeriesDetailsViewModel @Inject constructor(
                 _uiState.update { it.copy(trailerYoutubeId = trailer) }
             }
 
-            val favoriteFlow = if (profile != null) favoriteRepository.isFavorite(profile.id, seriesId) else flowOf(false)
+            val favoriteFlow = if (profile != null) favoriteRepository.isFavorite(profile.id, seriesId, com.auroraplay.iptv.domain.model.ContentType.SERIES) else flowOf(false)
             // Most recently watched episode of this series, recomputed if the
             // episode list grows when the full fetch lands. Every episode is
             // eligible (even near-complete ones) so Resume never skips a chapter.
@@ -134,7 +134,7 @@ class SeriesDetailsViewModel @Inject constructor(
                 val p = profile ?: return@map null
                 s?.seasons.orEmpty()
                     .flatMap { it.episodes }
-                    .mapNotNull { episode -> watchProgressRepository.getProgress(p.id, "$seriesId:${episode.id}") }
+                    .mapNotNull { episode -> watchProgressRepository.getProgress(p.id, "$seriesId:${episode.id}", com.auroraplay.iptv.domain.model.ContentType.SERIES) }
                     .maxByOrNull { it.lastWatchedMillis }
             }
 

@@ -267,7 +267,7 @@ class PlayerViewModel @Inject constructor(
         val channels = contentRepository.observeChannels(connectionId).first()
         val channel = channels.find { it.id == contentId } ?: channels.firstOrNull() ?: return
         if (!contentPolicy.allows(isKids, channel)) error("Este conteúdo não está disponível neste perfil.")
-        val isFav = profileId?.let { favoriteRepository.isFavorite(it, channel.id).first() } ?: false
+        val isFav = profileId?.let { favoriteRepository.isFavorite(it, channel.id, ContentType.LIVE).first() } ?: false
         // channel.currentProgram is always null straight out of the DB — the
         // catalog sync never calls the short-EPG endpoint, so this is the
         // only place that actually populates "now playing" for the player.
@@ -304,8 +304,8 @@ class PlayerViewModel @Inject constructor(
             ?: error("Não foi possível encontrar este filme.")
         if (!contentPolicy.allows(isKids, movie)) error("Este conteúdo não está disponível neste perfil.")
         // Resume exactly where this profile left off (Netflix-style "continuar assistindo").
-        val saved = profileId?.let { watchProgressRepository.getProgress(it, movie.id) }
-        val isFav = profileId?.let { favoriteRepository.isFavorite(it, movie.id).first() } ?: false
+        val saved = profileId?.let { watchProgressRepository.getProgress(it, movie.id, ContentType.MOVIE) }
+        val isFav = profileId?.let { favoriteRepository.isFavorite(it, movie.id, ContentType.MOVIE).first() } ?: false
         _loadState.value = _loadState.value.copy(
             title = movie.name,
             // No subtitle for movies: categoryName is the provider's raw
@@ -339,15 +339,15 @@ class PlayerViewModel @Inject constructor(
             episodeId != null -> allEpisodes.find { it.id == episodeId }
             else -> profileId?.let { pid ->
                 allEpisodes.firstNotNullOfOrNull { ep ->
-                    watchProgressRepository.getProgress(pid, "$seriesId:${ep.id}")?.let { ep to it }
+                    watchProgressRepository.getProgress(pid, "$seriesId:${ep.id}", ContentType.SERIES)?.let { ep to it }
                 }?.first
             }
         } ?: allEpisodes.first()
 
         val progressKey = "$seriesId:${episode.id}"
-        val saved = profileId?.let { watchProgressRepository.getProgress(it, progressKey) }
+        val saved = profileId?.let { watchProgressRepository.getProgress(it, progressKey, ContentType.SERIES) }
         val next = allEpisodes.getOrNull(allEpisodes.indexOf(episode) + 1)
-        val isFav = profileId?.let { favoriteRepository.isFavorite(it, seriesId).first() } ?: false
+        val isFav = profileId?.let { favoriteRepository.isFavorite(it, seriesId, ContentType.SERIES).first() } ?: false
 
         // Drop the episode title from the subtitle when it just repeats the
         // series name (a very common provider habit: the "title" of every

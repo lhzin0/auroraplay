@@ -63,7 +63,35 @@ object AppDatabaseMigrations {
         }
     }
 
+    // Audit #3: put `type` in the primary key of favourites and watch_progress
+    // so a channel and a movie that share an Xtream numeric id no longer
+    // collide. SQLite can't ALTER a primary key, so each table is rebuilt.
+    // Existing data is copied 1:1 (the old key already allowed only one row per
+    // contentId+profileId, so nothing needs de-duplicating).
+    private val MIGRATION_7_8 = object : Migration(7, 8) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `favorites_new` (`contentId` TEXT NOT NULL, `type` TEXT NOT NULL, `profileId` TEXT NOT NULL, `addedAtMillis` INTEGER NOT NULL, PRIMARY KEY(`contentId`, `type`, `profileId`))"
+            )
+            db.execSQL(
+                "INSERT INTO `favorites_new` (`contentId`, `type`, `profileId`, `addedAtMillis`) SELECT `contentId`, `type`, `profileId`, `addedAtMillis` FROM `favorites`"
+            )
+            db.execSQL("DROP TABLE `favorites`")
+            db.execSQL("ALTER TABLE `favorites_new` RENAME TO `favorites`")
+
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `watch_progress_new` (`contentId` TEXT NOT NULL, `type` TEXT NOT NULL, `profileId` TEXT NOT NULL, `positionMillis` INTEGER NOT NULL, `durationMillis` INTEGER NOT NULL, `seasonNumber` INTEGER, `episodeNumber` INTEGER, `lastWatchedMillis` INTEGER NOT NULL, `hiddenFromContinue` INTEGER NOT NULL, `title` TEXT, `posterUrl` TEXT, PRIMARY KEY(`contentId`, `type`, `profileId`))"
+            )
+            db.execSQL(
+                "INSERT INTO `watch_progress_new` (`contentId`, `type`, `profileId`, `positionMillis`, `durationMillis`, `seasonNumber`, `episodeNumber`, `lastWatchedMillis`, `hiddenFromContinue`, `title`, `posterUrl`) " +
+                    "SELECT `contentId`, `type`, `profileId`, `positionMillis`, `durationMillis`, `seasonNumber`, `episodeNumber`, `lastWatchedMillis`, `hiddenFromContinue`, `title`, `posterUrl` FROM `watch_progress`"
+            )
+            db.execSQL("DROP TABLE `watch_progress`")
+            db.execSQL("ALTER TABLE `watch_progress_new` RENAME TO `watch_progress`")
+        }
+    }
+
     val ALL: Array<Migration> = arrayOf(
-        MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
+        MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8,
     )
 }

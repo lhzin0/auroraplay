@@ -2,7 +2,11 @@ package com.auroraplay.iptv.data.database.entity
 
 import androidx.room.Entity
 
-@Entity(tableName = "watch_progress", primaryKeys = ["contentId", "profileId"])
+// `type` is part of the identity: an Xtream stream id is only unique within a
+// (provider, kind), so a channel and a movie can share the numeric id. Without
+// `type` in the key, a LIVE row and a MOVIE row with the same id + profile
+// clobbered each other (audit #3).
+@Entity(tableName = "watch_progress", primaryKeys = ["contentId", "type", "profileId"])
 data class WatchProgressEntity(
     val contentId: String,
     val type: String,

@@ -19,13 +19,13 @@ class FavoriteRepositoryImpl @Inject constructor(
     override fun observeFavorites(profileId: String, type: ContentType?): Flow<List<Favorite>> =
         dao.observe(profileId, type?.name).map { list -> list.map { it.toDomain() } }
 
-    override fun isFavorite(profileId: String, contentId: String): Flow<Boolean> =
-        dao.observeIsFavorite(profileId, contentId)
+    override fun isFavorite(profileId: String, contentId: String, type: ContentType): Flow<Boolean> =
+        dao.observeIsFavorite(profileId, contentId, type.name)
 
     override suspend fun toggleFavorite(profileId: String, contentId: String, type: ContentType) {
-        val existing = dao.get(profileId, contentId)
+        val existing = dao.get(profileId, contentId, type.name)
         if (existing != null) {
-            dao.delete(profileId, contentId)
+            dao.delete(profileId, contentId, type.name)
         } else {
             dao.insert(FavoriteEntity(contentId, type.name, profileId, System.currentTimeMillis()))
         }

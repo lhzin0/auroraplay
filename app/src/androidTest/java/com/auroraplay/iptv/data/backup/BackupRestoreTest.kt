@@ -60,8 +60,8 @@ class BackupRestoreTest {
         assertNull(restoredConnection.lastSyncMillis)
         assertFalse(restoredConnection.isDefault)
         assertEquals(1, db.connectionDao().observeAll().first().count { it.isDefault })
-        assertEquals(300L, db.watchProgressDao().get("local", "newer-locally")?.lastWatchedMillis)
-        assertEquals(400L, db.watchProgressDao().get("local", "newer-remotely")?.lastWatchedMillis)
+        assertEquals(300L, db.watchProgressDao().get("local", "newer-locally", "MOVIE")?.lastWatchedMillis)
+        assertEquals(400L, db.watchProgressDao().get("local", "newer-remotely", "MOVIE")?.lastWatchedMillis)
         assertEquals(1, db.favoriteDao().observe("imported", null).first().size)
     }
 

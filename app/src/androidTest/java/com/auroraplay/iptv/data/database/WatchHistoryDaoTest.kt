@@ -79,11 +79,11 @@ class WatchHistoryDaoTest {
         dao.upsert(row("series-1:ep-1", "SERIES", season = 1, episode = 1))
         dao.upsert(row("series-1:ep-2", "SERIES", season = 1, episode = 2))
 
-        dao.deleteByKey(profile, "series-1:ep-1")
+        dao.deleteByKey(profile, "series-1:ep-1", "SERIES")
 
         assertEquals(listOf("series-1:ep-2"), dao.observeWatchHistory(profile).first().map { it.contentId })
         // progress row is gone, not just hidden
-        assertNull(dao.get(profile, "series-1:ep-1"))
+        assertNull(dao.get(profile, "series-1:ep-1", "SERIES"))
     }
 
     @Test
