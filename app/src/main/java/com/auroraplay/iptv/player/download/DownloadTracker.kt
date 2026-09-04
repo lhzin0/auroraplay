@@ -66,6 +66,37 @@ data class DownloadState(
     val isSeriesGroup: Boolean get() = groupKey.startsWith("series:")
 }
 
+/** Inverse of the sortKey a series download is queued with
+ * (`season * 1000 + episode`). Null for a movie (sortKey 0) or a malformed
+ * value, so the caller can decide whether to render "T_ E_". */
+fun seasonEpisodeFromSortKey(sortKey: Int): Pair<Int, Int>? =
+    if (sortKey <= 0) null else (sortKey / 1000) to (sortKey % 1000)
+
+/** The message to show instead of starting offline playback, or null when the
+ * download is playable (audit #8). Pure so every branch is unit-tested. */
+fun offlineLoadFailure(exists: Boolean, allowedForProfile: Boolean, isComplete: Boolean): String? = when {
+    !exists -> "Este download não está mais disponível."
+    !allowedForProfile -> "Este conteúdo não está disponível neste perfil."
+    !isComplete -> "Este download ainda não terminou. Conecte-se à internet para concluí-lo."
+    else -> null
+}
+
+/** Self-contained description of a downloaded item for offline playback —
+ * see [DownloadTracker.offlineDownload]. */
+data class OfflineDownload(
+    val key: String,
+    val uri: String,
+    val title: String,
+    val playbackContentType: String,
+    val playbackId: String,
+    val posterUrl: String?,
+    val connectionId: String,
+    val contentId: String,
+    val sortKey: Int,
+    /** The local file finished downloading and is non-empty. */
+    val isComplete: Boolean,
+)
+
 /**
  * Bridges Media3's DownloadManager (which only knows about stream URLs) to
  * the app's own content ids, so screens can ask "is this movie/episode
@@ -164,6 +195,33 @@ class DownloadTracker @Inject constructor(
 
     /** [key] is [DownloadState.key] — the composite `downloadKey(...)`. */
     fun stateFor(key: String): DownloadState? = _downloads.value[key]
+
+    /**
+     * Everything the player needs to play a downloaded item with **zero**
+     * dependency on the active connection or the remote catalog (audit #8):
+     * the exact stream URI the download was queued with (CacheDataSource keys
+     * on it), the playback route params, the poster and title that travelled
+     * with the download, and whether the local file is actually complete.
+     * Reads the on-disk index directly so it works on a cold start and after
+     * the connection was deleted. Null = no such download any more.
+     */
+    suspend fun offlineDownload(key: String): OfflineDownload? = withContext(Dispatchers.IO) {
+        val download = runCatching { downloadManager.downloadIndex.getDownload(key) }.getOrNull()
+            ?: return@withContext null
+        val state = download.toState()
+        OfflineDownload(
+            key = key,
+            uri = download.request.uri.toString(),
+            title = state.displayTitle,
+            playbackContentType = state.playbackContentType,
+            playbackId = state.playbackId,
+            posterUrl = state.posterUrl,
+            connectionId = state.connectionId,
+            contentId = state.contentId,
+            sortKey = state.sortKey,
+            isComplete = download.state == Download.STATE_COMPLETED && download.bytesDownloaded > 0L,
+        )
+    }
 
     fun isDownloadedFlow(key: String): Flow<Boolean> =
         downloads.map { it[key]?.status == Download.STATE_COMPLETED }

@@ -72,6 +72,7 @@ class PlayerViewModel @Inject constructor(
     private val scrubPreview: ScrubPreviewEngine,
     private val settingsRepository: com.auroraplay.iptv.domain.repository.SettingsRepository,
     private val contentPolicy: ContentPolicy,
+    private val downloadTracker: com.auroraplay.iptv.player.download.DownloadTracker,
 ) : ViewModel() {
 
     /** Active profile's kids flag — every content-load and channel-switch path
@@ -219,6 +220,86 @@ class PlayerViewModel @Inject constructor(
     private var activeProfileId: String? = null
     private var progressLoopRunning = false
     private var currentBrightness = 0.5f
+
+    /**
+     * Offline playback of a downloaded item (audit #8). Resolves everything
+     * from the Media3 download index — no active connection, no catalog, no
+     * network — so it works on a cold start and even after the connection the
+     * item came from was deleted. A download that isn't finished is reported,
+     * not played as a broken stream.
+     */
+    fun loadOfflineDownload(downloadKey: String) {
+        if (downloadKey.isBlank()) {
+            _loadState.value = _loadState.value.copy(loadError = "Download inválido.")
+            return
+        }
+        _autoNextInSeconds.value = null
+
+        viewModelScope.launch {
+            _loadState.value = _loadState.value.copy(loadError = null)
+            runCatching {
+                val profile = profileRepository.observeActiveProfile().first()
+                activeProfileId = profile?.id
+                activeProfileIsKids = profile?.isKids == true
+
+                val dl = downloadTracker.offlineDownload(downloadKey)
+                // Title-only kids check (the download index carries no genre),
+                // mirroring the Downloads list filter — defence in depth.
+                val allowed = dl != null && contentPolicy.visibleLoose(activeProfileIsKids, dl.title)
+                com.auroraplay.iptv.player.download.offlineLoadFailure(
+                    exists = dl != null,
+                    allowedForProfile = allowed,
+                    isComplete = dl?.isComplete == true,
+                )?.let { error(it) }
+                checkNotNull(dl)
+
+                val isSeries = dl.playbackContentType.equals("SERIES", ignoreCase = true)
+                val contentType = if (isSeries) ContentType.SERIES else ContentType.MOVIE
+                activeConnectionId = dl.connectionId.ifBlank { null }
+
+                // Resume from the same watch_progress row the online path uses:
+                // its identity is (connectionId, playbackId, type, profile) and
+                // the download carried the connectionId it was queued under.
+                val saved = profile?.id?.let {
+                    runCatching {
+                        watchProgressRepository.getProgress(dl.connectionId, it, dl.playbackId, contentType)
+                    }.getOrNull()
+                }
+
+                // season/episode for the Histórico snapshot — recovered from the
+                // sortKey the download stored (season * 1000 + episode).
+                val subtitle = com.auroraplay.iptv.player.download.seasonEpisodeFromSortKey(dl.sortKey)
+                    ?.takeIf { isSeries }
+                    ?.let { (s, e) -> "T$s E$e" }
+
+                _loadState.value = PlayerLoadState(
+                    title = dl.title,
+                    subtitle = subtitle,
+                    streamUrl = dl.uri,
+                    isLive = false,
+                    contentType = contentType,
+                    contentId = dl.playbackId,
+                    connectionId = dl.connectionId,
+                    posterUrl = dl.posterUrl,
+                    // The in-player episode switcher / auto-next need the full
+                    // catalog episode list, which isn't available offline — the
+                    // user picks the next episode from the Downloads screen.
+                    episodes = emptyList(),
+                    nextEpisode = null,
+                    resumePositionMillis = saved?.positionMillis ?: 0L,
+                    isFavorite = false,
+                )
+
+                runCatching { scrubPreview.open(dl.uri) }
+                startProgressLoop()
+            }.onFailure { error ->
+                _loadState.value = _loadState.value.copy(
+                    loadError = error.message?.takeIf { it.isNotBlank() }
+                        ?: "Não foi possível abrir este download.",
+                )
+            }
+        }
+    }
 
     private val resizeModes = listOf(
         AspectRatioFrameLayout.RESIZE_MODE_FIT,

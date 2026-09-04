@@ -102,12 +102,20 @@ private data class HiddenSeekRipple(val id: Int, val forward: Boolean)
 
 @Composable
 fun PlayerScreen(
-    contentType: ContentType,
-    contentId: String,
+    contentType: ContentType? = null,
+    contentId: String? = null,
     onBack: () -> Unit,
     viewModel: PlayerViewModel = hiltViewModel(),
+    /** When set, playback is resolved entirely from the offline download index
+     * (audit #8) and [contentType]/[contentId] are ignored. */
+    offlineDownloadKey: String? = null,
 ) {
-    LaunchedEffect(contentType, contentId) { viewModel.load(contentType, contentId) }
+    LaunchedEffect(contentType, contentId, offlineDownloadKey) {
+        when {
+            offlineDownloadKey != null -> viewModel.loadOfflineDownload(offlineDownloadKey)
+            contentType != null && contentId != null -> viewModel.load(contentType, contentId)
+        }
+    }
 
     val context = LocalContext.current
     val activity = context as? Activity

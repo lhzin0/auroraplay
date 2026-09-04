@@ -31,6 +31,13 @@ sealed class Screen(val route: String) {
         fun createRoute(contentType: String, contentId: String) =
             "player/$contentType/" + android.net.Uri.encode(contentId)
     }
+    /** Offline playback of a downloaded item. Everything is resolved from the
+     * Media3 download index by its key — no active connection, no catalog
+     * (audit #8). The key itself carries unit separators, so it is encoded. */
+    data object PlayerOffline : Screen("player_offline/{downloadKey}") {
+        fun createRoute(downloadKey: String) =
+            "player_offline/" + android.net.Uri.encode(downloadKey)
+    }
     data object Epg : Screen("epg")
     data object Downloads : Screen("downloads")
     data object Notifications : Screen("notifications")

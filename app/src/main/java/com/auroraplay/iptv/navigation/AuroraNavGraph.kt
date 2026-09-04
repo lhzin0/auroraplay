@@ -151,7 +151,9 @@ fun AuroraNavGraph(
         composable(Screen.Downloads.route) {
             com.auroraplay.iptv.presentation.downloads.DownloadsScreen(
                 onBack = { navController.popBackStack() },
-                onPlay = { contentType, contentId -> navController.navigate(Screen.Player.createRoute(contentType, contentId)) },
+                // Offline-only route: playback is resolved from the download
+                // index, never the active connection or catalog (audit #8).
+                onPlay = { downloadKey -> navController.navigate(Screen.PlayerOffline.createRoute(downloadKey)) },
             )
         }
 
@@ -240,6 +242,29 @@ fun AuroraNavGraph(
                 PlayerScreen(
                     contentType = contentType,
                     contentId = contentId,
+                    onBack = { navController.popBackStack() },
+                )
+            }
+        }
+
+        composable(
+            route = Screen.PlayerOffline.route,
+            arguments = listOf(navArgument("downloadKey") {}),
+        ) { backStackEntry ->
+            val downloadKey = backStackEntry.arguments?.getString("downloadKey").orEmpty()
+            if (downloadKey.isBlank()) {
+                Box(
+                    Modifier.fillMaxSize().background(AuroraColors.BackgroundBase),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    com.auroraplay.iptv.presentation.components.GlassButton(
+                        text = "Voltar",
+                        onClick = { navController.popBackStack() },
+                    )
+                }
+            } else {
+                PlayerScreen(
+                    offlineDownloadKey = downloadKey,
                     onBack = { navController.popBackStack() },
                 )
             }

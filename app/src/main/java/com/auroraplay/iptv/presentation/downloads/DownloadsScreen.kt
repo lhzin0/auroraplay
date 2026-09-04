@@ -51,7 +51,8 @@ import com.auroraplay.iptv.presentation.components.Spacing
 @Composable
 fun DownloadsScreen(
     onBack: () -> Unit,
-    onPlay: (contentType: String, contentId: String) -> Unit,
+    /** Opens offline playback for a download, addressed by its [DownloadState.key]. */
+    onPlay: (downloadKey: String) -> Unit,
     viewModel: DownloadsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -71,14 +72,14 @@ fun DownloadsScreen(
                     if (group.isSeries) {
                         SeriesDownloadCard(
                             group = group,
-                            onPlayEpisode = { onPlay(it.playbackContentType, it.playbackId) },
+                            onPlayEpisode = { onPlay(it.key) },
                             onRemoveEpisode = { viewModel.remove(it.key) },
                             onRemoveAll = { viewModel.removeGroup(group) },
                         )
                     } else {
                         MovieDownloadCard(
                             group = group,
-                            onPlay = { item -> onPlay(item.playbackContentType, item.playbackId) },
+                            onPlay = { item -> onPlay(item.key) },
                             onRemove = { viewModel.removeGroup(group) },
                         )
                     }
