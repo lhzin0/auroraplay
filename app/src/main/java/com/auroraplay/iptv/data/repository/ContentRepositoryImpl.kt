@@ -46,6 +46,22 @@ internal const val EPISODE_TTL_MILLIS: Long = 6L * 60L * 60L * 1000L
 internal fun episodesAreStale(syncedAtMillis: Long, nowMillis: Long, ttlMillis: Long): Boolean =
     syncedAtMillis <= 0L || nowMillis - syncedAtMillis >= ttlMillis
 
+/**
+ * Audit #10: given which sync sections reached the server, decide the outcome.
+ * [SyncStage.DONE] only when every section reached (so `lastSyncMillis` may be
+ * bumped); [SyncStage.PARTIAL] when some but not all did (keep old rows, don't
+ * bump, retry later); null when none did (an outage → Resource.Error).
+ */
+internal fun syncOutcome(
+    channelsReached: Boolean,
+    moviesReached: Boolean,
+    seriesReached: Boolean,
+): SyncStage? = when {
+    channelsReached && moviesReached && seriesReached -> SyncStage.DONE
+    channelsReached || moviesReached || seriesReached -> SyncStage.PARTIAL
+    else -> null
+}
+
 @Singleton
 class ContentRepositoryImpl @Inject constructor(
     private val api: XtreamApiService,
@@ -87,7 +103,12 @@ class ContentRepositoryImpl @Inject constructor(
             // A fetch that fails (timeout, 5xx, provider rate-limit) yields null
             // here and we KEEP whatever is already cached — a transient blip
             // during the on-open auto-sync must never leave the catalog empty.
-            var anyStreamFetched = false
+            // A section "reached" the server when its streams call returned a
+            // list (even an empty one — a valid "nothing here"); a null means
+            // the call failed and that section is still pending (audit #10).
+            var channelsReached = false
+            var moviesReached = false
+            var seriesReached = false
 
             // --- Live channels ---
             emit(Resource.Success(SyncStage.CHANNELS))
@@ -107,12 +128,12 @@ class ContentRepositoryImpl @Inject constructor(
                 ?: categoryDao.getAll(connectionId, ContentType.LIVE.name).associate { it.id to it.name }
             val liveStreams = runCatching { api.getLiveStreams(urlBuilder.liveStreams()) }.getOrNull()
                 ?.filterNot { it.categoryId in radioCategoryIds || MetadataSanitizer.isRadioCategory(liveCategoryNameById[it.categoryId]) }
+            channelsReached = liveStreams != null
             if (!liveStreams.isNullOrEmpty()) {
                 channelDao.replace(
                     connectionId,
                     liveStreams.map { it.toEntity(connectionId, liveCategoryNameById[it.categoryId] ?: "Geral") },
                 )
-                anyStreamFetched = true
             }
 
             // --- Movies ---
@@ -124,6 +145,7 @@ class ContentRepositoryImpl @Inject constructor(
             val vodCategoryNameById = vodCategories?.associate { it.categoryId to it.categoryName }
                 ?: categoryDao.getAll(connectionId, ContentType.MOVIE.name).associate { it.id to it.name }
             val vodStreams = runCatching { api.getVodStreams(urlBuilder.vodStreams()) }.getOrNull()
+            moviesReached = vodStreams != null
             if (!vodStreams.isNullOrEmpty()) {
                 // Carry forward genre/plot/backdrop/rating that get_vod_info or
                 // TMDB filled in earlier — the provider's plain listing omits
@@ -136,7 +158,6 @@ class ContentRepositoryImpl @Inject constructor(
                             .mergedWith(existingById[it.streamId.toString()])
                     },
                 )
-                anyStreamFetched = true
             }
 
             // --- Series ---
@@ -148,6 +169,7 @@ class ContentRepositoryImpl @Inject constructor(
             val seriesCategoryNameById = seriesCategories?.associate { it.categoryId to it.categoryName }
                 ?: categoryDao.getAll(connectionId, ContentType.SERIES.name).associate { it.id to it.name }
             val seriesList = runCatching { api.getSeries(urlBuilder.series()) }.getOrNull()
+            seriesReached = seriesList != null
             if (!seriesList.isNullOrEmpty()) {
                 // Same as movies: keep enrichment (backdrop/rating/plot/year)
                 // and the episode-fetch timestamp instead of nulling them on
@@ -160,20 +182,30 @@ class ContentRepositoryImpl @Inject constructor(
                             .mergedWith(existingById[it.seriesId.toString()])
                     },
                 )
-                anyStreamFetched = true
             }
             // Episodes are fetched lazily per-series (get_series_info) when the user opens details,
             // to avoid one request per series during a full sync.
 
-            if (anyStreamFetched) {
-                connectionDao.updateLastSync(connectionId, System.currentTimeMillis())
-                connectionDao.updateStatus(connectionId, "ONLINE")
-                emit(Resource.Success(SyncStage.DONE))
-            } else {
-                // Nothing came back from any endpoint — treat it as an outage
-                // rather than a successful "sync" that happened to change nothing.
-                connectionDao.updateStatus(connectionId, "OFFLINE")
-                emit(Resource.Error("Não foi possível atualizar o catálogo agora."))
+            when (syncOutcome(channelsReached, moviesReached, seriesReached)) {
+                // Every section reached the server — a genuine full sync.
+                SyncStage.DONE -> {
+                    connectionDao.updateLastSync(connectionId, System.currentTimeMillis())
+                    connectionDao.updateStatus(connectionId, "ONLINE")
+                    emit(Resource.Success(SyncStage.DONE))
+                }
+                // Some sections synced, others failed. Old rows for the failed
+                // sections are still in place; the connection is reachable
+                // (auth passed), but lastSyncMillis is deliberately NOT bumped
+                // so the next scheduled auto-sync retries the whole run (#10).
+                SyncStage.PARTIAL -> {
+                    connectionDao.updateStatus(connectionId, "ONLINE")
+                    emit(Resource.Success(SyncStage.PARTIAL))
+                }
+                // Nothing came back from any endpoint — an outage.
+                else -> {
+                    connectionDao.updateStatus(connectionId, "OFFLINE")
+                    emit(Resource.Error("Não foi possível atualizar o catálogo agora."))
+                }
             }
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e

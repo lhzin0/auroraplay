@@ -52,7 +52,9 @@ class AddConnectionViewModel @Inject constructor(
                         SyncStage.CHANNELS -> AddConnectionStep.SYNC_CHANNELS
                         SyncStage.MOVIES -> AddConnectionStep.SYNC_MOVIES
                         SyncStage.SERIES -> AddConnectionStep.SYNC_SERIES
-                        SyncStage.DONE -> AddConnectionStep.DONE
+                        // A partial first sync still leaves a usable catalog;
+                        // let the user in — the auto-sync will fill the rest.
+                        SyncStage.DONE, SyncStage.PARTIAL -> AddConnectionStep.DONE
                     }
                     _uiState.value = AddConnectionUiState(step = step)
                 }

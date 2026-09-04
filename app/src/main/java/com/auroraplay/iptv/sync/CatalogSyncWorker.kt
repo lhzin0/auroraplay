@@ -26,14 +26,16 @@ class CatalogSyncWorker @AssistedInject constructor(
     override suspend fun doWork(): Result {
         val connectionId = inputData.getString(CatalogSyncScheduler.CONNECTION_ID) ?: return Result.failure()
         var completed = false
+        var partial = false
         var error: String? = null
         try {
             setForeground(getForegroundInfo())
             contentRepository.syncConnection(connectionId).collect { result ->
                 when (result) {
-                    is Resource.Success -> {
-                        if (result.data == SyncStage.DONE) completed = true
-                        else {
+                    is Resource.Success -> when (result.data) {
+                        SyncStage.DONE -> completed = true
+                        SyncStage.PARTIAL -> partial = true
+                        else -> {
                             setProgress(workDataOf(CatalogSyncScheduler.STAGE to result.data.name))
                             setForeground(notifications.foreground(result.data))
                         }
@@ -47,9 +49,22 @@ class CatalogSyncWorker @AssistedInject constructor(
         } catch (_: Exception) {
             error = "Não foi possível sincronizar. Tente atualizar novamente."
         }
-        val success = completed && error == null
-        val message = if (success) "Catálogo atualizado." else error ?: "Não foi possível atualizar o catálogo."
-        notifications.finished(connectionId, success, message)
-        return if (success) Result.success() else Result.failure(workDataOf(CatalogSyncScheduler.ERROR to message))
+        return when {
+            completed && error == null -> {
+                notifications.finished(connectionId, true, "Catálogo atualizado.")
+                Result.success()
+            }
+            // Some sections synced, others didn't — retry the whole run later
+            // rather than declaring success (audit #10). Old rows are intact.
+            partial && error == null -> {
+                notifications.finished(connectionId, false, "Sincronização parcial — tentaremos novamente.")
+                Result.retry()
+            }
+            else -> {
+                val message = error ?: "Não foi possível atualizar o catálogo."
+                notifications.finished(connectionId, false, message)
+                Result.failure(workDataOf(CatalogSyncScheduler.ERROR to message))
+            }
+        }
     }
 }

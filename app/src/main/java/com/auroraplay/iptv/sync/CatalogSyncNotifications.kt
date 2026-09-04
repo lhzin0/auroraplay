@@ -26,7 +26,7 @@ internal class CatalogSyncNotifications(private val context: Context, private va
             SyncStage.CONNECTING, SyncStage.CHANNELS -> 0
             SyncStage.MOVIES -> 1
             SyncStage.SERIES -> 2
-            SyncStage.DONE -> 3
+            SyncStage.DONE, SyncStage.PARTIAL -> 3
         }
         val notification = builder()
             .setContentTitle("Sincronizando catálogo")

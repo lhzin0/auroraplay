@@ -91,4 +91,5 @@ fun SyncStage?.syncLabel(): String = when (this) {
     SyncStage.MOVIES -> "Etapa 2 de 3: filmes…"
     SyncStage.SERIES -> "Etapa 3 de 3: séries…"
     SyncStage.DONE -> "Sincronização concluída."
+    SyncStage.PARTIAL -> "Sincronização parcial — tentaremos as seções restantes em breve."
 }

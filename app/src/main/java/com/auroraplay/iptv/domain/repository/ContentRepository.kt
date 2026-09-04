@@ -61,7 +61,16 @@ interface ContentRepository {
     suspend fun getEpgTimeline(connectionId: String, channelId: String, limit: Int = 6): List<com.auroraplay.iptv.domain.model.EpgProgram>
 }
 
-enum class SyncStage { CONNECTING, CHANNELS, MOVIES, SERIES, DONE }
+enum class SyncStage {
+    CONNECTING, CHANNELS, MOVIES, SERIES,
+    /** Every section reached the server and its rows were written (or were
+     * validly empty). Only now is `lastSyncMillis` bumped. */
+    DONE,
+    /** At least one section synced but another failed (network). Old rows for
+     * the failed sections are kept and `lastSyncMillis` is NOT bumped, so the
+     * next scheduled sync retries the whole run (audit #10). */
+    PARTIAL,
+}
 
 data class SearchResults(
     val channels: List<Channel>,

@@ -152,7 +152,11 @@ fun ConnectionsScreen(
                             viewModel.syncNow(
                                 connection.id,
                                 onStage = { stage ->
-                                    if (stage == SyncStage.DONE) scope.launch { snackbarHostState.showSnackbar("Sincronização concluída.") }
+                                    when (stage) {
+                                        SyncStage.DONE -> scope.launch { snackbarHostState.showSnackbar("Sincronização concluída.") }
+                                        SyncStage.PARTIAL -> scope.launch { snackbarHostState.showSnackbar("Sincronização parcial — algumas seções não atualizaram. Tentaremos de novo em breve.") }
+                                        else -> Unit
+                                    }
                                 },
                                 onError = { msg -> scope.launch { snackbarHostState.showSnackbar(msg) } },
                             )
