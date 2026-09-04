@@ -28,7 +28,14 @@ import com.auroraplay.iptv.domain.model.XtreamConnection
 import com.auroraplay.iptv.domain.repository.SyncStage
 import com.auroraplay.iptv.sync.syncLabel
 import com.auroraplay.iptv.presentation.components.EmptyState
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import com.auroraplay.iptv.data.backup.readBytesBounded
+
+/** A connections backup is a handful of small JSON records; anything much
+ * larger than this is not one, so it's rejected before being read into memory. */
+private const val MAX_CONNECTION_IMPORT_BYTES = 512 * 1024
 
 @Composable
 fun ConnectionsScreen(
@@ -48,32 +55,43 @@ fun ConnectionsScreen(
         val json = pendingExportJson
         pendingExportJson = null
         if (uri == null || json == null) return@rememberLauncherForActivityResult
-        val wrote = runCatching {
-            context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
-        }.isSuccess
+        // File I/O off the UI thread (audit #19).
         scope.launch {
+            val wrote = withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
+                }.isSuccess
+            }
             snackbarHostState.showSnackbar(if (wrote) "Backup exportado." else "Não foi possível salvar o arquivo.")
         }
     }
 
     val openDocumentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
-        val json = runCatching {
-            context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
-        }.getOrNull()
-        if (json == null) {
-            scope.launch { snackbarHostState.showSnackbar("Não foi possível ler o arquivo.") }
-            return@rememberLauncherForActivityResult
-        }
-        viewModel.importConnections(json) { result ->
-            scope.launch {
-                snackbarHostState.showSnackbar(
-                    when {
-                        result.imported > 0 && result.failed == 0 -> "Importada(s) ${result.imported} conexão(ões)."
-                        result.imported > 0 && result.failed > 0 -> "Importada(s) ${result.imported}; ${result.failed} falharam (credenciais recusadas pelo servidor)."
-                        else -> "Nenhuma conexão pôde ser importada — verifique o arquivo."
+        // Read the whole file on IO with a hard size cap, never on the UI
+        // callback thread (audit #19).
+        scope.launch {
+            val json = withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.openInputStream(uri)?.use {
+                        it.readBytesBounded(MAX_CONNECTION_IMPORT_BYTES).toString(Charsets.UTF_8)
                     }
-                )
+                }.getOrNull()
+            }
+            if (json == null) {
+                snackbarHostState.showSnackbar("Não foi possível ler o arquivo (ou ele é grande demais).")
+                return@launch
+            }
+            viewModel.importConnections(json) { result ->
+                scope.launch {
+                    snackbarHostState.showSnackbar(
+                        when {
+                            result.imported > 0 && result.failed == 0 -> "Importada(s) ${result.imported} conexão(ões)."
+                            result.imported > 0 && result.failed > 0 -> "Importada(s) ${result.imported}; ${result.failed} falharam (credenciais recusadas pelo servidor)."
+                            else -> "Nenhuma conexão pôde ser importada — verifique o arquivo."
+                        }
+                    )
+                }
             }
         }
     }

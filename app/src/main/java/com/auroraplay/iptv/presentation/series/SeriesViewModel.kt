@@ -10,6 +10,7 @@ import com.auroraplay.iptv.domain.repository.WatchProgressRepository
 import com.auroraplay.iptv.domain.usecase.SmartCategoryBuilder
 import com.auroraplay.iptv.domain.usecase.SyncContentUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.*
@@ -110,7 +111,11 @@ class SeriesViewModel @Inject constructor(
                     series = searched,
                     searchSuggestions = suggestions,
                 )
-            }.collect { _uiState.value = it }
+            }
+                // Dedup / filter / sort over the whole series catalog is CPU
+                // work — off the Main collector (audit #19).
+                .flowOn(Dispatchers.Default)
+                .collect { _uiState.value = it }
     }
 
     fun selectGenre(genre: String?) { selectedGenre.value = genre }

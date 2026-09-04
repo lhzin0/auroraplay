@@ -13,8 +13,10 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 data class ConnectionsUiState(
@@ -104,7 +106,9 @@ class ConnectionsViewModel @Inject constructor(
      */
     fun importConnections(json: String, onResult: (ImportResult) -> Unit) {
         viewModelScope.launch {
-            val backup = runCatching { Gson().fromJson(json, ConnectionBackupFile::class.java) }.getOrNull()
+            val backup = withContext(Dispatchers.Default) {
+                runCatching { Gson().fromJson(json, ConnectionBackupFile::class.java) }.getOrNull()
+            }
             val entries = backup?.connections.orEmpty()
             if (entries.isEmpty()) {
                 onResult(ImportResult(imported = 0, failed = 0))

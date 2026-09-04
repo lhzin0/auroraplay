@@ -12,6 +12,7 @@ import com.auroraplay.iptv.domain.usecase.SmartCategoryBuilder
 import com.auroraplay.iptv.domain.usecase.SyncContentUseCase
 import com.auroraplay.iptv.domain.usecase.ToggleFavoriteUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.*
@@ -130,7 +131,12 @@ class MoviesViewModel @Inject constructor(
                     favoriteIds = favorites.map { it.contentId }.toSet(),
                     searchSuggestions = suggestions,
                 )
-            }.collect { _uiState.value = it }
+            }
+                // The dedup / genre-filter / sort above is CPU work over the
+                // whole VOD catalog — keep it off the collector's Main
+                // dispatcher (audit #19).
+                .flowOn(Dispatchers.Default)
+                .collect { _uiState.value = it }
     }
 
     fun selectGenre(genre: String?) { selectedGenre.value = genre }
