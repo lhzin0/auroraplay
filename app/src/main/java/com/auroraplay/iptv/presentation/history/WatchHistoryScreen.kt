@@ -1,6 +1,7 @@
 package com.auroraplay.iptv.presentation.history
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -38,7 +39,7 @@ fun WatchHistoryScreen(
     onOpenSeries: (String) -> Unit,
     viewModel: WatchHistoryViewModel = hiltViewModel(),
 ) {
-    val state by viewModel.uiState.collectAsState()
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
     var confirmClear by remember { mutableStateOf(false) }
     var confirmDeleteSeries by remember { mutableStateOf<HistoryEntry?>(null) }
     val expanded = remember { mutableStateMapOf<String, Boolean>() }

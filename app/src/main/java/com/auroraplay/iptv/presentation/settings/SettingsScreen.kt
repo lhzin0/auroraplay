@@ -1,5 +1,6 @@
 package com.auroraplay.iptv.presentation.settings
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -47,9 +48,9 @@ fun SettingsScreen(
     onOpenHistory: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
-    val settings by viewModel.settings.collectAsState()
-    val activeProfile by viewModel.activeProfile.collectAsState()
-    val profiles by viewModel.profiles.collectAsState()
+    val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val activeProfile by viewModel.activeProfile.collectAsStateWithLifecycle()
+    val profiles by viewModel.profiles.collectAsStateWithLifecycle()
     // "quality" | "audio" | "subtitle" | null — which option submenu is open.
     var openPicker by remember { mutableStateOf<String?>(null) }
     var showProfileSwitcher by remember { mutableStateOf(false) }

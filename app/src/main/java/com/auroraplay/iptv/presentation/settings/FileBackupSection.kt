@@ -21,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -53,9 +54,9 @@ internal class OpenBackupDocument : ActivityResultContracts.OpenDocument() {
 
 @Composable
 fun FileBackupSection(viewModel: FileBackupViewModel = hiltViewModel()) {
-    val busy by viewModel.busy.collectAsState()
-    val message by viewModel.message.collectAsState()
-    val lockedBackup by viewModel.lockedBackup.collectAsState()
+    val busy by viewModel.busy.collectAsStateWithLifecycle()
+    val message by viewModel.message.collectAsStateWithLifecycle()
+    val lockedBackup by viewModel.lockedBackup.collectAsStateWithLifecycle()
     var pendingRestore by rememberSaveable { mutableStateOf<String?>(null) }
     var exportDialog by remember { mutableStateOf(false) }
     val saveDocument = rememberLauncherForActivityResult(CreateBackupDocument()) { uri ->

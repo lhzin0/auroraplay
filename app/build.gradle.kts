@@ -114,6 +114,8 @@ dependencies {
     implementation("androidx.biometric:biometric:1.1.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.9.4")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.4")
+    // collectAsStateWithLifecycle — pause UI-state collection while backgrounded (audit #22)
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.4")
     implementation("androidx.activity:activity-compose:1.11.0")
 
     val composeBom = platform("androidx.compose:compose-bom:2025.09.00")

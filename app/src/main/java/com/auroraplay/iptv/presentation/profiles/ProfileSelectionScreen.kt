@@ -1,5 +1,6 @@
 package com.auroraplay.iptv.presentation.profiles
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -57,7 +58,7 @@ fun ProfileSelectionScreen(
     onOpenBackup: () -> Unit = {},
     viewModel: ProfileViewModel = hiltViewModel(),
 ) {
-    val state by viewModel.uiState.collectAsState()
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
     var manageMode by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<Profile?>(null) }
     // Editing or deleting a PIN-locked / kids profile is gated by an auth

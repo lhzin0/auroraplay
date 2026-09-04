@@ -1,5 +1,6 @@
 package com.auroraplay.iptv.presentation.notifications
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -33,7 +34,7 @@ fun NotificationsScreen(
     onBack: () -> Unit,
     viewModel: NotificationsViewModel = hiltViewModel(),
 ) {
-    val notifications by viewModel.notifications.collectAsState()
+    val notifications by viewModel.notifications.collectAsStateWithLifecycle()
 
     // Opening this screen is itself the "I've seen these" action — same
     // convention as a notification tray clearing its unread state on open.

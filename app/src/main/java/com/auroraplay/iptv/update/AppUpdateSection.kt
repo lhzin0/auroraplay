@@ -1,6 +1,7 @@
 package com.auroraplay.iptv.update
 
 import android.content.Context
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -62,10 +63,10 @@ internal class AppUpdateViewModel @Inject constructor(
 
 @Composable
 internal fun AppUpdateSection(viewModel: AppUpdateViewModel = hiltViewModel()) {
-    val state by viewModel.updates.collectAsState()
-    val work by viewModel.work.collectAsState()
-    val busy by viewModel.busy.collectAsState()
-    val message by viewModel.message.collectAsState()
+    val state by viewModel.updates.collectAsStateWithLifecycle()
+    val work by viewModel.work.collectAsStateWithLifecycle()
+    val busy by viewModel.busy.collectAsStateWithLifecycle()
+    val message by viewModel.message.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var installing by remember { mutableStateOf(false) }

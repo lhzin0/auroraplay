@@ -1,5 +1,6 @@
 package com.auroraplay.iptv.presentation.home
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -47,7 +48,7 @@ fun HomeScreen(
     onOpenNotifications: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
-    val state by viewModel.uiState.collectAsState()
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
@@ -237,7 +238,7 @@ fun HomeScreen(
             // notifications sit here, top-right, the same spot every major
             // streaming app puts them.
             val hasUnreadNotifications by hiltViewModel<com.auroraplay.iptv.presentation.notifications.NotificationsViewModel>()
-                .notifications.collectAsState()
+                .notifications.collectAsStateWithLifecycle()
             IconButton(onClick = onOpenDownloads) {
                 Icon(Icons.Default.Download, contentDescription = "Downloads", tint = AuroraColors.TextPrimary)
             }

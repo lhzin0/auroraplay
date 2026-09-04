@@ -1,5 +1,6 @@
 package com.auroraplay.iptv.presentation.movies
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -48,7 +49,7 @@ fun MovieDetailsScreen(
     onOpenMovie: (String) -> Unit,
     viewModel: MovieDetailsViewModel = hiltViewModel(),
 ) {
-    val state by viewModel.uiState.collectAsState()
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     Box(Modifier.fillMaxSize().background(AuroraColors.BackgroundBase)) {
         when {

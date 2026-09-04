@@ -1,5 +1,6 @@
 package com.auroraplay.iptv.presentation.live
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -42,7 +43,7 @@ fun LiveTvScreen(
     onOpenGuide: () -> Unit = {},
     viewModel: LiveTvViewModel = hiltViewModel(),
 ) {
-    val state by viewModel.uiState.collectAsState()
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
     val playerManager = com.auroraplay.iptv.presentation.player.hiltPlayerManager()
 
     // The Live tab owns the embedded preview. Leaving the tab must silence it

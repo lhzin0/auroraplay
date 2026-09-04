@@ -1,5 +1,6 @@
 package com.auroraplay.iptv.presentation.series
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -35,7 +36,7 @@ fun SeriesScreen(
     onOpenSeries: (String) -> Unit,
     viewModel: SeriesViewModel = hiltViewModel(),
 ) {
-    val state by viewModel.uiState.collectAsState()
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
     var searchOpen by remember { mutableStateOf(false) }
     var isRefreshing by remember { mutableStateOf(false) }
 

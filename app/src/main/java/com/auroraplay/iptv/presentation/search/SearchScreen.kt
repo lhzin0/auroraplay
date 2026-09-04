@@ -1,5 +1,6 @@
 package com.auroraplay.iptv.presentation.search
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -38,7 +39,7 @@ fun SearchScreen(
     onOpenChannel: (String) -> Unit,
     viewModel: SearchViewModel = hiltViewModel(),
 ) {
-    val state by viewModel.uiState.collectAsState()
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     fun open(item: MediaItem) = when (item) {
         is MediaItem.MovieItem -> onOpenMovie(item.id)
