@@ -1,0 +1,63 @@
+name: Android CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "gradle/**"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - "gradle.properties"
+      - ".github/workflows/android-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "gradle/**"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - "gradle.properties"
+      - ".github/workflows/android-ci.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: android-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Compilar e rodar testes de unidade
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Cache do Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # Nenhum segredo de assinatura entra aqui — isso só verifica que o
+      # código compila e os testes de unidade passam. O build assinado de
+      # release continua manual (scripts/build-release.ps1), como sempre foi.
+      - name: Compilar (debug + androidTest)
+        run: ./gradlew :app:compileDebugKotlin :app:compileDebugAndroidTestKotlin --no-daemon
+
+      - name: Rodar testes de unidade
+        run: ./gradlew :app:testDebugUnitTest --no-daemon
+
+      - name: Publicar relatório de testes em caso de falha
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-report
+          path: app/build/reports/tests/testDebugUnitTest/
+          retention-days: 7
