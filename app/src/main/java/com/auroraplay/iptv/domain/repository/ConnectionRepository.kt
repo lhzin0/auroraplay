@@ -9,6 +9,14 @@ interface ConnectionRepository {
     suspend fun getConnection(id: String): XtreamConnection?
     suspend fun getDefaultConnection(): XtreamConnection?
 
+    /**
+     * The active connection as a stream: the one flagged default, else the
+     * first. Re-emits when the user switches the default (audit #11), so
+     * screens that observe it re-drive their content against the new playlist
+     * instead of holding the one captured at ViewModel init.
+     */
+    fun observeDefaultConnection(): Flow<XtreamConnection?>
+
     /** Validates credentials against the server, persists connection + encrypted password. */
     fun addConnection(
         name: String,

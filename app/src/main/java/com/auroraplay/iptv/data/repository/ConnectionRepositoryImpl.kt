@@ -11,6 +11,7 @@ import com.auroraplay.iptv.domain.model.ConnectionStatus
 import com.auroraplay.iptv.domain.model.XtreamConnection
 import com.auroraplay.iptv.domain.repository.ConnectionRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
@@ -27,6 +28,11 @@ class ConnectionRepositoryImpl @Inject constructor(
 
     override fun observeConnections(): Flow<List<XtreamConnection>> =
         dao.observeAll().map { list -> list.map { it.toDomain() } }
+
+    override fun observeDefaultConnection(): Flow<XtreamConnection?> =
+        observeConnections()
+            .map { list -> list.firstOrNull { it.isDefault } ?: list.firstOrNull() }
+            .distinctUntilChanged()
 
     override suspend fun getConnection(id: String): XtreamConnection? =
         dao.getById(id)?.let { it.toDomain() }

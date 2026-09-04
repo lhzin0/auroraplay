@@ -55,15 +55,31 @@ class MoviesViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val connection = connectionRepository.getDefaultConnection()
-            val profile = profileRepository.observeActiveProfile().first()
-            activeProfileId = profile?.id
-            activeConnectionId = connection?.id
-            if (connection == null) {
-                _uiState.value = MoviesUiState(isLoading = false)
-                return@launch
-            }
+            // React to a profile / default-connection switch (audit #11):
+            // collectLatest tears down the previous playlist's flows.
+            combine(
+                profileRepository.observeActiveProfile(),
+                connectionRepository.observeDefaultConnection(),
+            ) { profile, connection -> profile to connection }
+                .distinctUntilChanged()
+                .collectLatest { (profile, connection) ->
+                    activeProfileId = profile?.id
+                    activeConnectionId = connection?.id
+                    if (connection == null) {
+                        _uiState.value = MoviesUiState(isLoading = false)
+                        return@collectLatest
+                    }
+                    selectedGenre.value = null
+                    _uiState.value = MoviesUiState(isLoading = true)
+                    runMoviesPipeline(connection, profile)
+                }
+        }
+    }
 
+    private suspend fun runMoviesPipeline(
+        connection: com.auroraplay.iptv.domain.model.XtreamConnection,
+        profile: com.auroraplay.iptv.domain.model.Profile?,
+    ) {
             // Genres this profile has actually watched drive the suggestions.
             val watched = profile?.let { watchProgressRepository.observeContinueWatching(connection.id, it.id).first() }.orEmpty()
             val watchedIds = watched.map { it.contentId.substringBefore(":") }.toSet()
@@ -115,7 +131,6 @@ class MoviesViewModel @Inject constructor(
                     searchSuggestions = suggestions,
                 )
             }.collect { _uiState.value = it }
-        }
     }
 
     fun selectGenre(genre: String?) { selectedGenre.value = genre }

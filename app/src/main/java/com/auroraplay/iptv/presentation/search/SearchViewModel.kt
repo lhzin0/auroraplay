@@ -62,13 +62,44 @@ class SearchViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val connection = connectionRepository.getDefaultConnection()
-            if (connection == null) {
-                _uiState.value = SearchUiState(isLoading = false)
-                return@launch
-            }
+            // Rebuild the whole search pipeline when the active profile OR the
+            // default connection changes (audit #11); collectLatest cancels the
+            // previous playlist's flows and the stale results with them.
+            combine(
+                profileRepository.observeActiveProfile(),
+                connectionRepository.observeDefaultConnection(),
+            ) { profile, connection -> profile to connection }
+                .distinctUntilChanged()
+                .collectLatest { (profile, connection) ->
+                    if (connection == null) {
+                        _uiState.value = SearchUiState(query = query.value, filter = filter.value, isLoading = false)
+                        return@collectLatest
+                    }
+                    _uiState.update { it.copy(isLoading = true, results = emptyList(), suggestions = emptyList()) }
+                    runSearchPipeline(connection, profile)
+                }
+        }
 
-            val profile = profileRepository.observeActiveProfile().first()
+        // Persist a search only after the user pauses. distinctUntilChanged()
+        // prevents duplicate writes for the same paused query.
+        viewModelScope.launch {
+            query
+                .debounce(900)
+                .map(String::trim)
+                .distinctUntilChanged()
+                .collectLatest { q ->
+                    val profileId = activeProfileId ?: return@collectLatest
+                    if (q.isNotBlank()) {
+                        settingsRepository.addRecentSearch(profileId, q)
+                    }
+                }
+        }
+    }
+
+    private suspend fun runSearchPipeline(
+        connection: com.auroraplay.iptv.domain.model.XtreamConnection,
+        profile: com.auroraplay.iptv.domain.model.Profile?,
+    ) {
             activeProfileId = profile?.id
             val isKids = profile?.isKids == true
 
@@ -253,22 +284,6 @@ class SearchViewModel @Inject constructor(
                         )
                     }
                 }
-        }
-
-        // Persist a search only after the user pauses. distinctUntilChanged()
-        // prevents duplicate writes for the same paused query.
-        viewModelScope.launch {
-            query
-                .debounce(900)
-                .map(String::trim)
-                .distinctUntilChanged()
-                .collectLatest { q ->
-                    val profileId = activeProfileId ?: return@collectLatest
-                    if (q.isNotBlank()) {
-                        settingsRepository.addRecentSearch(profileId, q)
-                    }
-                }
-        }
     }
 
     private fun genreOf(item: MediaItem): String? = when (item) {

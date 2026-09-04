@@ -48,14 +48,29 @@ class SeriesViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val connection = connectionRepository.getDefaultConnection()
-            activeConnectionId = connection?.id
-            if (connection == null) {
-                _uiState.value = SeriesListUiState(isLoading = false)
-                return@launch
-            }
-            val profile = profileRepository.observeActiveProfile().first()
+            // React to a profile / default-connection switch (audit #11).
+            combine(
+                profileRepository.observeActiveProfile(),
+                connectionRepository.observeDefaultConnection(),
+            ) { profile, connection -> profile to connection }
+                .distinctUntilChanged()
+                .collectLatest { (profile, connection) ->
+                    activeConnectionId = connection?.id
+                    if (connection == null) {
+                        _uiState.value = SeriesListUiState(isLoading = false)
+                        return@collectLatest
+                    }
+                    selectedGenre.value = null
+                    _uiState.value = SeriesListUiState(isLoading = true)
+                    runSeriesPipeline(connection, profile)
+                }
+        }
+    }
 
+    private suspend fun runSeriesPipeline(
+        connection: com.auroraplay.iptv.domain.model.XtreamConnection,
+        profile: com.auroraplay.iptv.domain.model.Profile?,
+    ) {
             // Genres this profile has actually watched drive the suggestions —
             // same signal Movies uses, so both screens recommend consistently.
             val watched = profile?.let { watchProgressRepository.observeContinueWatching(connection.id, it.id).first() }.orEmpty()
@@ -96,7 +111,6 @@ class SeriesViewModel @Inject constructor(
                     searchSuggestions = suggestions,
                 )
             }.collect { _uiState.value = it }
-        }
     }
 
     fun selectGenre(genre: String?) { selectedGenre.value = genre }

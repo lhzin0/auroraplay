@@ -62,40 +62,53 @@ class LiveTvViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val connection = connectionRepository.getDefaultConnection()
-            val profile = profileRepository.observeActiveProfile().first()
-            activeProfileId = profile?.id
-            activeConnectionId = connection?.id
-            if (connection == null) {
-                _uiState.value = LiveTvUiState(isLoading = false)
-                return@launch
-            }
+            // Re-drive everything when the active profile OR the default
+            // connection changes (audit #11) — collectLatest cancels the
+            // previous connection's flows.
+            combine(
+                profileRepository.observeActiveProfile(),
+                connectionRepository.observeDefaultConnection(),
+            ) { profile, connection -> profile to connection }
+                .distinctUntilChanged()
+                .collectLatest { (profile, connection) ->
+                    activeProfileId = profile?.id
+                    activeConnectionId = connection?.id
+                    if (connection == null) {
+                        _uiState.value = LiveTvUiState(isLoading = false)
+                        return@collectLatest
+                    }
+                    // A category id belongs to one playlist — drop it and any
+                    // channel selection so nothing from the old connection lingers.
+                    selectedCategoryId.value = null
+                    epgFetchedAtMillis.clear()
+                    _uiState.value = LiveTvUiState(isLoading = true)
 
-            val categoriesFlow = contentRepository.observeCategories(connection.id, ContentType.LIVE)
-                .map { list ->
-                    if (profile?.isKids == true) list.filter { contentPolicy.allowsFields(true, it.name) } else list
+                    val categoriesFlow = contentRepository.observeCategories(connection.id, ContentType.LIVE)
+                        .map { list ->
+                            if (profile?.isKids == true) list.filter { contentPolicy.allowsFields(true, it.name) } else list
+                        }
+                    val channelsFlow = selectedCategoryId.flatMapLatest { contentRepository.observeChannels(connection.id, it) }
+                        .map { list -> contentPolicy.channels(profile?.isKids == true, list) }
+                    val favoritesFlow = profile?.let { favoriteRepository.observeFavorites(connection.id, it.id, ContentType.LIVE) }
+                        ?: flowOf(emptyList())
+
+                    combine(categoriesFlow, channelsFlow, favoritesFlow, selectedCategoryId) { categories, channels, favorites, selectedId ->
+                        val current = _uiState.value
+                        _uiState.value = current.copy(
+                            isLoading = false,
+                            categories = categories,
+                            channels = channels,
+                            selectedCategoryId = selectedId,
+                            favoriteIds = favorites.map { it.contentId }.toSet(),
+                            // Keep the current selection if it's still in the list; otherwise fall back.
+                            // Deliberately no auto-select: opening the tab used to
+                            // start buffering the first channel in the list, which is
+                            // why the screen greeted the user with a black rectangle
+                            // and a spinner above the title.
+                            selectedChannel = channels.find { it.id == current.selectedChannel?.id },
+                        )
+                    }.collect {}
                 }
-            val channelsFlow = selectedCategoryId.flatMapLatest { contentRepository.observeChannels(connection.id, it) }
-                .map { list -> contentPolicy.channels(profile?.isKids == true, list) }
-            val favoritesFlow = profile?.let { favoriteRepository.observeFavorites(connection.id, it.id, ContentType.LIVE) }
-                ?: flowOf(emptyList())
-
-            combine(categoriesFlow, channelsFlow, favoritesFlow, selectedCategoryId) { categories, channels, favorites, selectedId ->
-                val current = _uiState.value
-                _uiState.value = current.copy(
-                    isLoading = false,
-                    categories = categories,
-                    channels = channels,
-                    selectedCategoryId = selectedId,
-                    favoriteIds = favorites.map { it.contentId }.toSet(),
-                    // Keep the current selection if it's still in the list; otherwise fall back.
-                    // Deliberately no auto-select: opening the tab used to
-                    // start buffering the first channel in the list, which is
-                    // why the screen greeted the user with a black rectangle
-                    // and a spinner above the title.
-                    selectedChannel = channels.find { it.id == current.selectedChannel?.id },
-                )
-            }.collect {}
         }
     }
 
