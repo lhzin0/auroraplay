@@ -613,6 +613,12 @@ class PlayerViewModel @Inject constructor(
         if (lang != null) viewModelScope.launch { settingsRepository.updatePreferredSubtitleLang(lang) }
     }
 
+    /** A user-picked local .srt — Xtream never offers one itself, only
+     * whatever's muxed into the stream. */
+    fun loadExternalSubtitle(uri: android.net.Uri) {
+        playerManager.loadExternalSubtitle(uri)
+    }
+
     // NOTE: the in-player "Dublado ⇄ Legendado" stream switch was removed —
     // provider metadata was too inconsistent to reliably pair the two copies
     // of a title on-device. The catalog now simply keeps the dubbed copy and

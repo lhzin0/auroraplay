@@ -1,9 +1,11 @@
 package com.auroraplay.iptv.player
 
 import android.content.Context
+import android.net.Uri
 import androidx.media3.cast.CastPlayer
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
@@ -144,6 +146,42 @@ class PlayerManager @Inject constructor(
     private var lastKnownPositionMillis: Long = 0L
     // Guards the one-shot ".m3u8 → .ts" retry for live streams (see onPlayerError).
     private var triedLiveTsFallback = false
+    /** A user-picked local .srt, layered onto the stream as an extra text
+     * track — Xtream never offers this itself, only whatever's muxed into
+     * the stream. Survives a live .m3u8→.ts fallback and a Cast handoff
+     * since every MediaItem rebuild goes through [buildMediaItem]. */
+    private var externalSubtitleUri: Uri? = null
+
+    private fun buildMediaItem(url: String): MediaItem {
+        val builder = MediaItem.Builder().setUri(url)
+        externalSubtitleUri?.let { uri ->
+            builder.setSubtitleConfigurations(
+                listOf(
+                    MediaItem.SubtitleConfiguration.Builder(uri)
+                        .setMimeType(MimeTypes.APPLICATION_SUBRIP)
+                        .setLanguage("pt")
+                        .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
+                        .build()
+                )
+            )
+        }
+        return builder.build()
+    }
+
+    /** Loads a user-picked local subtitle file as an extra text track on the
+     * stream currently playing, without losing position. Media3 only reads
+     * subtitleConfigurations at MediaItem creation, so this re-seeds the
+     * MediaItem and seeks back to where playback was. */
+    fun loadExternalSubtitle(uri: Uri) {
+        val url = lastKnownUrl ?: return
+        externalSubtitleUri = uri
+        val player = activePlayer()
+        val resumePosition = player.currentPosition
+        val wasPlaying = player.isPlaying
+        player.setMediaItem(buildMediaItem(url), resumePosition)
+        player.prepare()
+        player.playWhenReady = wasPlaying
+    }
     /** ±10s or ±5s, per the user's setting. */
     @Volatile
     var seekIncrementMs: Long = 10_000L
@@ -180,7 +218,7 @@ class PlayerManager @Inject constructor(
                 val tsUrl = url.removeSuffix(".m3u8") + ".ts"
                 AppLog.w("Player", "playback error on .m3u8 (code=${error.errorCode}); retrying as .ts", error)
                 val player = activePlayer()
-                player.setMediaItem(MediaItem.fromUri(tsUrl))
+                player.setMediaItem(buildMediaItem(tsUrl))
                 player.prepare()
                 player.playWhenReady = true
                 lastKnownUrl = tsUrl
@@ -237,6 +275,9 @@ class PlayerManager @Inject constructor(
         lastKnownPositionMillis = exoPlayer.currentPosition
         exoPlayer.pause()
         lastKnownUrl?.let { url ->
+            // Deliberately not buildMediaItem(): an externally loaded subtitle
+            // is a local content:// URI on this device — the Cast receiver
+            // runs on the TV and has no way to read it.
             val mediaItem = MediaItem.fromUri(url)
             castPlayer.setMediaItem(mediaItem, lastKnownPositionMillis)
             castPlayer.prepare()
@@ -251,7 +292,7 @@ class PlayerManager @Inject constructor(
         val resumePosition = castPlayer?.currentPosition?.takeIf { it > 0 } ?: lastKnownPositionMillis
         castPlayer?.stop()
         lastKnownUrl?.let { url ->
-            exoPlayer.setMediaItem(MediaItem.fromUri(url), resumePosition)
+            exoPlayer.setMediaItem(buildMediaItem(url), resumePosition)
             exoPlayer.prepare()
             exoPlayer.playWhenReady = true
         }
@@ -310,13 +351,16 @@ class PlayerManager @Inject constructor(
             lastRequestedUrl = url
             lastKnownUrl = url
             triedLiveTsFallback = false
+            // A loaded .srt is specific to whatever file it was picked for —
+            // carrying it over to a channel switch or the next episode would
+            // silently apply the wrong subtitle to unrelated content.
+            externalSubtitleUri = null
             _state.value = PlaybackUiState(
                 isBuffering = true,
                 isCasting = _state.value.isCasting,
                 castDeviceName = _state.value.castDeviceName,
             )
-            val mediaItem = MediaItem.fromUri(url)
-            player.setMediaItem(mediaItem, startPositionMillis.coerceAtLeast(0L))
+            player.setMediaItem(buildMediaItem(url), startPositionMillis.coerceAtLeast(0L))
             player.prepare()
             player.playWhenReady = true
         }.onFailure { error ->

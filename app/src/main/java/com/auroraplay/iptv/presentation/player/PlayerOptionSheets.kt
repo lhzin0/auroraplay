@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -30,6 +31,11 @@ fun AudioAndSubtitlesSheet(
     subtitlesEnabled: Boolean,
     onSelectSubtitle: (TrackOption) -> Unit,
     onDisableSubtitles: () -> Unit,
+    /** Opens the system file picker for a local .srt — Xtream never offers
+     * one itself, only whatever's muxed into the stream. Null hides the row
+     * entirely (e.g. while casting, where a local file can't reach the
+     * receiver). */
+    onLoadSubtitleFile: (() -> Unit)? = null,
     onDismiss: () -> Unit,
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = AuroraColors.BackgroundElevated) {
@@ -51,6 +57,21 @@ fun AudioAndSubtitlesSheet(
             }
             if (subtitleTracks.isEmpty()) {
                 item { SheetNote("Este conteúdo não possui legendas incorporadas.") }
+            }
+            if (onLoadSubtitleFile != null) {
+                item {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onLoadSubtitleFile() }
+                            .padding(horizontal = 20.dp, vertical = 14.dp),
+                    ) {
+                        Icon(Icons.Default.FileUpload, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(12.dp))
+                        Text("Carregar legenda (.srt)", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
             }
         }
     }

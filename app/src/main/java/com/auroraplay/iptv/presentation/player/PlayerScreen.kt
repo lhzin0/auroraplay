@@ -5,6 +5,8 @@ import android.content.pm.ActivityInfo
 import android.view.TextureView
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
@@ -183,6 +185,15 @@ fun PlayerScreen(
     // One combined Áudio + Legendas sheet (the subtitle one used to be
     // unreachable). Also carries the Dublado/Legendado stream switch.
     var showAudioSubsSheet by remember { mutableStateOf(false) }
+    // System file picker for a local .srt — Xtream never offers subtitles of
+    // its own, only whatever's muxed into the stream.
+    val subtitlePickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        // OpenDocument already grants a read permission that outlives this
+        // Activity instance's own lifecycle — plenty for "load it and watch
+        // now"; there is no "remember my last subtitle" feature to persist
+        // it further for.
+        if (uri != null) viewModel.loadExternalSubtitle(uri)
+    }
     var showSpeedSheet by remember { mutableStateOf(false) }
     // Three-dots panel with the secondary settings (speed, aspect).
     var showSettingsSheet by remember { mutableStateOf(false) }
@@ -509,8 +520,13 @@ fun PlayerScreen(
                     castDeviceName = playbackState.castDeviceName,
                     hasNextEpisode = loadState.nextEpisode != null,
                     hasEpisodeList = loadState.contentType == ContentType.SERIES && loadState.episodes.size > 1,
+                    // Always offered locally now, even with a single embedded
+                    // audio track and no embedded subtitles — it's also the
+                    // only way to reach "Carregar legenda (.srt)". Still
+                    // hidden while casting: nothing behind it applies there.
                     hasAudioMenu = playbackState.availableAudioTracks.size > 1 ||
-                        playbackState.availableSubtitleTracks.isNotEmpty(),
+                        playbackState.availableSubtitleTracks.isNotEmpty() ||
+                        !playbackState.isCasting,
                     currentProgramLabel = loadState.currentProgramLabel,
                     programProgress = loadState.programProgress,
                     seekSeconds = seekSeconds,
@@ -599,6 +615,11 @@ fun PlayerScreen(
                 subtitlesEnabled = playbackState.subtitlesEnabled,
                 onSelectSubtitle = { viewModel.selectSubtitleTrack(it) },
                 onDisableSubtitles = { viewModel.playerManager.disableSubtitles() },
+                // Not offered while casting: the file lives on this device and
+                // the Cast receiver has no way to read a local content:// URI.
+                onLoadSubtitleFile = if (playbackState.isCasting) null else {
+                    { subtitlePickerLauncher.launch(arrayOf("*/*")) }
+                },
                 onDismiss = { showAudioSubsSheet = false },
             )
         }
