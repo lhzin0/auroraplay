@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.auroraplay.iptv.core.util.Constants
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -15,7 +16,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class SecureCredentialStore @Inject constructor(
-    context: Context,
+    @ApplicationContext context: Context,
 ) {
     private val masterKey = MasterKey.Builder(context)
         .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)

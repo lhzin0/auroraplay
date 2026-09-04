@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -27,7 +28,7 @@ internal fun episodeIdsKeyName(connectionId: String, seriesId: String): String =
  */
 @Singleton
 class EpisodeCountStore @Inject constructor(
-    private val context: Context,
+    @param:ApplicationContext private val context: Context,
 ) {
     /** null = this series has never been checked on this connection before
      * (so the very first check never notifies); an empty set = checked, had

@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.google.gson.Gson
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -28,7 +29,7 @@ private val LIST_KEY = stringPreferencesKey("list")
  */
 @Singleton
 class NotificationStore @Inject constructor(
-    private val context: Context,
+    @param:ApplicationContext private val context: Context,
 ) {
     private val gson = Gson()
 
