@@ -3,6 +3,7 @@ package com.auroraplay.iptv
 import android.app.Application
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
+import com.auroraplay.iptv.core.util.CrashLogWriter
 import com.auroraplay.iptv.domain.repository.ConnectionRepository
 import com.auroraplay.iptv.domain.repository.ContentRepository
 import com.auroraplay.iptv.notifications.NewEpisodeScheduler
@@ -36,6 +37,7 @@ class AuroraApplication : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
+        CrashLogWriter.install(this)
         NewEpisodeScheduler.schedule(this)
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch { runCatching { appUpdateManager.start() } }
         // Retire work persisted by 1.29.0 when upgrading to manual file backups.

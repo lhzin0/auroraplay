@@ -48,6 +48,7 @@ fun SettingsScreen(
     onOpenHistory: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
+    val context = LocalContext.current
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val activeProfile by viewModel.activeProfile.collectAsStateWithLifecycle()
     val profiles by viewModel.profiles.collectAsStateWithLifecycle()
@@ -244,6 +245,25 @@ fun SettingsScreen(
                             onCheckedChange = { viewModel.setDownloadWifiOnly(it) },
                         )
                         SettingsRow(icon = Icons.Default.CleaningServices, title = "Limpar cache", subtitle = "Remove catálogos armazenados localmente", onClick = { viewModel.clearCache() })
+                        SettingsRow(
+                            icon = Icons.Default.BugReport,
+                            title = "Compartilhar log de erro",
+                            subtitle = "Envia o registro do último fechamento inesperado",
+                            onClick = {
+                                val log = com.auroraplay.iptv.core.util.CrashLogWriter.latest(context)
+                                if (log == null) {
+                                    android.widget.Toast.makeText(context, "Nenhum erro registrado ainda.", android.widget.Toast.LENGTH_SHORT).show()
+                                } else {
+                                    val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.updates", log)
+                                    val sendIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                                        addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }
+                                    context.startActivity(android.content.Intent.createChooser(sendIntent, null))
+                                }
+                            },
+                        )
                         SettingsRow(
                             icon = Icons.Default.RestartAlt,
                             title = "Restaurar configurações",
