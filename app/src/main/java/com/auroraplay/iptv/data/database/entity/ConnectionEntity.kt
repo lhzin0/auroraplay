@@ -13,4 +13,8 @@ data class ConnectionEntity(
     val status: String = "UNKNOWN",
     val lastSyncMillis: Long? = null,
     val profileId: String? = null,
+    /** Optional mirror server for the same account — tried automatically when
+     * [serverUrl] is unreachable (a network failure, not a credentials
+     * rejection: retrying the same bad login elsewhere won't help). */
+    val backupServerUrl: String? = null,
 )

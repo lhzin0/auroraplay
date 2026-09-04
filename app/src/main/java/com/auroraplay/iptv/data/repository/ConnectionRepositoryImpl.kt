@@ -60,6 +60,7 @@ class ConnectionRepositoryImpl @Inject constructor(
         username: String,
         password: String,
         profileId: String?,
+        backupServerUrl: String?,
     ): Flow<Resource<XtreamConnection>> = flow {
         emit(Resource.Loading)
         try {
@@ -82,6 +83,7 @@ class ConnectionRepositoryImpl @Inject constructor(
                 status = ConnectionStatus.ONLINE.name,
                 lastSyncMillis = null,
                 profileId = profileId,
+                backupServerUrl = backupServerUrl?.trim()?.ifBlank { null },
             )
             if (hasNoConnections) dao.clearDefaults()
             secureStore.savePassword(id, password)
@@ -102,6 +104,7 @@ class ConnectionRepositoryImpl @Inject constructor(
                 name = connection.name,
                 serverUrl = connection.serverUrl,
                 username = connection.username,
+                backupServerUrl = connection.backupServerUrl?.trim()?.ifBlank { null },
             )
         )
         if (!newPassword.isNullOrBlank()) {
@@ -128,7 +131,14 @@ class ConnectionRepositoryImpl @Inject constructor(
             return@flow
         }
         try {
-            val urlBuilder = XtreamUrlBuilder(entity.serverUrl, entity.username, password)
+            val urlBuilder = try {
+                XtreamUrlBuilder(entity.serverUrl, entity.username, password).also { api.authenticate(it.auth()) }
+            } catch (e: java.io.IOException) {
+                val backupUrl = entity.backupServerUrl?.trim()
+                if (backupUrl.isNullOrBlank()) throw e
+                AppLog.w("Connection", "primary server unreachable for $id, trying backup", e)
+                XtreamUrlBuilder(backupUrl, entity.username, password)
+            }
             val auth = api.authenticate(urlBuilder.auth())
             val isAuthOk = auth.userInfo?.auth == 1 || auth.userInfo?.status.equals("Active", ignoreCase = true)
             dao.updateStatus(id, if (isAuthOk) ConnectionStatus.ONLINE.name else ConnectionStatus.OFFLINE.name)

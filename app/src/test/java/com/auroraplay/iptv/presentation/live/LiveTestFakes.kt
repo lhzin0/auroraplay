@@ -31,7 +31,7 @@ internal class FakeConnectionRepository(private val flow: MutableStateFlow<Xtrea
     override suspend fun getConnection(id: String): XtreamConnection? = unsupported()
     override suspend fun getDefaultConnection(): XtreamConnection? = unsupported()
     override fun observeDefaultConnection(): Flow<XtreamConnection?> = flow
-    override fun addConnection(name: String, serverUrl: String, username: String, password: String, profileId: String?): Flow<Resource<XtreamConnection>> = unsupported()
+    override fun addConnection(name: String, serverUrl: String, username: String, password: String, profileId: String?, backupServerUrl: String?): Flow<Resource<XtreamConnection>> = unsupported()
     override suspend fun updateConnection(connection: XtreamConnection, newPassword: String?) = unsupported<Unit>()
     override suspend fun deleteConnection(id: String) = unsupported<Unit>()
     override suspend fun setDefault(id: String) = unsupported<Unit>()

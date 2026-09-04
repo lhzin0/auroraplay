@@ -58,7 +58,7 @@ class AppDatabaseMigrationTest {
             assertNotNull(progress)
             assertEquals("Filme A", progress!!.title)
             assertEquals(300000L, progress.positionMillis)
-            assertEquals(12, db.openHelper.readableDatabase.version)
+            assertEquals(13, db.openHelper.readableDatabase.version)
         } finally {
             db.close()
         }
@@ -203,6 +203,30 @@ class AppDatabaseMigrationTest {
         }
         assertEquals(true, indexes.contains("index_movies_connectionId_categoryId"))
         assertEquals(true, indexes.contains("index_watch_progress_profileId_lastWatchedMillis"))
+        db.close()
+    }
+
+    /** 12 -> 13 adds the optional backup-server column — additive, existing
+     * connections keep working with no backup configured (NULL). */
+    @Test
+    fun migrate_12_to_13_adds_backup_server_url_defaulting_to_null() {
+        helper.createDatabase(testDb, 12).apply {
+            execSQL(
+                "INSERT INTO connections(id, name, serverUrl, username, isDefault, status, lastSyncMillis, profileId) " +
+                    "VALUES('c1', 'Minha lista', 'http://primary.example', 'user', 1, 'ONLINE', NULL, NULL)",
+            )
+            close()
+        }
+        val db = helper.runMigrationsAndValidate(testDb, 13, true, *AppDatabaseMigrations.ALL)
+        db.query("SELECT serverUrl, backupServerUrl FROM connections WHERE id = 'c1'").use {
+            assertEquals(true, it.moveToFirst())
+            assertEquals("http://primary.example", it.getString(0))
+            assertEquals(true, it.isNull(1))
+        }
+        db.execSQL("UPDATE connections SET backupServerUrl = 'http://backup.example' WHERE id = 'c1'")
+        db.query("SELECT backupServerUrl FROM connections WHERE id = 'c1'").use {
+            assertEquals(true, it.moveToFirst()); assertEquals("http://backup.example", it.getString(0))
+        }
         db.close()
     }
 }

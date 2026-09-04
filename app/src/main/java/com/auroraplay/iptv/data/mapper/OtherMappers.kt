@@ -22,6 +22,7 @@ fun ConnectionEntity.toDomain() = XtreamConnection(
     status = runCatching { ConnectionStatus.valueOf(status) }.getOrDefault(ConnectionStatus.UNKNOWN),
     lastSyncMillis = lastSyncMillis,
     profileId = profileId,
+    backupServerUrl = backupServerUrl,
 )
 
 fun ProfileEntity.toDomain() = Profile(

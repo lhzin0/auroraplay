@@ -97,10 +97,26 @@ class ContentRepositoryImpl @Inject constructor(
     private val metadataEnricher: MetadataEnricher,
 ) : ContentRepository {
 
+    /** Xtream credentials for a connection, resolved through a live server —
+     * the primary first; on a network-level failure (not a credentials
+     * rejection, which retrying elsewhere wouldn't fix), the connection's
+     * backup, if one is configured. Every call in a sync/EPG-fetch run then
+     * targets whichever host actually answered. No backup configured means
+     * no extra network round-trip — this returns the primary immediately. */
     private suspend fun urlBuilderFor(connectionId: String): XtreamUrlBuilder? {
         val connection = connectionDao.getById(connectionId) ?: return null
         val password = secureStore.getPassword(connectionId) ?: return null
-        return XtreamUrlBuilder(connection.serverUrl, connection.username, password)
+        val primary = XtreamUrlBuilder(connection.serverUrl, connection.username, password)
+        val backupUrl = connection.backupServerUrl?.trim()
+        if (backupUrl.isNullOrBlank()) return primary
+
+        return try {
+            api.authenticate(primary.auth())
+            primary
+        } catch (e: java.io.IOException) {
+            AppLog.w("ContentSync", "primary server unreachable for $connectionId, trying backup", e)
+            XtreamUrlBuilder(backupUrl, connection.username, password)
+        }
     }
 
     override fun syncConnection(connectionId: String): Flow<Resource<SyncStage>> = flow {

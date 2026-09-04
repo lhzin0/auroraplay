@@ -60,7 +60,7 @@ fun AddConnectionScreen(
         AnimatedContent(targetState = state.step, label = "addConnectionStep") { step ->
             when (step) {
                 AddConnectionStep.FORM -> ConnectionForm(
-                    onConnect = { name, url, user, pass -> viewModel.connect(name, url, user, pass, profileId) }
+                    onConnect = { name, url, user, pass, backupUrl -> viewModel.connect(name, url, user, pass, profileId, backupUrl) }
                 )
                 AddConnectionStep.ERROR -> Column(
                     Modifier.fillMaxSize().padding(24.dp),
@@ -109,12 +109,14 @@ private fun SyncStatusView(message: String, isDone: Boolean, onContinue: (() -> 
 }
 
 @Composable
-private fun ConnectionForm(onConnect: (String, String, String, String) -> Unit) {
+private fun ConnectionForm(onConnect: (String, String, String, String, String?) -> Unit) {
     var name by remember { mutableStateOf("") }
     var url by remember { mutableStateOf("") }
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var showPassword by remember { mutableStateOf(false) }
+    var backupUrl by remember { mutableStateOf("") }
+    var showBackupField by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -152,10 +154,38 @@ private fun ConnectionForm(onConnect: (String, String, String, String) -> Unit) 
             onTrailingClick = { showPassword = !showPassword },
         )
 
+        Spacer(Modifier.height(20.dp))
+        if (showBackupField) {
+            LabeledField(
+                label = "Servidor de backup (opcional)",
+                value = backupUrl,
+                onChange = { backupUrl = it },
+                placeholder = "https://servidor-reserva.exemplo.com",
+                keyboardType = KeyboardType.Uri,
+            )
+            Text(
+                "Usado automaticamente se o servidor principal ficar fora do ar — mesma conta, outro endereço.",
+                style = MaterialTheme.typography.bodySmall,
+                color = AuroraColors.TextTertiary,
+                modifier = Modifier.padding(top = 6.dp),
+            )
+        } else {
+            Text(
+                "+ Adicionar servidor de backup",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = { showBackupField = true },
+                ),
+            )
+        }
+
         Spacer(Modifier.height(32.dp))
         AppButton(
             text = "Conectar",
-            onClick = { onConnect(name, url, username, password) },
+            onClick = { onConnect(name, url, username, password, backupUrl.trim().ifBlank { null }) },
             fullWidth = true,
         )
         Spacer(Modifier.height(40.dp))

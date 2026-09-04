@@ -17,13 +17,16 @@ interface ConnectionRepository {
      */
     fun observeDefaultConnection(): Flow<XtreamConnection?>
 
-    /** Validates credentials against the server, persists connection + encrypted password. */
+    /** Validates credentials against the server, persists connection + encrypted password.
+     * [backupServerUrl] is an optional mirror for the same account, tried
+     * automatically when the primary is unreachable. */
     fun addConnection(
         name: String,
         serverUrl: String,
         username: String,
         password: String,
         profileId: String?,
+        backupServerUrl: String? = null,
     ): Flow<Resource<XtreamConnection>>
 
     suspend fun updateConnection(connection: XtreamConnection, newPassword: String?)

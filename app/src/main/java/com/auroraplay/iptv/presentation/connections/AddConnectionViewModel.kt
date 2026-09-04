@@ -31,10 +31,10 @@ class AddConnectionViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(AddConnectionUiState())
     val uiState: StateFlow<AddConnectionUiState> = _uiState.asStateFlow()
 
-    fun connect(name: String, serverUrl: String, username: String, password: String, profileId: String?) {
+    fun connect(name: String, serverUrl: String, username: String, password: String, profileId: String?, backupServerUrl: String? = null) {
         viewModelScope.launch {
             _uiState.value = AddConnectionUiState(step = AddConnectionStep.CONNECTING)
-            connectXtreamUseCase(name, serverUrl, username, password, profileId).collect { resource ->
+            connectXtreamUseCase(name, serverUrl, username, password, profileId, backupServerUrl).collect { resource ->
                 when (resource) {
                     is Resource.Success -> startSync(resource.data)
                     is Resource.Error -> _uiState.value = AddConnectionUiState(AddConnectionStep.ERROR, resource.message)
