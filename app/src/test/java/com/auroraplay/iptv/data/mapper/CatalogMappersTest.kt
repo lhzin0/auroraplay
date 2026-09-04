@@ -16,7 +16,9 @@ import org.junit.Test
  */
 class CatalogMappersTest {
 
-    private val builder = XtreamUrlBuilder("http://host:8080", "user", "p@ss")
+    // A credential with no reserved characters, so these assertions stay about
+    // the URL *shape*; percent-encoding is covered by XtreamUrlBuilderTest.
+    private val builder = XtreamUrlBuilder("http://host:8080", "user", "pass")
 
     private fun channel() = ChannelEntity(
         id = "42", connectionId = "conn", name = "Canal", logoUrl = null,
@@ -36,22 +38,22 @@ class CatalogMappersTest {
 
     @Test
     fun `channel URL is rebuilt from credentials`() {
-        assertEquals("http://host:8080/live/user/p@ss/42.m3u8", channel().toDomain(builder).streamUrl)
+        assertEquals("http://host:8080/live/user/pass/42.m3u8", channel().toDomain(builder).streamUrl)
     }
 
     @Test
     fun `movie URL uses the stored container extension`() {
-        assertEquals("http://host:8080/movie/user/p@ss/42.mkv", movie("mkv").toDomain(builder).streamUrl)
+        assertEquals("http://host:8080/movie/user/pass/42.mkv", movie("mkv").toDomain(builder).streamUrl)
     }
 
     @Test
     fun `movie URL falls back to mp4 when no extension was stored`() {
-        assertEquals("http://host:8080/movie/user/p@ss/42.mp4", movie(null).toDomain(builder).streamUrl)
+        assertEquals("http://host:8080/movie/user/pass/42.mp4", movie(null).toDomain(builder).streamUrl)
     }
 
     @Test
     fun `episode URL is rebuilt from credentials`() {
-        assertEquals("http://host:8080/series/user/p@ss/99.mp4", episode("mp4").toDomain(builder).streamUrl)
+        assertEquals("http://host:8080/series/user/pass/99.mp4", episode("mp4").toDomain(builder).streamUrl)
     }
 
     @Test
