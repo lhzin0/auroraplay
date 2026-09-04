@@ -60,6 +60,9 @@ fun ProfileSelectionScreen(
     val state by viewModel.uiState.collectAsState()
     var manageMode by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<Profile?>(null) }
+    // Editing or deleting a PIN-locked / kids profile is gated by an auth
+    // challenge; `second` is true for a delete, false for an edit.
+    var pendingManage by remember { mutableStateOf<Pair<Profile, Boolean>?>(null) }
     // A locked profile is intercepted here rather than deeper in the
     // selection flow, so both the single-profile and grid layouts share the
     // exact same gate without duplicating the check.
@@ -263,9 +266,16 @@ fun ProfileSelectionScreen(
                         profile = profile,
                         manageMode = manageMode,
                         modifier = Modifier.width(96.dp),
-                        onClick = { if (manageMode) onEditProfile(profile.id) else attemptSelect(profile) },
+                        onClick = {
+                            if (!manageMode) attemptSelect(profile)
+                            else if (viewModel.isProtected(profile)) pendingManage = profile to false
+                            else onEditProfile(profile.id)
+                        },
                         onLongClick = { manageMode = true },
-                        onDelete = { pendingDelete = profile },
+                        onDelete = {
+                            if (viewModel.isProtected(profile)) pendingManage = profile to true
+                            else pendingDelete = profile
+                        },
                     )
                 }
                 if (manageMode) {
@@ -324,6 +334,18 @@ fun ProfileSelectionScreen(
             },
         )
     }
+
+    pendingManage?.let { (profile, isDelete) ->
+        ProfileManageChallenge(
+            profile = profile,
+            onDismiss = { pendingManage = null },
+            onAuthorized = {
+                viewModel.authorizeManagement(profile.id)
+                pendingManage = null
+                if (isDelete) pendingDelete = profile else onEditProfile(profile.id)
+            },
+        )
+    }
 }
 
 @Composable
@@ -334,7 +356,15 @@ private fun PinUnlockDialog(
     onUnlocked: () -> Unit,
 ) {
     var pin by remember { mutableStateOf("") }
-    var wrongAttempt by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var attempts by remember { mutableStateOf(0) }
+    var cooldownUntil by remember { mutableStateOf(0L) }
+    var now by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(cooldownUntil) {
+        while (System.currentTimeMillis() < cooldownUntil) { now = System.currentTimeMillis(); delay(500) }
+        now = System.currentTimeMillis()
+    }
+    val lockedOut = now < cooldownUntil
 
     AlertDialog(
         onDismissRequest = onCancel,
@@ -358,12 +388,13 @@ private fun PinUnlockDialog(
                     androidx.compose.foundation.text.BasicTextField(
                         value = pin,
                         onValueChange = { v ->
-                            if (v.length <= 4 && v.all { it.isDigit() }) {
+                            if (!lockedOut && v.length <= 4 && v.all { it.isDigit() }) {
                                 pin = v
-                                wrongAttempt = false
+                                error = null
                             }
                         },
                         singleLine = true,
+                        enabled = !lockedOut,
                         textStyle = androidx.compose.ui.text.TextStyle(
                             color = AuroraColors.TextPrimary,
                             fontSize = 18.sp,
@@ -375,19 +406,26 @@ private fun PinUnlockDialog(
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
-                if (wrongAttempt) {
+                error?.let {
                     Spacer(Modifier.height(Spacing.sm))
-                    Text("PIN incorreto.", style = MaterialTheme.typography.bodySmall, color = AuroraColors.Error)
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = AuroraColors.Error)
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = {
+            TextButton(enabled = !lockedOut, onClick = {
                 if (com.auroraplay.iptv.core.util.PinHasher.matches(pin, expectedHash)) {
                     onUnlocked()
                 } else {
-                    wrongAttempt = true
                     pin = ""
+                    attempts++
+                    if (attempts >= 5) {
+                        cooldownUntil = System.currentTimeMillis() + 30_000L
+                        error = "Muitas tentativas. Aguarde 30s."
+                        attempts = 0
+                    } else {
+                        error = "PIN incorreto."
+                    }
                 }
             }) {
                 Text("Entrar", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)

@@ -39,6 +39,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.fragment.app.FragmentActivity
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.auroraplay.iptv.core.theme.AuroraColors
 import com.auroraplay.iptv.presentation.components.AppButton
@@ -74,6 +75,21 @@ fun ProfileEditorScreen(
     }
 
     LaunchedEffect(profileId) { viewModel.load(profileId) }
+
+    // A protected profile can't be edited until the user authenticates for it —
+    // whatever route reached this screen (picker, Settings, a deep link).
+    if (state.authRequired) {
+        ProfileEditorAuthGate(
+            usesProfilePin = state.authUsesProfilePin,
+            biometricEnabled = state.biometricEnabled,
+            error = state.authError,
+            lockedOut = viewModel.authLockedOut(),
+            onSubmitPin = viewModel::submitAuthPin,
+            onDeviceAuthPassed = viewModel::onDeviceAuthPassed,
+            onBack = onBack,
+        )
+        return
+    }
 
     Box(
         Modifier
@@ -361,6 +377,114 @@ private fun EditorSection(title: String, content: @Composable ColumnScope.() -> 
 @Composable
 private fun FieldLabel(text: String) {
     Text(text, style = MaterialTheme.typography.labelLarge, color = AuroraColors.TextSecondary)
+}
+
+/** Blocking gate shown before the editor form for a protected profile. */
+@Composable
+private fun ProfileEditorAuthGate(
+    usesProfilePin: Boolean,
+    biometricEnabled: Boolean,
+    error: String?,
+    lockedOut: Boolean,
+    onSubmitPin: (String) -> Boolean,
+    onDeviceAuthPassed: () -> Unit,
+    onBack: () -> Unit,
+) {
+    val activity = LocalContext.current as? FragmentActivity
+    var pin by remember { mutableStateOf("") }
+
+    // Kids-only profile (no PIN): run the device credential prompt up front.
+    LaunchedEffect(usesProfilePin) {
+        if (!usesProfilePin && deviceAuthAvailable(activity)) {
+            runDeviceAuth(
+                activity!!,
+                title = "Confirme sua identidade",
+                subtitle = "Necessário para editar este perfil",
+                onSuccess = onDeviceAuthPassed,
+            )
+        }
+    }
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(AuroraColors.BackgroundBase)
+            .statusBarsPadding()
+            .padding(horizontal = Spacing.gutter),
+    ) {
+        IconButton(
+            onClick = onBack,
+            modifier = Modifier
+                .padding(top = 8.dp)
+                .size(44.dp)
+                .background(Color.Black.copy(alpha = 0.5f), CircleShape),
+        ) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Voltar", tint = AuroraColors.TextPrimary, modifier = Modifier.size(22.dp))
+        }
+        Spacer(Modifier.height(Spacing.xl))
+        Text("Perfil protegido", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = AuroraColors.TextPrimary)
+        Spacer(Modifier.height(Spacing.sm))
+        Text(
+            if (usesProfilePin) "Digite o PIN de 4 dígitos deste perfil para editá-lo."
+            else "Confirme sua identidade para editar este perfil infantil.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = AuroraColors.TextSecondary,
+        )
+
+        if (usesProfilePin) {
+            Spacer(Modifier.height(Spacing.lg))
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(AuroraColors.SurfaceDark)
+                    .padding(horizontal = Spacing.lg, vertical = 14.dp),
+            ) {
+                BasicTextField(
+                    value = pin,
+                    onValueChange = { v -> if (!lockedOut && v.length <= 4 && v.all { it.isDigit() }) pin = v },
+                    singleLine = true,
+                    enabled = !lockedOut,
+                    textStyle = TextStyle(color = AuroraColors.TextPrimary, fontSize = 18.sp, letterSpacing = 6.sp),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    visualTransformation = PasswordVisualTransformation(mask = '•'),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            error?.let {
+                Spacer(Modifier.height(Spacing.sm))
+                Text(it, style = MaterialTheme.typography.bodySmall, color = AuroraColors.Error)
+            }
+            Spacer(Modifier.height(Spacing.lg))
+            AppButton(
+                text = "Entrar",
+                onClick = { if (onSubmitPin(pin)) Unit else pin = "" },
+                icon = Icons.Default.Check,
+                fullWidth = true,
+            )
+            if (biometricEnabled && deviceAuthAvailable(activity)) {
+                Spacer(Modifier.height(Spacing.sm))
+                TextButton(onClick = {
+                    runDeviceAuth(
+                        activity!!,
+                        title = "Confirme sua identidade",
+                        subtitle = "Necessário para editar este perfil",
+                        onSuccess = onDeviceAuthPassed,
+                    )
+                }) { Text("Usar biometria", color = MaterialTheme.colorScheme.primary) }
+            }
+        } else if (!deviceAuthAvailable(activity)) {
+            Spacer(Modifier.height(Spacing.lg))
+            AppButton(text = "Continuar", onClick = onDeviceAuthPassed, icon = Icons.Default.Check, fullWidth = true)
+            Spacer(Modifier.height(Spacing.sm))
+            Text(
+                "Este aparelho não tem bloqueio de tela para verificar sua identidade.",
+                style = MaterialTheme.typography.bodySmall,
+                color = AuroraColors.TextTertiary,
+            )
+        }
+    }
 }
 
 @Composable
