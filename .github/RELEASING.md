@@ -96,3 +96,40 @@ versão atual).
 `scripts/build-release.ps1` continua produzindo `build/release/` com o APK
 assinado, `release.json` e `SHA256SUMS.txt`. Dá para criar a GitHub Release
 manualmente anexando esses três arquivos; o `pages.yml` segue funcionando.
+
+O `release.json` gerado pelo script sai com BOM e com notas fixas da 1.34.0 —
+para publicar à mão, regere o `release.json` com as notas de
+`docs/release-notes/<versão>.json` e os `sizeBytes`/`sha256` reais do APK
+(mesmo formato que `.github/workflows/release.yml` monta), e só então
+`gh release create vX.Y.Z <apk> <release.json> <SHA256SUMS.txt> --latest`.
+
+## Histórico de assinatura
+
+- **1.35.0** — a identidade de produção anterior (`c3a9a8b7…`) não estava
+  disponível; foi regerada com `scripts/initialize-signing.ps1`. Chave legada
+  (Android 7/8) inalterada; **nova chave de produção**
+  `32b13173f273b1decd060d38b65a8a1012e3ed4bc7c6bfd548f7f06d3f2748bd`, fixada em
+  `GithubUpdateClient.PRODUCTION_CERTIFICATE`. Instalações da 1.34.0 no
+  Android 9+ precisam reinstalar. **Não regere de novo** — faça
+  `scripts/export-signing-backup.ps1 -Destination <pasta privada>` e guarde a
+  senha de recuperação à parte.
+
+## Google Play (opcional, recomendado a médio prazo)
+
+O sideload por APK sempre vai esbarrar no Play Protect enquanto a chave/
+desenvolvedor não tiverem reputação (e, no Brasil, a verificação de
+desenvolvedor passou a ser exigida em 2026). Para uma distribuição mais limpa:
+
+```bash
+./gradlew :app:bundleRelease   # app/build/outputs/bundle/release/app-release.aab
+```
+
+- No Play Console, use **Play App Signing**: o `.aab` é enviado assinado com a
+  **chave de upload** (pode ser o mesmo `production.p12`, alias `auroraplay`),
+  e o Google gerencia a chave que assina os APKs entregues.
+- O `.aab` **não instala** direto num aparelho — o APK da GitHub Release
+  continua sendo o de sideload. Misturar os dois canais para o mesmo
+  `applicationId` com chaves diferentes causa conflito de assinatura ao trocar
+  de origem; escolha um canal principal por aparelho.
+- Uma faixa de **teste interno/fechado** já basta para uso pessoal e não exige
+  revisão pública completa.
