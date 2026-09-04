@@ -7,6 +7,26 @@ plugins {
     id("com.google.dagger.hilt.android")
     id("com.google.devtools.ksp")
     id("kotlin-parcelize")
+    id("org.jlleitschuh.gradle.ktlint")
+}
+
+ktlint {
+    version.set("1.3.1")
+    // The codebase predates this setup, so `ktlintCheck` finds thousands of
+    // pre-existing style violations (wildcard imports, long lambdas, line
+    // length) — reformatting all of that in one pass would be a huge,
+    // hard-to-review diff for zero functional benefit. Report, don't fail:
+    // this stays available as `./gradlew ktlintCheck` / `ktlintFormat` for
+    // new/touched code, without blocking the existing build or CI on
+    // pre-existing style debt.
+    ignoreFailures.set(true)
+}
+
+// The plugin wires ktlintCheck into `check` by default; skip that so a
+// plain `./gradlew check` (and CI) isn't slowed down re-scanning the whole
+// codebase on every run — run it explicitly when you want it.
+tasks.matching { it.name == "check" }.configureEach {
+    setDependsOn(dependsOn.filterNot { it.toString().contains("ktlint", ignoreCase = true) })
 }
 
 val developerProperties = Properties().apply {

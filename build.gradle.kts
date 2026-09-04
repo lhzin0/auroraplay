@@ -8,4 +8,5 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose") version "2.2.0" apply false
     id("com.google.dagger.hilt.android") version "2.57" apply false
     id("com.google.devtools.ksp") version "2.2.0-2.0.2" apply false
+    id("org.jlleitschuh.gradle.ktlint") version "12.1.2" apply false
 }
