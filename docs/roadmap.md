@@ -58,7 +58,7 @@ permanecem, e retomar o título traz o card de volta.
 ## 4. GitHub e página de atualização
 
 - Criar o repositório oficial do projeto no GitHub. ✅ (`lhzin0/auroraplay`, público)
-- Preparar o repositório para publicação e gerenciamento das versões. ✅ (workflows CI/Release/Pages)
+- Preparar o repositório para publicação e gerenciamento das versões. ✅ (build no PC + `gh release create`; Pages reconstrói o site)
 - Criar/ajustar a verificação de novas versões. ✅ (`update/` já consulta `releases/latest/download/release.json`)
 - Usar as releases do GitHub como base do sistema de atualização, quando aplicável. ✅
 

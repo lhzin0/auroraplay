@@ -101,7 +101,8 @@ Se mexeu no site:
 node website/scripts/build.mjs
 ```
 
-O mesmo conjunto roda no CI (`.github/workflows/ci.yml`) em cada PR.
+Rode isso localmente antes do PR — o CI (`.github/workflows/ci.yml`) só valida o
+site; o app é compilado no PC.
 
 ## Estilo de código
 

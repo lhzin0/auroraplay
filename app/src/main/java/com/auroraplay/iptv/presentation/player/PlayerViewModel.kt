@@ -134,22 +134,27 @@ class PlayerViewModel @Inject constructor(
         }
         val duration = playerManager.currentDuration()
         val position = playerManager.currentPosition()
-        if (duration <= 0L) {
+        if (duration <= 0L && !playerManager.hasPlaybackEnded()) {
             if (_autoNextInSeconds.value != null) _autoNextInSeconds.value = null
             return
         }
-        val remainingMs = duration - position
-        if (remainingMs in 1..CREDITS_WINDOW_MS) {
-            val secs = ((remainingMs + 999L) / 1000L).toInt()
-            if (secs <= 0) {
+        val remainingMs = (duration - position).coerceAtLeast(0L)
+        when {
+            // The episode is over (STATE_ENDED) or within its final moment —
+            // advance now. This is the branch the old code never reached:
+            // `remainingMs in 1..WINDOW` can't hold once playback ends
+            // (remaining is 0), so the jump never fired.
+            playerManager.hasPlaybackEnded() || remainingMs <= 1_200L -> {
                 autoAdvancedForUrl = url
                 _autoNextInSeconds.value = null
                 playNextEpisode()
-            } else {
-                _autoNextInSeconds.value = secs
             }
-        } else if (_autoNextInSeconds.value != null) {
-            _autoNextInSeconds.value = null
+            // Inside the "credits" window — show the countdown. Its non-null
+            // value also tightens the position poll to 1s (see PlayerScreen).
+            remainingMs <= CREDITS_WINDOW_MS -> {
+                _autoNextInSeconds.value = ((remainingMs + 999L) / 1000L).toInt().coerceAtLeast(1)
+            }
+            else -> if (_autoNextInSeconds.value != null) _autoNextInSeconds.value = null
         }
     }
 

@@ -1,3 +1,13 @@
+## 1.36.0 — 2026-09-04
+
+- **Próximo episódio automático** volta a pular para o episódio seguinte. A
+  contagem regressiva no fim do episódio agora dispara de verdade (e também
+  quando o vídeo termina, mesmo se a contagem não fechar em cheio).
+- Busca por gênero com **vírgula**: "ação, comédia" traz só filmes e séries que
+  têm **os dois** gêneros. Um termo só continua buscando por título ou gênero.
+- As versões passam a ser compiladas e assinadas fora do CI; o GitHub Actions
+  só reconstrói o site.
+
 ## 1.35.0 — 2026-09-03
 
 - Busca por gênero mais precisa: casa por palavra inteira (fim dos falsos

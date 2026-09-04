@@ -406,6 +406,12 @@ class PlayerManager @Inject constructor(
     fun currentPosition(): Long = activePlayer().currentPosition
     fun currentDuration(): Long = activePlayer().duration.takeIf { it != C.TIME_UNSET && it > 0 } ?: 0L
 
+    /** True once the current item has played to the end (ExoPlayer STATE_ENDED).
+     * Used to fire the next-episode auto-advance even if the position poll never
+     * lands on the final second. */
+    fun hasPlaybackEnded(): Boolean =
+        runCatching { activePlayer().playbackState == Player.STATE_ENDED }.getOrDefault(false)
+
     fun isCastAvailable(): Boolean = castContext != null
 
     fun stop() {

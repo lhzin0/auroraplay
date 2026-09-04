@@ -1,19 +1,14 @@
 <div align="center">
 
-<a href="https://lhzin0.github.io/auroraplay/">
-    <img src="./website/assets/logo.svg" alt="AuroraPlay" height="180" width="180" />
-</a>
+<img src="./website/assets/logo.svg" alt="AuroraPlay" width="88" height="88" />
 
 # AuroraPlay
 
 Reprodutor IPTV/Xtream para Android e Android TV
 
 [![Site](https://img.shields.io/badge/site-lhzin0.github.io%2Fauroraplay-8476fa?labelColor=27303D)](https://lhzin0.github.io/auroraplay/)
-[![CI](https://github.com/lhzin0/auroraplay/actions/workflows/ci.yml/badge.svg?labelColor=27303D)](https://github.com/lhzin0/auroraplay/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/lhzin0/auroraplay/actions/workflows/codeql.yml/badge.svg?labelColor=27303D)](https://github.com/lhzin0/auroraplay/actions/workflows/codeql.yml)
 [![Licença](https://img.shields.io/badge/licen%C3%A7a-propriet%C3%A1ria-lightgrey?labelColor=27303D)](./LICENSE)
-
-<img src="./website/assets/og.png" alt="AuroraPlay — sua playlist, no seu ritmo" width="720" />
 
 ## Download
 
@@ -142,7 +137,7 @@ fica desligado de propósito. Chaves opcionais de `local.properties`
 [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 * Arquitetura: [docs/arquitetura.md](./docs/arquitetura.md)
-* Publicar uma versão (CI assina o APK na tag `vX.Y.Z`): [.github/RELEASING.md](./.github/RELEASING.md)
+* Publicar uma versão (build + assinatura no PC, `gh release create`): [.github/RELEASING.md](./.github/RELEASING.md)
 * Segurança e assinatura: [SECURITY.md](./SECURITY.md) · [docs/seguranca-e-assinatura.md](./docs/seguranca-e-assinatura.md)
 * Site: [website/README.md](./website/README.md)
 
@@ -187,13 +182,9 @@ as [Releases](https://github.com/lhzin0/auroraplay/releases) e as
 
 ### Créditos
 
-Obrigado a todas as pessoas que contribuíram.
-
-<a href="https://github.com/lhzin0/auroraplay/graphs/contributors">
-    <img src="https://contrib.rocks/image?repo=lhzin0/auroraplay" alt="Contribuidores do AuroraPlay" width="600" />
-</a>
-
-O player é baseado em [AndroidX Media3/ExoPlayer](https://github.com/androidx/media).
+Mantido por [@lhzin0](https://github.com/lhzin0). O player é baseado em
+[AndroidX Media3/ExoPlayer](https://github.com/androidx/media).
+[Lista de contribuidores](https://github.com/lhzin0/auroraplay/graphs/contributors).
 
 ### Aviso
 

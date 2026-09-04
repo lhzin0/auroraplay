@@ -155,26 +155,49 @@ class SearchViewModel @Inject constructor(
                 val results = if (q.isBlank()) {
                     emptyList()
                 } else {
-                    val needle = com.auroraplay.iptv.core.util.MetadataSanitizer.fold(q)
-                    // A query is also tried as a genre/category term, so
-                    // "romance", "drama", "dorama", "ação"… surface the whole
-                    // strand, not just titles that literally contain the word.
-                    // Terms match on a word boundary (see containsWord), so
-                    // "ação" no longer drags in "coração", and only terms of
-                    // 3+ chars act as a genre needle.
-                    val genreNeedles = ((GENRE_SYNONYMS[needle] ?: emptySet()) + needle)
-                        .filter { it.length >= 3 }
-                    pool.asSequence()
-                        .filter { item ->
-                            item.title.contains(q, ignoreCase = true) ||
-                                (genreNeedles.isNotEmpty() && haystacksFor(item).any { hay ->
-                                    genreNeedles.any { term ->
-                                        com.auroraplay.iptv.core.util.MetadataSanitizer.containsWord(hay, term)
+                    // "ação, comédia" — a comma means "match BOTH genres". Each
+                    // part is expanded with its synonyms; an item is kept only
+                    // when its genre/category matches EVERY part.
+                    val genreParts = q.split(',').map { it.trim() }.filter { it.isNotEmpty() }
+                    if (genreParts.size >= 2) {
+                        val termSets = genreParts
+                            .map { part -> genreTermsFor(part) }
+                            .filter { it.isNotEmpty() }
+                        if (termSets.isEmpty()) {
+                            emptyList()
+                        } else {
+                            pool.asSequence()
+                                .filter { item ->
+                                    val hays = haystacksFor(item)
+                                    termSets.all { terms ->
+                                        hays.any { hay ->
+                                            terms.any { t ->
+                                                com.auroraplay.iptv.core.util.MetadataSanitizer.containsWord(hay, t)
+                                            }
+                                        }
                                     }
-                                })
+                                }
+                                .take(60)
+                                .toList()
                         }
-                        .take(60)
-                        .toList()
+                    } else {
+                        // Single term: title match OR a genre/category match.
+                        // Terms match on a word boundary (see containsWord), so
+                        // "ação" no longer drags in "coração", and only terms of
+                        // 3+ chars act as a genre needle.
+                        val genreNeedles = genreTermsFor(q)
+                        pool.asSequence()
+                            .filter { item ->
+                                item.title.contains(q, ignoreCase = true) ||
+                                    (genreNeedles.isNotEmpty() && haystacksFor(item).any { hay ->
+                                        genreNeedles.any { term ->
+                                            com.auroraplay.iptv.core.util.MetadataSanitizer.containsWord(hay, term)
+                                        }
+                                    })
+                            }
+                            .take(60)
+                            .toList()
+                    }
                 }
 
                 val suggestionPool = when (activeFilter) {
@@ -252,6 +275,16 @@ class SearchViewModel @Inject constructor(
         is MediaItem.MovieItem -> item.movie.genre
         is MediaItem.SeriesItem -> item.series.genre
         is MediaItem.ChannelItem -> null
+    }
+
+    /** A single genre token, folded and expanded with its PT/EN synonyms —
+     * the set of words any of which counts as "this item has that genre".
+     * Terms shorter than 3 chars are dropped so a stray "a"/"de" is inert. */
+    private fun genreTermsFor(part: String): Set<String> {
+        val folded = com.auroraplay.iptv.core.util.MetadataSanitizer.fold(part)
+        return ((GENRE_SYNONYMS[folded] ?: emptySet()) + folded)
+            .filter { it.length >= 3 }
+            .toSet()
     }
 
     /** Folded genre + category strings a genre query is tested against. */
