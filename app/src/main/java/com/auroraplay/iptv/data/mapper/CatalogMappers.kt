@@ -149,6 +149,46 @@ fun EpisodeDto.toEntity(seriesId: String, connectionId: String, seasonNumber: In
     containerExtension = containerExtension?.takeIf { it.isNotBlank() },
 )
 
+private fun String?.orKeep(existing: String?): String? =
+    this?.takeIf { it.isNotBlank() } ?: existing
+
+/**
+ * Audit #9: a re-sync must not wipe metadata that later enrichment
+ * (get_vod_info / get_series_info / TMDB) filled in. A freshly-listed VOD row
+ * has genre / plot / backdrop / duration / rating null; if the provider's new
+ * listing still omits a field but the stored row has it, keep the stored
+ * value. Fields the provider always sends (name, category, poster, container,
+ * audio tag, addedAt) always take the incoming value.
+ */
+internal fun MovieEntity.mergedWith(existing: MovieEntity?): MovieEntity {
+    if (existing == null) return this
+    return copy(
+        posterUrl = posterUrl.orKeep(existing.posterUrl),
+        backdropUrl = backdropUrl.orKeep(existing.backdropUrl),
+        year = year.orKeep(existing.year),
+        genre = genre.orKeep(existing.genre),
+        plot = plot.orKeep(existing.plot),
+        durationLabel = durationLabel.orKeep(existing.durationLabel),
+        rating = rating ?: existing.rating,
+    )
+}
+
+/** Series counterpart of [mergedWith]. Also carries the episode-fetch
+ * timestamp (audit #7) forward — a catalog sync never touches episodes, so it
+ * must not reset their freshness. */
+internal fun SeriesEntity.mergedWith(existing: SeriesEntity?): SeriesEntity {
+    if (existing == null) return this
+    return copy(
+        posterUrl = posterUrl.orKeep(existing.posterUrl),
+        backdropUrl = backdropUrl.orKeep(existing.backdropUrl),
+        year = year.orKeep(existing.year),
+        genre = genre.orKeep(existing.genre),
+        plot = plot.orKeep(existing.plot),
+        rating = rating ?: existing.rating,
+        episodesSyncedAtMillis = maxOf(episodesSyncedAtMillis, existing.episodesSyncedAtMillis),
+    )
+}
+
 /** [urlBuilder] null → blank stream URL (see [ChannelEntity.toDomain]). */
 fun EpisodeEntity.toDomain(urlBuilder: XtreamUrlBuilder?) = Episode(
     id = id,

@@ -70,6 +70,9 @@ interface MovieDao {
     @Query("SELECT * FROM movies WHERE id = :id AND connectionId = :connectionId LIMIT 1")
     suspend fun getById(connectionId: String, id: String): MovieEntity?
 
+    @Query("SELECT * FROM movies WHERE connectionId = :connectionId")
+    suspend fun getAll(connectionId: String): List<MovieEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(movies: List<MovieEntity>)
 
@@ -98,6 +101,9 @@ interface SeriesDao {
 
     @Query("SELECT * FROM series WHERE id = :id AND connectionId = :connectionId LIMIT 1")
     suspend fun getById(connectionId: String, id: String): SeriesEntity?
+
+    @Query("SELECT * FROM series WHERE connectionId = :connectionId")
+    suspend fun getAll(connectionId: String): List<SeriesEntity>
 
     @Query("UPDATE series SET episodesSyncedAtMillis = :millis WHERE id = :seriesId AND connectionId = :connectionId")
     suspend fun touchEpisodesSyncedAt(connectionId: String, seriesId: String, millis: Long)

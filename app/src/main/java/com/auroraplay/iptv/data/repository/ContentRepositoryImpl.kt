@@ -11,6 +11,7 @@ import com.auroraplay.iptv.data.database.dao.EpisodeDao
 import com.auroraplay.iptv.data.database.dao.MovieDao
 import com.auroraplay.iptv.data.database.dao.SeriesDao
 import com.auroraplay.iptv.data.datastore.SecureCredentialStore
+import com.auroraplay.iptv.data.mapper.mergedWith
 import com.auroraplay.iptv.data.mapper.toDomain
 import com.auroraplay.iptv.data.mapper.toEntity
 import com.auroraplay.iptv.domain.model.Category
@@ -124,9 +125,16 @@ class ContentRepositoryImpl @Inject constructor(
                 ?: categoryDao.getAll(connectionId, ContentType.MOVIE.name).associate { it.id to it.name }
             val vodStreams = runCatching { api.getVodStreams(urlBuilder.vodStreams()) }.getOrNull()
             if (!vodStreams.isNullOrEmpty()) {
+                // Carry forward genre/plot/backdrop/rating that get_vod_info or
+                // TMDB filled in earlier — the provider's plain listing omits
+                // them, and a blind replace would wipe every enrichment (audit #9).
+                val existingById = movieDao.getAll(connectionId).associateBy { it.id }
                 movieDao.replace(
                     connectionId,
-                    vodStreams.map { it.toEntity(connectionId, vodCategoryNameById[it.categoryId] ?: "Geral") },
+                    vodStreams.map {
+                        it.toEntity(connectionId, vodCategoryNameById[it.categoryId] ?: "Geral")
+                            .mergedWith(existingById[it.streamId.toString()])
+                    },
                 )
                 anyStreamFetched = true
             }
@@ -141,9 +149,16 @@ class ContentRepositoryImpl @Inject constructor(
                 ?: categoryDao.getAll(connectionId, ContentType.SERIES.name).associate { it.id to it.name }
             val seriesList = runCatching { api.getSeries(urlBuilder.series()) }.getOrNull()
             if (!seriesList.isNullOrEmpty()) {
+                // Same as movies: keep enrichment (backdrop/rating/plot/year)
+                // and the episode-fetch timestamp instead of nulling them on
+                // every sync (audit #9 / #7).
+                val existingById = seriesDao.getAll(connectionId).associateBy { it.id }
                 seriesDao.replace(
                     connectionId,
-                    seriesList.map { it.toEntity(connectionId, seriesCategoryNameById[it.categoryId] ?: "Geral") },
+                    seriesList.map {
+                        it.toEntity(connectionId, seriesCategoryNameById[it.categoryId] ?: "Geral")
+                            .mergedWith(existingById[it.seriesId.toString()])
+                    },
                 )
                 anyStreamFetched = true
             }
