@@ -40,6 +40,10 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -389,6 +393,7 @@ fun PlayerControlsOverlay(
         VerticalMiniSlider(
             value = brightnessValue,
             icon = Icons.Default.BrightnessHigh,
+            label = "Brilho, ${(brightnessValue.coerceIn(0f, 1f) * 100).toInt()} por cento",
             onDrag = onBrightnessDrag,
             width = 56.dp,
             height = 176.dp,
@@ -443,6 +448,10 @@ private fun VerticalMiniSlider(
     modifier: Modifier = Modifier,
     value: Float,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
+    /** Announced by TalkBack — this control has no visible label otherwise
+     * (just an icon), so screen-reader users had no way to tell what it was
+     * or hear its current level. */
+    label: String,
     onDrag: (delta: Float) -> Unit,
     width: androidx.compose.ui.unit.Dp = 52.dp,
     height: androidx.compose.ui.unit.Dp = 200.dp,
@@ -453,6 +462,11 @@ private fun VerticalMiniSlider(
         modifier = modifier
             .width(width)
             .height(height)
+            .semantics(mergeDescendants = true) {
+                contentDescription = label
+                progressBarRangeInfo = androidx.compose.ui.semantics.ProgressBarRangeInfo(pct, 0f..1f)
+                setProgress { target -> onDrag(target - pct); true }
+            }
             // No capsule/border behind the bar — just the icon, track and
             // knob. A soft drop shadow keeps it legible over bright video.
             .pointerInput(Unit) {
