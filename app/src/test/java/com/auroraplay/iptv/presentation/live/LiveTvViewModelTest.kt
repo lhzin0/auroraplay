@@ -1,27 +1,19 @@
 package com.auroraplay.iptv.presentation.live
 
-import com.auroraplay.iptv.core.util.Resource
 import com.auroraplay.iptv.domain.model.Category
 import com.auroraplay.iptv.domain.model.Channel
 import com.auroraplay.iptv.domain.model.ContentType
-import com.auroraplay.iptv.domain.model.EpgProgram
 import com.auroraplay.iptv.domain.model.Favorite
 import com.auroraplay.iptv.domain.model.Profile
 import com.auroraplay.iptv.domain.model.XtreamConnection
 import com.auroraplay.iptv.domain.policy.ContentPolicy
-import com.auroraplay.iptv.domain.repository.ConnectionRepository
-import com.auroraplay.iptv.domain.repository.ContentRepository
 import com.auroraplay.iptv.domain.repository.FavoriteRepository
-import com.auroraplay.iptv.domain.repository.ProfileRepository
-import com.auroraplay.iptv.domain.repository.SearchResults
-import com.auroraplay.iptv.domain.repository.SyncStage
 import com.auroraplay.iptv.domain.usecase.ToggleFavoriteUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -240,54 +232,6 @@ class LiveTvViewModelTest {
 
 private data class Quadruple<A, B, C, D>(val a: A, val b: B, val c: C, val d: D)
 
-private class FakeConnectionRepository(private val flow: MutableStateFlow<XtreamConnection?>) : ConnectionRepository {
-    override fun observeConnections(): Flow<List<XtreamConnection>> = unsupported()
-    override suspend fun getConnection(id: String): XtreamConnection? = unsupported()
-    override suspend fun getDefaultConnection(): XtreamConnection? = unsupported()
-    override fun observeDefaultConnection(): Flow<XtreamConnection?> = flow
-    override fun addConnection(name: String, serverUrl: String, username: String, password: String, profileId: String?): Flow<Resource<XtreamConnection>> = unsupported()
-    override suspend fun updateConnection(connection: XtreamConnection, newPassword: String?) = unsupported<Unit>()
-    override suspend fun deleteConnection(id: String) = unsupported<Unit>()
-    override suspend fun setDefault(id: String) = unsupported<Unit>()
-    override fun testConnection(id: String): Flow<Resource<Unit>> = unsupported()
-    override suspend fun getPassword(id: String): String? = unsupported()
-}
-
-private class FakeProfileRepository(private val flow: MutableStateFlow<Profile?>) : ProfileRepository {
-    override fun observeProfiles(): Flow<List<Profile>> = unsupported()
-    override suspend fun addProfile(name: String, avatarColorHex: String, avatarEmoji: String, avatarUri: String?, isKids: Boolean): Profile = unsupported()
-    override suspend fun updateProfile(profile: Profile) = unsupported<Unit>()
-    override suspend fun getProfile(id: String): Profile? = unsupported()
-    override suspend fun deleteProfile(id: String) = unsupported<Unit>()
-    override suspend fun getActiveProfileId(): String? = unsupported()
-    override suspend fun setActiveProfile(id: String) = unsupported<Unit>()
-    override fun observeActiveProfile(): Flow<Profile?> = flow
-}
-
-private class FakeContentRepository(
-    private val categoriesByConnection: Map<String, List<Category>>,
-    private val channelsByConnection: Map<String, MutableStateFlow<List<Channel>>>,
-) : ContentRepository {
-    override fun syncConnection(connectionId: String) = unsupported<Flow<Resource<SyncStage>>>()
-    override fun observeCategories(connectionId: String, type: ContentType): Flow<List<Category>> =
-        flowOf(categoriesByConnection[connectionId].orEmpty())
-    override fun observeChannels(connectionId: String, categoryId: String?): Flow<List<Channel>> {
-        val source = channelsByConnection[connectionId] ?: MutableStateFlow(emptyList())
-        return source.map { list -> if (categoryId == null) list else list.filter { it.categoryId == categoryId } }
-    }
-    override fun observeMovies(connectionId: String, categoryId: String?) = unsupported<Flow<List<com.auroraplay.iptv.domain.model.Movie>>>()
-    override fun observeSeries(connectionId: String, categoryId: String?) = unsupported<Flow<List<com.auroraplay.iptv.domain.model.Series>>>()
-    override suspend fun getSeriesDetail(connectionId: String, seriesId: String, forceRefresh: Boolean, allowStaleRefresh: Boolean) = unsupported<com.auroraplay.iptv.domain.model.Series?>()
-    override suspend fun getMovieDetail(connectionId: String, movieId: String) = unsupported<com.auroraplay.iptv.domain.model.Movie?>()
-    override suspend fun refreshSeriesEpisodes(connectionId: String, seriesId: String) = unsupported<List<String>?>()
-    override suspend fun getCachedMovie(connectionId: String, movieId: String) = unsupported<com.auroraplay.iptv.domain.model.Movie?>()
-    override suspend fun getCachedSeries(connectionId: String, seriesId: String) = unsupported<com.auroraplay.iptv.domain.model.Series?>()
-    override suspend fun getLastSyncMillis(connectionId: String): Long? = unsupported()
-    override fun search(connectionId: String, query: String): Flow<SearchResults> = unsupported()
-    override suspend fun getShortEpg(connectionId: String, channelId: String): Pair<EpgProgram?, EpgProgram?> = unsupported()
-    override suspend fun getEpgTimeline(connectionId: String, channelId: String, limit: Int): List<EpgProgram> = unsupported()
-}
-
 private open class FakeFavoriteRepository(private val byConnection: Map<String, List<Favorite>>) : FavoriteRepository {
     override fun observeFavorites(connectionId: String, profileId: String, type: ContentType?): Flow<List<Favorite>> =
         flowOf(byConnection[connectionId].orEmpty())
@@ -302,5 +246,3 @@ private class RecordingFavoriteRepository : FakeFavoriteRepository(emptyMap()) {
         toggled += Quadruple(connectionId, profileId, contentId, type)
     }
 }
-
-private fun <T> unsupported(): T = throw UnsupportedOperationException("Not needed by LiveTvViewModel")
