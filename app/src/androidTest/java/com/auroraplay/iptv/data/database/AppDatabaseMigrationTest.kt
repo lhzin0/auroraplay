@@ -58,7 +58,7 @@ class AppDatabaseMigrationTest {
             assertNotNull(progress)
             assertEquals("Filme A", progress!!.title)
             assertEquals(300000L, progress.positionMillis)
-            assertEquals(9, db.openHelper.readableDatabase.version)
+            assertEquals(10, db.openHelper.readableDatabase.version)
         } finally {
             db.close()
         }
@@ -115,6 +115,51 @@ class AppDatabaseMigrationTest {
         )
         db.query("SELECT COUNT(*) FROM watch_progress WHERE contentId = '500' AND type = 'MOVIE' AND profileId = 'p1'").use {
             it.moveToFirst(); assertEquals(2, it.getInt(0))
+        }
+        db.close()
+    }
+
+    /**
+     * Audit #4: 9 -> 10 drops the credential-bearing `streamUrl` from the
+     * catalog tables, keeps every row, and recovers the container extension
+     * from the old URL so already-synced content still plays before a re-sync.
+     */
+    @Test
+    fun migrate_9_to_10_drops_stream_url_and_keeps_catalog_rows() {
+        helper.createDatabase(testDb, 9).apply {
+            execSQL(
+                "INSERT INTO channels(id, connectionId, name, logoUrl, categoryId, categoryName, streamUrl, epgChannelId) " +
+                    "VALUES('c1', 'conn', 'Canal 1', NULL, 'g', 'Geral', 'http://host:8080/live/user/s3cr3t/c1.m3u8', NULL)",
+            )
+            execSQL(
+                "INSERT INTO movies(id, connectionId, name, posterUrl, backdropUrl, categoryId, categoryName, year, genre, plot, durationLabel, rating, streamUrl, audioLabel, addedAtMillis) " +
+                    "VALUES('m1', 'conn', 'Filme', NULL, NULL, 'g', 'Geral', NULL, NULL, NULL, NULL, NULL, 'http://host:8080/movie/user/s3cr3t/m1.mkv', NULL, 10)",
+            )
+            execSQL(
+                "INSERT INTO episodes(id, seriesId, connectionId, seasonNumber, episodeNumber, title, thumbnailUrl, durationLabel, plot, streamUrl) " +
+                    "VALUES('e1', 's1', 'conn', 1, 1, 'Ep 1', NULL, NULL, NULL, 'http://host:8080/series/user/s3cr3t/e1.mp4')",
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(testDb, 10, true, *AppDatabaseMigrations.ALL)
+
+        // streamUrl is gone from every catalog table.
+        for (table in listOf("channels", "movies", "episodes")) {
+            db.query("PRAGMA table_info($table)").use { c ->
+                val cols = generateSequence { if (c.moveToNext()) c.getString(1) else null }.toList()
+                assertEquals("streamUrl still present in $table", false, cols.contains("streamUrl"))
+            }
+        }
+
+        db.query("SELECT name FROM channels WHERE id = 'c1'").use {
+            assertEquals(true, it.moveToFirst()); assertEquals("Canal 1", it.getString(0))
+        }
+        db.query("SELECT containerExtension FROM movies WHERE id = 'm1'").use {
+            assertEquals(true, it.moveToFirst()); assertEquals("mkv", it.getString(0))
+        }
+        db.query("SELECT containerExtension FROM episodes WHERE id = 'e1'").use {
+            assertEquals(true, it.moveToFirst()); assertEquals("mp4", it.getString(0))
         }
         db.close()
     }

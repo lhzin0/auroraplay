@@ -21,6 +21,9 @@ data class SeriesEntity(
     val addedAtMillis: Long,
 )
 
+// Audit #4: the authenticated episode URL (server/series/<user>/<pass>/<id>.ext)
+// is never stored. Only the episode id + container extension are kept; the URL
+// is rebuilt on demand from the connection's credentials.
 @androidx.room.Entity(tableName = "episodes", primaryKeys = ["id", "seriesId", "connectionId"])
 data class EpisodeEntity(
     val id: String,
@@ -32,5 +35,7 @@ data class EpisodeEntity(
     val thumbnailUrl: String?,
     val durationLabel: String?,
     val plot: String?,
-    val streamUrl: String,
+    /** Container ("mp4", "mkv", ...) needed to build the playback URL; null
+     * falls back to "mp4". */
+    val containerExtension: String? = null,
 )

@@ -10,7 +10,6 @@ import com.auroraplay.iptv.data.database.dao.ConnectionDao
 import com.auroraplay.iptv.data.database.dao.EpisodeDao
 import com.auroraplay.iptv.data.database.dao.MovieDao
 import com.auroraplay.iptv.data.database.dao.SeriesDao
-import com.auroraplay.iptv.data.database.entity.MovieEntity
 import com.auroraplay.iptv.data.datastore.SecureCredentialStore
 import com.auroraplay.iptv.data.mapper.toDomain
 import com.auroraplay.iptv.data.mapper.toEntity
@@ -27,6 +26,7 @@ import com.auroraplay.iptv.domain.repository.SyncStage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
@@ -97,7 +97,7 @@ class ContentRepositoryImpl @Inject constructor(
             if (!liveStreams.isNullOrEmpty()) {
                 channelDao.replace(
                     connectionId,
-                    liveStreams.map { it.toEntity(connectionId, liveCategoryNameById[it.categoryId] ?: "Geral", urlBuilder) },
+                    liveStreams.map { it.toEntity(connectionId, liveCategoryNameById[it.categoryId] ?: "Geral") },
                 )
                 anyStreamFetched = true
             }
@@ -114,7 +114,7 @@ class ContentRepositoryImpl @Inject constructor(
             if (!vodStreams.isNullOrEmpty()) {
                 movieDao.replace(
                     connectionId,
-                    vodStreams.map { it.toEntity(connectionId, vodCategoryNameById[it.categoryId] ?: "Geral", urlBuilder) },
+                    vodStreams.map { it.toEntity(connectionId, vodCategoryNameById[it.categoryId] ?: "Geral") },
                 )
                 anyStreamFetched = true
             }
@@ -172,16 +172,27 @@ class ContentRepositoryImpl @Inject constructor(
             .flowOn(Dispatchers.Default)
 
     override fun observeChannels(connectionId: String, categoryId: String?): Flow<List<Channel>> =
-        channelDao.observe(connectionId, categoryId)
-            // Also hide radio rows that a pre-filter build already stored, so
-            // the change takes effect without waiting for a re-sync.
-            .map { list -> list.asSequence().filterNot { MetadataSanitizer.isRadioCategory(it.categoryName) }.map { it.toDomain() }.toList() }
-            .flowOn(Dispatchers.Default)
+        flow {
+            // Audit #4: creds live only in the secure store; resolve them once
+            // here and rebuild each playback URL in memory — never from a
+            // stored column.
+            val urlBuilder = urlBuilderFor(connectionId)
+            emitAll(
+                channelDao.observe(connectionId, categoryId)
+                    // Also hide radio rows that a pre-filter build already stored,
+                    // so the change takes effect without waiting for a re-sync.
+                    .map { list -> list.asSequence().filterNot { MetadataSanitizer.isRadioCategory(it.categoryName) }.map { it.toDomain(urlBuilder) }.toList() },
+            )
+        }.flowOn(Dispatchers.Default)
 
     override fun observeMovies(connectionId: String, categoryId: String?): Flow<List<Movie>> =
-        movieDao.observe(connectionId, categoryId)
-            .map { list -> list.collapseAudioVariants({ it.name }, { it.year }, { it.categoryName }).map { it.toDomain() } }
-            .flowOn(Dispatchers.Default)
+        flow {
+            val urlBuilder = urlBuilderFor(connectionId)
+            emitAll(
+                movieDao.observe(connectionId, categoryId)
+                    .map { list -> list.collapseAudioVariants({ it.name }, { it.year }, { it.categoryName }).map { it.toDomain(urlBuilder) } },
+            )
+        }.flowOn(Dispatchers.Default)
 
     override fun observeSeries(connectionId: String, categoryId: String?): Flow<List<Series>> =
         seriesDao.observe(connectionId, categoryId)
@@ -248,36 +259,41 @@ class ContentRepositoryImpl @Inject constructor(
         MetadataSanitizer.AudioVariant.LEGENDADO -> 2
     }
 
-    private fun seasonsOf(episodes: List<com.auroraplay.iptv.data.database.entity.EpisodeEntity>) =
+    private fun seasonsOf(
+        episodes: List<com.auroraplay.iptv.data.database.entity.EpisodeEntity>,
+        urlBuilder: XtreamUrlBuilder?,
+    ) =
         episodes.groupBy { it.seasonNumber }
             .toSortedMap()
             .map { (seasonNumber, eps) ->
                 Season(
                     seasonNumber = seasonNumber,
                     name = "Temporada $seasonNumber",
-                    episodes = eps.sortedBy { it.episodeNumber }.map { it.toDomain() },
+                    episodes = eps.sortedBy { it.episodeNumber }.map { it.toDomain(urlBuilder) },
                 )
             }
 
     override suspend fun getCachedMovie(connectionId: String, movieId: String): Movie? =
-        movieDao.getById(connectionId, movieId)?.toDomain()
+        movieDao.getById(connectionId, movieId)?.toDomain(urlBuilderFor(connectionId))
 
     override suspend fun getCachedSeries(connectionId: String, seriesId: String): Series? {
         val entity = seriesDao.getById(connectionId, seriesId) ?: return null
-        return entity.toDomain().copy(seasons = seasonsOf(episodeDao.getForSeries(connectionId, seriesId)))
+        return entity.toDomain().copy(
+            seasons = seasonsOf(episodeDao.getForSeries(connectionId, seriesId), urlBuilderFor(connectionId)),
+        )
     }
 
     override suspend fun getSeriesDetail(connectionId: String, seriesId: String): Series? {
         val entity = seriesDao.getById(connectionId, seriesId) ?: return null
+        val urlBuilder = urlBuilderFor(connectionId)
         var episodes = episodeDao.getForSeries(connectionId, seriesId)
 
         if (episodes.isEmpty()) {
-            val urlBuilder = urlBuilderFor(connectionId)
             if (urlBuilder != null) {
                 runCatching { api.getSeriesInfo(urlBuilder.seriesInfo(seriesId)) }.getOrNull()?.let { info ->
                     val allEpisodes = info.episodes?.flatMap { (seasonKey, eps) ->
                         val seasonNumber = seasonKey.toIntOrNull() ?: eps.firstOrNull()?.season ?: 1
-                        eps.map { it.toEntity(seriesId, connectionId, seasonNumber, urlBuilder) }
+                        eps.map { it.toEntity(seriesId, connectionId, seasonNumber) }
                     }.orEmpty()
                     episodeDao.clearForSeries(connectionId, seriesId)
                     episodeDao.upsertAll(allEpisodes)
@@ -286,7 +302,7 @@ class ContentRepositoryImpl @Inject constructor(
             }
         }
 
-        val seasons = seasonsOf(episodes)
+        val seasons = seasonsOf(episodes, urlBuilder)
 
         var enriched = entity
         if (enriched.plot.isNullOrBlank()) {
@@ -307,12 +323,13 @@ class ContentRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getMovieDetail(connectionId: String, movieId: String): Movie? {
+        val urlBuilder = urlBuilderFor(connectionId)
         var entity = movieDao.getById(connectionId, movieId) ?: return null
 
         // Tier 1: ask the playlist itself (get_vod_info) for the synopsis.
         if (entity.plot.isNullOrBlank()) {
-            urlBuilderFor(connectionId)?.let { urlBuilder ->
-                runCatching { api.getVodInfo(urlBuilder.vodInfo(movieId)) }.getOrNull()?.info?.let { info ->
+            urlBuilder?.let { ub ->
+                runCatching { api.getVodInfo(ub.vodInfo(movieId)) }.getOrNull()?.info?.let { info ->
                     entity = entity.copy(
                         plot = MetadataSanitizer.text(info.plot) ?: entity.plot,
                         genre = MetadataSanitizer.categoryName(info.genre) ?: entity.genre,
@@ -340,7 +357,7 @@ class ContentRepositoryImpl @Inject constructor(
             }
         }
 
-        return entity.toDomain()
+        return entity.toDomain(urlBuilder)
     }
 
     override suspend fun getLastSyncMillis(connectionId: String): Long? =
@@ -351,11 +368,12 @@ class ContentRepositoryImpl @Inject constructor(
             emit(SearchResults(emptyList(), emptyList(), emptyList()))
             return@flow
         }
+        val urlBuilder = urlBuilderFor(connectionId)
         val channels = channelDao.search(connectionId, query)
             .filterNot { MetadataSanitizer.isRadioCategory(it.categoryName) }
-            .map { it.toDomain() }
+            .map { it.toDomain(urlBuilder) }
         val movies = movieDao.search(connectionId, query)
-            .collapseAudioVariants({ it.name }, { it.year }, { it.categoryName }).map { it.toDomain() }
+            .collapseAudioVariants({ it.name }, { it.year }, { it.categoryName }).map { it.toDomain(urlBuilder) }
         val series = seriesDao.search(connectionId, query)
             .collapseAudioVariants({ it.name }, { it.year }, { it.categoryName }).map { it.toDomain() }
         emit(SearchResults(channels, movies, series))

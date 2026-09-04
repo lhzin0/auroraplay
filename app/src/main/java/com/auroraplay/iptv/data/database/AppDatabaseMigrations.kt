@@ -129,7 +129,68 @@ object AppDatabaseMigrations {
         }
     }
 
+    // Audit #4: stop persisting the authenticated playback URL (it embeds the
+    // Xtream username + password) in the catalog. `streamUrl` is dropped from
+    // `channels`, `movies` and `episodes`; movies/episodes gain a
+    // `containerExtension` so the URL can still be rebuilt on demand. SQLite
+    // can't DROP a column portably on every supported API level, so each table
+    // is rebuilt. The extension is recovered from the old URL's suffix where
+    // possible so already-synced content still plays before the next sync;
+    // an unrecognised suffix becomes NULL and falls back to "mp4".
+    private val MIGRATION_9_10 = object : Migration(9, 10) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // channels: drop streamUrl only.
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `channels_new` (`id` TEXT NOT NULL, `connectionId` TEXT NOT NULL, `name` TEXT NOT NULL, `logoUrl` TEXT, `categoryId` TEXT NOT NULL, `categoryName` TEXT NOT NULL, `epgChannelId` TEXT, PRIMARY KEY(`id`, `connectionId`))"
+            )
+            db.execSQL(
+                "INSERT INTO `channels_new` (`id`, `connectionId`, `name`, `logoUrl`, `categoryId`, `categoryName`, `epgChannelId`) " +
+                    "SELECT `id`, `connectionId`, `name`, `logoUrl`, `categoryId`, `categoryName`, `epgChannelId` FROM `channels`"
+            )
+            db.execSQL("DROP TABLE `channels`")
+            db.execSQL("ALTER TABLE `channels_new` RENAME TO `channels`")
+
+            // movies: drop streamUrl, add containerExtension (recovered from the
+            // old URL suffix).
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `movies_new` (`id` TEXT NOT NULL, `connectionId` TEXT NOT NULL, `name` TEXT NOT NULL, `posterUrl` TEXT, `backdropUrl` TEXT, `categoryId` TEXT NOT NULL, `categoryName` TEXT NOT NULL, `year` TEXT, `genre` TEXT, `plot` TEXT, `durationLabel` TEXT, `rating` REAL, `containerExtension` TEXT, `audioLabel` TEXT, `addedAtMillis` INTEGER NOT NULL, PRIMARY KEY(`id`, `connectionId`))"
+            )
+            db.execSQL(
+                "INSERT INTO `movies_new` (`id`, `connectionId`, `name`, `posterUrl`, `backdropUrl`, `categoryId`, `categoryName`, `year`, `genre`, `plot`, `durationLabel`, `rating`, `containerExtension`, `audioLabel`, `addedAtMillis`) " +
+                    "SELECT `id`, `connectionId`, `name`, `posterUrl`, `backdropUrl`, `categoryId`, `categoryName`, `year`, `genre`, `plot`, `durationLabel`, `rating`, " +
+                    EXTENSION_FROM_URL + ", `audioLabel`, `addedAtMillis` FROM `movies`"
+            )
+            db.execSQL("DROP TABLE `movies`")
+            db.execSQL("ALTER TABLE `movies_new` RENAME TO `movies`")
+
+            // episodes: drop streamUrl, add containerExtension.
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `episodes_new` (`id` TEXT NOT NULL, `seriesId` TEXT NOT NULL, `connectionId` TEXT NOT NULL, `seasonNumber` INTEGER NOT NULL, `episodeNumber` INTEGER NOT NULL, `title` TEXT NOT NULL, `thumbnailUrl` TEXT, `durationLabel` TEXT, `plot` TEXT, `containerExtension` TEXT, PRIMARY KEY(`id`, `seriesId`, `connectionId`))"
+            )
+            db.execSQL(
+                "INSERT INTO `episodes_new` (`id`, `seriesId`, `connectionId`, `seasonNumber`, `episodeNumber`, `title`, `thumbnailUrl`, `durationLabel`, `plot`, `containerExtension`) " +
+                    "SELECT `id`, `seriesId`, `connectionId`, `seasonNumber`, `episodeNumber`, `title`, `thumbnailUrl`, `durationLabel`, `plot`, " +
+                    EXTENSION_FROM_URL + " FROM `episodes`"
+            )
+            db.execSQL("DROP TABLE `episodes`")
+            db.execSQL("ALTER TABLE `episodes_new` RENAME TO `episodes`")
+        }
+    }
+
+    /** SQLite CASE that maps a stored playback URL to its container extension.
+     * Xtream containers are a small known set; anything else → NULL ("mp4"). */
+    private const val EXTENSION_FROM_URL =
+        "CASE " +
+            "WHEN `streamUrl` LIKE '%.mkv' THEN 'mkv' " +
+            "WHEN `streamUrl` LIKE '%.mp4' THEN 'mp4' " +
+            "WHEN `streamUrl` LIKE '%.avi' THEN 'avi' " +
+            "WHEN `streamUrl` LIKE '%.ts' THEN 'ts' " +
+            "WHEN `streamUrl` LIKE '%.m3u8' THEN 'm3u8' " +
+            "WHEN `streamUrl` LIKE '%.mov' THEN 'mov' " +
+            "WHEN `streamUrl` LIKE '%.flv' THEN 'flv' " +
+            "ELSE NULL END"
+
     val ALL: Array<Migration> = arrayOf(
-        MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9,
+        MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10,
     )
 }

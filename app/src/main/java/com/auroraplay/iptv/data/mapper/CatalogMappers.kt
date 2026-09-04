@@ -35,18 +35,21 @@ fun CategoryEntity.toDomain() = Category(
     connectionId = connectionId,
 )
 
-fun LiveStreamDto.toEntity(connectionId: String, categoryName: String, urlBuilder: XtreamUrlBuilder) = ChannelEntity(
+fun LiveStreamDto.toEntity(connectionId: String, categoryName: String) = ChannelEntity(
     id = streamId.toString(),
     connectionId = connectionId,
     name = MetadataSanitizer.title(name),
     logoUrl = streamIcon?.takeIf { it.isNotBlank() },
     categoryId = categoryId.orEmpty(),
     categoryName = MetadataSanitizer.categoryName(categoryName) ?: categoryName.trim(),
-    streamUrl = urlBuilder.liveStreamPlayback(streamId.toString()),
     epgChannelId = epgChannelId?.takeIf { it.isNotBlank() },
 )
 
-fun ChannelEntity.toDomain() = Channel(
+/** [urlBuilder] is null only when the connection has no usable credentials
+ * (e.g. a backup restored without the secure store) — the stream URL is then
+ * blank and the player surfaces its "sem endereço de reprodução" error rather
+ * than a broken request. Audit #4: the URL is assembled here, never stored. */
+fun ChannelEntity.toDomain(urlBuilder: XtreamUrlBuilder?) = Channel(
     id = id,
     connectionId = connectionId,
     name = name,
@@ -55,11 +58,11 @@ fun ChannelEntity.toDomain() = Channel(
     // Also sanitised on read, so rows synced before this cleanup landed
     // still display cleanly without waiting for a re-sync.
     categoryName = MetadataSanitizer.categoryName(categoryName) ?: categoryName,
-    streamUrl = streamUrl,
+    streamUrl = urlBuilder?.liveStreamPlayback(id).orEmpty(),
     epgChannelId = epgChannelId,
 )
 
-fun VodStreamDto.toEntity(connectionId: String, categoryName: String, urlBuilder: XtreamUrlBuilder) = MovieEntity(
+fun VodStreamDto.toEntity(connectionId: String, categoryName: String) = MovieEntity(
     id = streamId.toString(),
     connectionId = connectionId,
     name = MetadataSanitizer.title(name),
@@ -72,13 +75,14 @@ fun VodStreamDto.toEntity(connectionId: String, categoryName: String, urlBuilder
     plot = null,
     durationLabel = null,
     rating = rating?.toDoubleOrNull(),
-    streamUrl = urlBuilder.vodStreamPlayback(streamId.toString(), containerExtension ?: "mp4"),
+    containerExtension = containerExtension?.takeIf { it.isNotBlank() },
     // Computed from the *raw* name + category, before title() strips "[L]" etc.
     audioLabel = MetadataSanitizer.audioLabelOf(name, categoryName),
     addedAtMillis = added?.toLongOrNull()?.times(1000) ?: System.currentTimeMillis(),
 )
 
-fun MovieEntity.toDomain() = Movie(
+/** [urlBuilder] null → blank stream URL (see [ChannelEntity.toDomain]). */
+fun MovieEntity.toDomain(urlBuilder: XtreamUrlBuilder?) = Movie(
     id = id,
     connectionId = connectionId,
     // The stored name keeps any "- DUBLADO" / "(Legendado)" tag (the catalog
@@ -95,7 +99,7 @@ fun MovieEntity.toDomain() = Movie(
     plot = plot,
     durationLabel = durationLabel,
     rating = rating,
-    streamUrl = streamUrl,
+    streamUrl = urlBuilder?.vodStreamPlayback(id, containerExtension ?: "mp4").orEmpty(),
     addedAtMillis = addedAtMillis,
 )
 
@@ -132,7 +136,7 @@ fun SeriesEntity.toDomain() = Series(
     addedAtMillis = addedAtMillis,
 )
 
-fun EpisodeDto.toEntity(seriesId: String, connectionId: String, seasonNumber: Int, urlBuilder: XtreamUrlBuilder) = EpisodeEntity(
+fun EpisodeDto.toEntity(seriesId: String, connectionId: String, seasonNumber: Int) = EpisodeEntity(
     id = id,
     seriesId = seriesId,
     connectionId = connectionId,
@@ -142,10 +146,11 @@ fun EpisodeDto.toEntity(seriesId: String, connectionId: String, seasonNumber: In
     thumbnailUrl = info?.movieImage,
     durationLabel = MetadataSanitizer.duration(info?.duration),
     plot = MetadataSanitizer.text(info?.plot),
-    streamUrl = urlBuilder.seriesEpisodePlayback(id, containerExtension ?: "mp4"),
+    containerExtension = containerExtension?.takeIf { it.isNotBlank() },
 )
 
-fun EpisodeEntity.toDomain() = Episode(
+/** [urlBuilder] null → blank stream URL (see [ChannelEntity.toDomain]). */
+fun EpisodeEntity.toDomain(urlBuilder: XtreamUrlBuilder?) = Episode(
     id = id,
     seriesId = seriesId,
     seasonNumber = seasonNumber,
@@ -156,5 +161,5 @@ fun EpisodeEntity.toDomain() = Episode(
     thumbnailUrl = thumbnailUrl,
     durationLabel = durationLabel,
     plot = plot,
-    streamUrl = streamUrl,
+    streamUrl = urlBuilder?.seriesEpisodePlayback(id, containerExtension ?: "mp4").orEmpty(),
 )
