@@ -293,8 +293,15 @@ class PlayerViewModel @Inject constructor(
                     isFavorite = false,
                 )
 
-                // Scrub preview opens lazily on the first scrub (audit #21).
                 startProgressLoop()
+                // Warmed up in the background rather than opened lazily on the
+                // first scrub — see the matching comment in load() for why.
+                launch {
+                    delay(2.seconds)
+                    if (_loadState.value.contentId == dl.playbackId) {
+                        runCatching { scrubPreview.open(dl.uri) }
+                    }
+                }
             }.onFailure { error ->
                 _loadState.value = _loadState.value.copy(
                     loadError = error.message?.takeIf { it.isNotBlank() }
@@ -340,12 +347,29 @@ class PlayerViewModel @Inject constructor(
 
                 startProgressLoop()
 
-                // Audit #21: the scrub-preview decoder is NOT spun up here. For
-                // live it is torn down (never used); for VOD it is opened
-                // lazily on the first scrub (see requestScrubThumbnail), so a
-                // decoder isn't running and caching frames before the user has
-                // touched the timeline.
-                if (_loadState.value.isLive) launch { runCatching { scrubPreview.close() } }
+                if (_loadState.value.isLive) {
+                    // Never used for live — torn down if it was left open from
+                    // a previous VOD/offline item in this same player session.
+                    launch { runCatching { scrubPreview.close() } }
+                } else {
+                    // Audit #21 made this lazy-on-first-scrub to keep it off
+                    // the load path, but that meant the FIRST scrub of every
+                    // session paid the full decoder init (thread + EGL context
+                    // + ExoPlayer prepare + first frame) inline — the reported
+                    // "thumbnail takes a while to appear" regression. Warming
+                    // it up here instead keeps it off the *load* path (still
+                    // `launch`ed, still delayed past the critical first-frame
+                    // window so it doesn't compete with the main decoder for
+                    // startup bandwidth) while having it ready well before a
+                    // user typically reaches for the timeline.
+                    launch {
+                        delay(2.seconds)
+                        val url = _loadState.value.streamUrl
+                        if (!url.isNullOrBlank() && _loadState.value.contentId == contentId) {
+                            runCatching { scrubPreview.open(url) }
+                        }
+                    }
+                }
             }.onFailure { error ->
                 _loadState.value = _loadState.value.copy(
                     loadError = error.message?.takeIf { it.isNotBlank() }
