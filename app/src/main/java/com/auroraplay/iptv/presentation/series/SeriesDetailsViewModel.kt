@@ -36,6 +36,15 @@ data class SeriesDetailsUiState(
     val resumeEpisodeNumber: Int? = null,
     val resumePositionMillis: Long = 0L,
     val resumeDurationMillis: Long = 0L,
+    /** episodeId -> runtime the player actually measured on a past watch.
+     * Ground truth that overrides the provider's frequently-wrong static
+     * per-episode duration ("21min" for a whole season whose episodes really
+     * run ~52min). Empty until an episode of this series has been played. */
+    val measuredEpisodeDurationsById: Map<String, Long> = emptyMap(),
+    /** seasonNumber -> (episodeNumber -> runtime minutes) from TMDB. Fills in
+     * the real runtime for seasons the user hasn't watched yet, so a wrong
+     * static label can be corrected (or hidden) before the first play. */
+    val tmdbEpisodeRuntimeMinutesBySeason: Map<Int, Map<Int, Int>> = emptyMap(),
     /** Per-episode download state, keyed by episode id — lets each row show
      * its own download icon without every row re-deriving it independently. */
     val downloadedEpisodeIds: Set<String> = emptySet(),
@@ -50,6 +59,13 @@ data class SeriesDetailsUiState(
     val trailerYoutubeId: String? = null,
     /** A manual "atualizar episódios" fetch is in flight (audit #7). */
     val isRefreshingEpisodes: Boolean = false,
+)
+
+/** Bundles the two watch-progress lookups the detail screen needs so the
+ * main `combine` stays within its five typed sources. */
+private data class SeriesProgressSnapshot(
+    val latest: com.auroraplay.iptv.domain.model.WatchProgress? = null,
+    val measuredDurations: Map<String, Long> = emptyMap(),
 )
 
 @HiltViewModel
@@ -87,6 +103,28 @@ class SeriesDetailsViewModel @Inject constructor(
      * download progress ticks, resume-progress updates) must not move the
      * selection off it (audit #14). */
     private var userPickedSeason = false
+
+    /** Seasons whose TMDB runtimes have already been requested — one fetch
+     * each, off the critical path, as a season is first shown. */
+    private val requestedRuntimeSeasons = mutableSetOf<Int>()
+
+    /** Fetches TMDB per-episode runtimes for [seasonNumber] once and folds
+     * them into the UI state. Silent on any failure — this only ever adds a
+     * correction, never blocks the page. */
+    private fun ensureSeasonRuntimes(seasonNumber: Int?) {
+        val season = seasonNumber ?: return
+        if (!requestedRuntimeSeasons.add(season)) return
+        val base = if (::seriesFlow.isInitialized) seriesFlow.value else null
+        val name = base?.name ?: loadedSeriesName ?: return
+        viewModelScope.launch {
+            val runtimes = runCatching {
+                metadataEnricher.episodeRuntimes(name, base?.year, season)
+            }.getOrNull().orEmpty()
+            if (runtimes.isNotEmpty()) {
+                _uiState.update { it.copy(tmdbEpisodeRuntimeMinutesBySeason = it.tmdbEpisodeRuntimeMinutesBySeason + (season to runtimes)) }
+            }
+        }
+    }
 
     init {
         viewModelScope.launch {
@@ -143,15 +181,21 @@ class SeriesDetailsViewModel @Inject constructor(
             }
 
             val favoriteFlow = if (profile != null) favoriteRepository.isFavorite(connection.id, profile.id, seriesId, com.auroraplay.iptv.domain.model.ContentType.SERIES) else flowOf(false)
-            // Most recently watched episode of this series — one indexed query
-            // ordered by lastWatchedMillis (audit #14), recomputed when the
-            // episode list changes so Resume tracks new progress.
-            val latestProgressFlow = seriesFlow.map { _ ->
-                val p = profile ?: return@map null
-                watchProgressRepository.getLatestSeriesProgress(connection.id, p.id, seriesId)
+            // Most recently watched episode of this series (audit #14) plus
+            // the per-episode measured runtimes — both recomputed when the
+            // episode list changes so Resume and the corrected durations
+            // track new progress. Bundled so the combine below stays at five
+            // typed sources.
+            val progressFlow = seriesFlow.map { _ ->
+                val p = profile ?: return@map SeriesProgressSnapshot()
+                SeriesProgressSnapshot(
+                    latest = watchProgressRepository.getLatestSeriesProgress(connection.id, p.id, seriesId),
+                    measuredDurations = watchProgressRepository.getMeasuredEpisodeDurations(connection.id, p.id, seriesId),
+                )
             }
 
-            combine(seriesFlow, similarFlow, latestProgressFlow, favoriteFlow, downloadTracker.downloads) { series, similar, latestProgress, isFav, downloads ->
+            combine(seriesFlow, similarFlow, progressFlow, favoriteFlow, downloadTracker.downloads) { series, similar, progress, isFav, downloads ->
+                val latestProgress = progress.latest
                 if (series == null) return@combine
                 // Look each episode up by its composite download key
                 // (connectionId|SERIES|episodeId), falling back to a bare-id
@@ -180,12 +224,16 @@ class SeriesDetailsViewModel @Inject constructor(
                     resumeEpisodeNumber = latestProgress?.episodeNumber,
                     resumePositionMillis = latestProgress?.positionMillis ?: 0L,
                     resumeDurationMillis = latestProgress?.durationMillis ?: 0L,
+                    measuredEpisodeDurationsById = progress.measuredDurations,
                     downloadedEpisodeIds = relevant.filterValues { it.status == Download.STATE_COMPLETED }.keys,
                     downloadingEpisodeIds = relevant.filterValues { it.status == Download.STATE_DOWNLOADING }.keys,
                     downloadProgressByEpisodeId = relevant.mapValues { it.value.progressPercent / 100f },
                     downloadHasKnownPercentageByEpisodeId = relevant.mapValues { it.value.hasKnownPercentage },
                     downloadBytesByEpisodeId = relevant.mapValues { it.value.bytesDownloaded },
                 )
+                // Pull TMDB runtimes for whichever season is now on screen
+                // (auto-selected on first load, or the user's pick).
+                ensureSeasonRuntimes(_uiState.value.selectedSeasonNumber)
             }.collect {}
         }
     }
@@ -193,6 +241,7 @@ class SeriesDetailsViewModel @Inject constructor(
     fun selectSeason(seasonNumber: Int) {
         userPickedSeason = true
         _uiState.value = _uiState.value.copy(selectedSeasonNumber = seasonNumber)
+        ensureSeasonRuntimes(seasonNumber)
     }
 
     /** Manual "atualizar episódios" (audit #7) — forces a `get_series_info`

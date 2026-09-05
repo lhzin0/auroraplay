@@ -212,6 +212,7 @@ private class FakeWatchProgressRepository(
     override fun observeContinueWatching(connectionId: String, profileId: String): Flow<List<WatchProgress>> = flowOf(continueWatching)
     override suspend fun getProgress(connectionId: String, profileId: String, contentId: String, type: ContentType) = unsupported<Nothing>()
     override suspend fun getLatestSeriesProgress(connectionId: String, profileId: String, seriesId: String) = unsupported<Nothing>()
+    override suspend fun getMeasuredEpisodeDurations(connectionId: String, profileId: String, seriesId: String): Map<String, Long> = emptyMap()
     override suspend fun saveProgress(progress: WatchProgress) = unsupported<Unit>()
     override suspend fun removeProgress(connectionId: String, profileId: String, contentId: String, type: ContentType) = unsupported<Unit>()
     override fun observeWatchHistory(profileId: String) = unsupported<Nothing>()

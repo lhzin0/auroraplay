@@ -64,6 +64,23 @@ interface WatchProgressDao {
     )
     suspend fun getLatestForSeries(connectionId: String, profileId: String, seriesId: String): WatchProgressEntity?
 
+    /**
+     * Every episode row of one series that carries a real measured runtime
+     * (rows are "<seriesId>:<episodeId>"). The player writes durationMillis
+     * from what it actually decoded, so these are used to correct a
+     * provider's frequently-wrong static per-episode duration on the detail
+     * page. Newest first so the caller can keep the latest measurement per
+     * episode.
+     */
+    @Query(
+        """SELECT * FROM watch_progress
+        WHERE connectionId = :connectionId AND profileId = :profileId AND type = 'SERIES'
+        AND contentId LIKE :seriesId || ':%'
+        AND durationMillis > 0
+        ORDER BY lastWatchedMillis DESC""",
+    )
+    suspend fun getMeasuredEpisodeDurations(connectionId: String, profileId: String, seriesId: String): List<WatchProgressEntity>
+
     /** Every row — for the local backup snapshot. */
     @Query("SELECT * FROM watch_progress")
     suspend fun getAll(): List<WatchProgressEntity>

@@ -71,6 +71,10 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -339,6 +343,26 @@ fun PlayerScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
+            // The video fills the screen and the transport controls fade out,
+            // so with TalkBack on there is otherwise nothing here to act on.
+            // Name the surface and expose its two core gestures as explicit
+            // accessibility actions (the tap-to-reveal and the play/pause a
+            // sighted user gets from the overlay).
+            .semantics {
+                contentDescription = "Vídeo em tela cheia"
+                customActions = listOf(
+                    CustomAccessibilityAction(
+                        if (controlsVisibleState) "Ocultar controles" else "Mostrar controles",
+                    ) {
+                        if (!isLocked) controlsVisible = !controlsVisibleState
+                        true
+                    },
+                    CustomAccessibilityAction("Reproduzir ou pausar") {
+                        if (!isLocked) viewModel.playerManager.togglePlayPause()
+                        true
+                    },
+                )
+            }
             // Keep the tap detector as an ANCESTOR of the transport controls.
             // Compose dispatches button consumption before the parent handles
             // the Main pass, so a button tap cannot leak into this detector.
@@ -662,7 +686,10 @@ fun PlayerScreen(
                         )
                     },
                     onOpenAudio = { showAudioSubsSheet = true },
-                    onSkipIntro = { viewModel.playerManager.skipIntro() },
+                    onSkipIntro = {
+                        viewModel.playerManager.skipIntro()
+                        toastLabel = "Introdução pulada"
+                    },
                     playPauseFocusRequester = playPauseFocusRequester,
                 )
             }

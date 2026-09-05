@@ -24,6 +24,8 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,10 +52,25 @@ fun LiveTvScreen(
     // The Live tab owns the embedded preview. Leaving the tab must silence it
     // immediately; returning creates a fresh PlayerScreenContent, which plays
     // the selected channel again from the live edge.
+    //
+    // The one exception is promoting the preview to the full-screen player:
+    // that route is handed the SAME shared PlayerManager and adopts the
+    // already-buffered stream without re-preparing it, so tearing it down
+    // here — this composable is disposed as the navigation commits — would
+    // race PlayerScreen's adoption and, when this dispose lands last, stop()
+    // leaves the stream idle with nothing to restart it (its LaunchedEffect
+    // keys on the unchanged URL and never re-fires). Reported as a live
+    // channel that "pausa sozinho ao abrir em tela cheia". The flag below is
+    // set on the fullscreen taps so this dispose skips stop() only then.
+    val promotingToFullscreen = remember { mutableStateOf(false) }
     DisposableEffect(Unit) {
         onDispose {
-            playerManager.stop()
+            if (!promotingToFullscreen.value) playerManager.stop()
         }
+    }
+    val openFullscreen: (String) -> Unit = { channelId ->
+        promotingToFullscreen.value = true
+        onOpenFullscreen(channelId)
     }
 
     Column(Modifier.fillMaxSize().background(AuroraColors.BackgroundBase)) {
@@ -99,7 +116,7 @@ fun LiveTvScreen(
                 Box(
                     Modifier
                         .fillMaxSize()
-                        .clickable { onOpenFullscreen(channel.id) }
+                        .clickable { openFullscreen(channel.id) }
                 )
 
                 Row(
@@ -117,7 +134,7 @@ fun LiveTvScreen(
                         )
                     }
                     IconButton(
-                        onClick = { onOpenFullscreen(channel.id) },
+                        onClick = { openFullscreen(channel.id) },
                         modifier = Modifier.tvFocusable(shape = CircleShape, accent = Color.White),
                     ) {
                         Icon(Icons.Default.Fullscreen, contentDescription = "Tela cheia", tint = Color.White)

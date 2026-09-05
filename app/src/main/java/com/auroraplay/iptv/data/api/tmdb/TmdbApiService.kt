@@ -54,7 +54,30 @@ interface TmdbApiService {
         @Query("language") language: String = "pt-BR",
         @Header("Authorization") authorization: String? = null,
     ): TmdbVideosResponse
+
+    /** One season's episode list. Only the per-episode `runtime` is used, to
+     * correct a provider's frequently-wrong static episode duration on the
+     * details page (Xtream listings routinely stamp a whole season with one
+     * bogus value). Nothing here ever feeds playback. */
+    @GET("tv/{tv_id}/season/{season_number}")
+    suspend fun tvSeason(
+        @Path("tv_id") tvId: Int,
+        @Path("season_number") seasonNumber: Int,
+        @Query("api_key") apiKey: String?,
+        @Query("language") language: String = "pt-BR",
+        @Header("Authorization") authorization: String? = null,
+    ): TmdbSeasonResponse
 }
+
+data class TmdbSeasonResponse(
+    @SerializedName("episodes") val episodes: List<TmdbSeasonEpisodeDto>?,
+)
+
+data class TmdbSeasonEpisodeDto(
+    @SerializedName("episode_number") val episodeNumber: Int?,
+    /** Minutes. TMDB sends null or 0 when it doesn't know. */
+    @SerializedName("runtime") val runtime: Int?,
+)
 
 data class TmdbSearchResponse(
     @SerializedName("results") val results: List<TmdbResultDto>?,

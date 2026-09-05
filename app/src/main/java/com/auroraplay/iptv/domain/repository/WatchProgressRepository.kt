@@ -12,6 +12,12 @@ interface WatchProgressRepository {
      * null if none was ever played. Audit #14: resume the real last episode,
      * not the first one that happens to have progress. */
     suspend fun getLatestSeriesProgress(connectionId: String, profileId: String, seriesId: String): WatchProgress?
+
+    /** episodeId -> the runtime the player actually measured, for every
+     * episode of [seriesId] this profile has ever played far enough to
+     * record a duration. Empty when nothing was watched. Used to correct the
+     * provider's static per-episode duration on the detail page. */
+    suspend fun getMeasuredEpisodeDurations(connectionId: String, profileId: String, seriesId: String): Map<String, Long>
     /** [progress] carries the connectionId. */
     suspend fun saveProgress(progress: WatchProgress)
     suspend fun removeProgress(connectionId: String, profileId: String, contentId: String, type: ContentType)

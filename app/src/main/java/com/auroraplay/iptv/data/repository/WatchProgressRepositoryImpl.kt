@@ -26,6 +26,22 @@ class WatchProgressRepositoryImpl @Inject constructor(
     override suspend fun getLatestSeriesProgress(connectionId: String, profileId: String, seriesId: String): WatchProgress? =
         dao.getLatestForSeries(connectionId, profileId, seriesId)?.toDomain()
 
+    override suspend fun getMeasuredEpisodeDurations(connectionId: String, profileId: String, seriesId: String): Map<String, Long> {
+        // Rows come back newest-first and the contentId is
+        // "<seriesId>:<episodeId>". Keep the most recent measurement per
+        // episode (putIfAbsent, since the first row seen for an id is already
+        // the latest).
+        val prefix = "$seriesId:"
+        val out = LinkedHashMap<String, Long>()
+        dao.getMeasuredEpisodeDurations(connectionId, profileId, seriesId).forEach { row ->
+            val episodeId = row.contentId.removePrefix(prefix)
+            if (episodeId.isNotBlank() && episodeId != row.contentId && row.durationMillis > 0L) {
+                out.putIfAbsent(episodeId, row.durationMillis)
+            }
+        }
+        return out
+    }
+
     override suspend fun saveProgress(progress: WatchProgress) = dao.upsert(progress.toEntity())
 
     override suspend fun removeProgress(connectionId: String, profileId: String, contentId: String, type: ContentType) =

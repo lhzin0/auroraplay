@@ -40,4 +40,20 @@ class MetadataSanitizerTest {
         assertEquals(null, MetadataSanitizer.durationFromMillis(0L))
         assertEquals(null, MetadataSanitizer.durationFromMillis(-1_000L))
     }
+
+    @Test
+    fun `minutesFromLabel round-trips the shapes durationFromMillis produces`() {
+        assertEquals(52, MetadataSanitizer.minutesFromLabel("52min"))
+        assertEquals(90, MetadataSanitizer.minutesFromLabel("1h 30min"))
+        assertEquals(120, MetadataSanitizer.minutesFromLabel("2h 0min"))
+        assertEquals(21, MetadataSanitizer.minutesFromLabel("21MIN"))
+    }
+
+    @Test
+    fun `minutesFromLabel is null for blank or non-duration text`() {
+        assertEquals(null, MetadataSanitizer.minutesFromLabel(null))
+        assertEquals(null, MetadataSanitizer.minutesFromLabel(""))
+        assertEquals(null, MetadataSanitizer.minutesFromLabel("0min"))
+        assertEquals(null, MetadataSanitizer.minutesFromLabel("Temporada 5"))
+    }
 }

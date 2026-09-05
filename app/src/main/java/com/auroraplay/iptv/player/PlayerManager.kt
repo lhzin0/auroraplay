@@ -337,12 +337,16 @@ class PlayerManager @Inject constructor(
             // to the full-screen route. The ExoPlayer itself is shared, so do
             // not replace its media item or prepare it again for the exact
             // same request: doing so discarded the already buffered video and
-            // made full screen visibly reload.
+            // made full screen visibly reload. This is also what keeps a
+            // stale play() from a disposed preview composable (same URL) from
+            // restarting playback the fullscreen screen just adopted.
             if (
-                lastRequestedUrl == url &&
-                player.currentMediaItem != null &&
-                player.playbackState != Player.STATE_IDLE &&
-                player.playbackState != Player.STATE_ENDED
+                shouldReuseBufferedStream(
+                    lastRequestedUrl = lastRequestedUrl,
+                    requestedUrl = url,
+                    hasMediaItem = player.currentMediaItem != null,
+                    playbackState = player.playbackState,
+                )
             ) {
                 syncPosition()
                 return
@@ -526,6 +530,24 @@ class PlayerManager @Inject constructor(
         castPlayer?.release()
     }
 }
+
+/**
+ * True when a [PlayerManager.play] request is for the stream that is already
+ * loaded and running, so the shared ExoPlayer should be left alone rather
+ * than re-prepared (which drops the buffer and visibly reloads). Extracted
+ * from [PlayerManager.play] so the reuse rule is unit-testable without an
+ * ExoPlayer.
+ */
+internal fun shouldReuseBufferedStream(
+    lastRequestedUrl: String?,
+    requestedUrl: String,
+    hasMediaItem: Boolean,
+    playbackState: Int,
+): Boolean =
+    lastRequestedUrl == requestedUrl &&
+        hasMediaItem &&
+        playbackState != Player.STATE_IDLE &&
+        playbackState != Player.STATE_ENDED
 
 /**
  * Maps a "Qualidade" setting value to a maximum video height, or null for

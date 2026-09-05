@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.auroraplay.iptv.core.theme.AuroraColors
+import com.auroraplay.iptv.core.util.EpisodeDurationResolver
 import com.auroraplay.iptv.core.util.toFileSizeLabel
 import com.auroraplay.iptv.presentation.components.AppButton
 import com.auroraplay.iptv.presentation.components.ErrorState
@@ -65,6 +66,30 @@ fun SeriesDetailsScreen(
             state.series != null -> {
                 val series = state.series!!
                 val selectedSeason = series.seasons.find { it.seasonNumber == state.selectedSeasonNumber } ?: series.seasons.firstOrNull()
+
+                // A provider that mislabels a season stamps every episode in it
+                // with the same wrong duration ("21min" across a whole season
+                // that really runs ~52min). If a real runtime we know for the
+                // shown season (player-measured, or from TMDB) disagrees
+                // materially with its static label, none of that season's
+                // static labels can be trusted — the rows without a real
+                // runtime then show no duration rather than a wrong one.
+                val measuredDurations = state.measuredEpisodeDurationsById
+                val tmdbSeasonRuntimes = state.tmdbEpisodeRuntimeMinutesBySeason[selectedSeason?.seasonNumber]
+                    ?: emptyMap()
+                val staticSeasonDurationTrustworthy = remember(selectedSeason, measuredDurations, tmdbSeasonRuntimes) {
+                    EpisodeDurationResolver.seasonStaticLabelsTrustworthy(
+                        (selectedSeason?.episodes.orEmpty()).map { ep ->
+                            EpisodeDurationResolver.Sample(
+                                staticLabel = ep.durationLabel,
+                                realMinutes = EpisodeDurationResolver.realMinutes(
+                                    measuredMillis = measuredDurations[ep.id],
+                                    tmdbMinutes = tmdbSeasonRuntimes[ep.episodeNumber],
+                                ),
+                            )
+                        },
+                    )
+                }
                 val firstEpisode = series.seasons.firstOrNull()?.episodes?.firstOrNull()
                 val resumeEpisode = state.resumeEpisodeId?.let { id ->
                     series.seasons.flatMap { it.episodes }.find { it.id == id }
@@ -331,6 +356,10 @@ fun SeriesDetailsScreen(
                                 description = episode.plot,
                                 thumbnailUrl = episode.thumbnailUrl,
                                 durationLabel = episode.durationLabel,
+                                showStaticDuration = staticSeasonDurationTrustworthy,
+                                measuredDurationMillis = measuredDurations[episode.id]
+                                    ?: state.resumeDurationMillis.takeIf { episode.id == state.resumeEpisodeId && it > 0L },
+                                tmdbRuntimeMinutes = tmdbSeasonRuntimes[episode.episodeNumber],
                                 isDownloaded = episode.id in state.downloadedEpisodeIds,
                                 isDownloading = episode.id in state.downloadingEpisodeIds,
                                 downloadProgress = state.downloadProgressByEpisodeId[episode.id] ?: 0f,
@@ -403,6 +432,15 @@ private fun EpisodeRow(
     description: String?,
     thumbnailUrl: String?,
     durationLabel: String?,
+    /** False when this season's static durations were found unreliable
+     * (see the caller): then only a real (measured / TMDB) runtime is shown. */
+    showStaticDuration: Boolean,
+    /** The runtime the player actually measured for this episode on a past
+     * watch, if any — the first choice, over TMDB and [durationLabel]. */
+    measuredDurationMillis: Long?,
+    /** TMDB's runtime for this episode in minutes, if known — used when
+     * there's no player measurement yet. */
+    tmdbRuntimeMinutes: Int?,
     isDownloaded: Boolean,
     isDownloading: Boolean,
     downloadProgress: Float,
@@ -461,20 +499,19 @@ private fun EpisodeRow(
                     overflow = TextOverflow.Ellipsis,
                 )
                 // The provider's own duration metadata is frequently wrong or
-                // stale (a season added recently is the most common case) —
-                // once the player has actually measured this episode's real
-                // runtime (saved as resumeDurationMillis on any watch, even a
-                // finished one), that measurement is ground truth and
-                // replaces the static label instead of showing both/the
-                // wrong one.
-                (resumeDurationMillis?.takeIf { it > 60_000L }
-                    ?.let { com.auroraplay.iptv.core.util.MetadataSanitizer.durationFromMillis(it) }
-                    ?: durationLabel)
-                    ?.takeIf { it.isNotBlank() }
-                    ?.let {
-                        Spacer(Modifier.height(2.dp))
-                        Text(it, style = MaterialTheme.typography.bodySmall, color = AuroraColors.TextTertiary)
-                    }
+                // stale. A player measurement wins, then TMDB's runtime, and
+                // the static label shows only while this season's labels are
+                // still trusted (the caller drops that once a real runtime
+                // contradicts them) — a wrong "21min" is worse than no line.
+                EpisodeDurationResolver.runtimeLabel(
+                    staticLabel = durationLabel,
+                    measuredMillis = measuredDurationMillis,
+                    tmdbMinutes = tmdbRuntimeMinutes,
+                    trustStatic = showStaticDuration,
+                )?.let {
+                    Spacer(Modifier.height(2.dp))
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = AuroraColors.TextTertiary)
+                }
                 resumePositionMillis?.takeIf { it > 0L }?.let { position ->
                     Spacer(Modifier.height(2.dp))
                     Text(

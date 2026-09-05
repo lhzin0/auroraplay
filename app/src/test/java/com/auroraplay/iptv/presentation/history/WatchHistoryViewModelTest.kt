@@ -262,6 +262,7 @@ private class RecordingWatchProgressRepository(private val history: List<WatchPr
     override fun observeContinueWatching(connectionId: String, profileId: String) = unsupported<Flow<List<WatchProgress>>>()
     override suspend fun getProgress(connectionId: String, profileId: String, contentId: String, type: ContentType): WatchProgress? = unsupported()
     override suspend fun getLatestSeriesProgress(connectionId: String, profileId: String, seriesId: String): WatchProgress? = unsupported()
+    override suspend fun getMeasuredEpisodeDurations(connectionId: String, profileId: String, seriesId: String): Map<String, Long> = emptyMap()
     override suspend fun saveProgress(progress: WatchProgress) = unsupported<Unit>()
     override suspend fun removeProgress(connectionId: String, profileId: String, contentId: String, type: ContentType) = unsupported<Unit>()
     override fun observeWatchHistory(profileId: String): Flow<List<WatchProgress>> = flowOf(history)

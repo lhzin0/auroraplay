@@ -51,6 +51,18 @@ object MetadataSanitizer {
         return if (h > 0) "${h}h ${m}min" else "${m}min"
     }
 
+    /** Inverse of [duration]/[durationFromMillis]: parses a label this object
+     * produced ("21min", "1h 30min", "2h 0min") back to whole minutes, or
+     * null if it isn't one of those shapes. Used to sanity-check a provider's
+     * static episode duration against a runtime the player actually measured. */
+    fun minutesFromLabel(label: String?): Int? {
+        val s = label?.trim()?.lowercase()?.replace(" ", "") ?: return null
+        val match = Regex("^(?:(\\d+)h)?(?:(\\d+)min)?$").matchEntire(s) ?: return null
+        val h = match.groupValues[1].toIntOrNull() ?: 0
+        val m = match.groupValues[2].toIntOrNull() ?: 0
+        return (h * 60 + m).takeIf { it > 0 }
+    }
+
     /**
      * Strips provider decorations from category/genre names so chips and
      * badges read cleanly: "➤# DRAMA" -> "Drama", "|BR| FILMES" -> "Filmes".

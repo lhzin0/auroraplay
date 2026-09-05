@@ -44,6 +44,7 @@ class MetadataEnricher @Inject constructor(
 ) {
     private val cache = mutableMapOf<String, EnrichedMetadata?>()
     private val trailerCache = mutableMapOf<String, String?>()
+    private val runtimeCache = mutableMapOf<String, Map<Int, Int>>()
 
     private suspend fun credentials(): TmdbCredentials? {
         val value = settingsDataStore.settingsFlow.first().tmdbApiKey?.trim().orEmpty()
@@ -136,6 +137,40 @@ class MetadataEnricher @Inject constructor(
         }
     }
 
+    /**
+     * episodeNumber -> runtime in minutes for one season, from TMDB. Empty
+     * when no TMDB key is configured, the series can't be matched, or the
+     * season isn't on TMDB. Purely additive: the caller uses it only to
+     * replace a provider's static per-episode duration when that value is
+     * demonstrably wrong, and playback is never touched.
+     */
+    suspend fun episodeRuntimes(rawTitle: String, year: String?, seasonNumber: Int): Map<Int, Int> {
+        val credentials = credentials() ?: return emptyMap()
+        return lookupRuntimes("tv-runtime:$rawTitle:$year:s$seasonNumber:${credentials.cacheFingerprint}") {
+            val cleanTitle = MetadataSanitizer.title(rawTitle)
+            val resolvedYear = year ?: MetadataSanitizer.year(null, rawTitle)
+            val hit = pickBest(
+                tmdbApi.searchTv(credentials.apiKey, cleanTitle, resolvedYear, "pt-BR", credentials.authorization).results,
+                cleanTitle,
+                resolvedYear,
+            ) ?: pickBest(
+                tmdbApi.searchTv(credentials.apiKey, cleanTitle, null, "pt-BR", credentials.authorization).results,
+                cleanTitle,
+                null,
+            ) ?: return@lookupRuntimes emptyMap()
+
+            tmdbApi.tvSeason(hit.id, seasonNumber, credentials.apiKey, "pt-BR", credentials.authorization)
+                .episodes
+                .orEmpty()
+                .mapNotNull { episode ->
+                    val number = episode.episodeNumber ?: return@mapNotNull null
+                    val runtime = episode.runtime?.takeIf { it > 0 } ?: return@mapNotNull null
+                    number to runtime
+                }
+                .toMap()
+        }
+    }
+
     private suspend fun lookup(cacheKey: String, block: suspend () -> EnrichedMetadata?): EnrichedMetadata? {
         if (cache.containsKey(cacheKey)) return cache[cacheKey]
         val result = runCatching { block() }.getOrNull()
@@ -147,6 +182,15 @@ class MetadataEnricher @Inject constructor(
         if (trailerCache.containsKey(cacheKey)) return trailerCache[cacheKey]
         val result = runCatching { block() }.getOrNull()
         trailerCache[cacheKey] = result
+        return result
+    }
+
+    private suspend fun lookupRuntimes(cacheKey: String, block: suspend () -> Map<Int, Int>): Map<Int, Int> {
+        runtimeCache[cacheKey]?.let { return it }
+        // An empty result is cached too — a series TMDB doesn't carry
+        // shouldn't be re-queried every time its detail page is opened.
+        val result = runCatching { block() }.getOrNull().orEmpty()
+        runtimeCache[cacheKey] = result
         return result
     }
 

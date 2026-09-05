@@ -1,3 +1,32 @@
+## 1.38.2 — 2026-09-05
+
+- **Canal ao vivo** deixa de travar ao abrir em tela cheia: promover a
+  prévia para o player em tela cheia não recarrega mais o stream.
+- **Duração dos episódios**: além do tempo real medido na reprodução, quando
+  há chave TMDB o app busca o tempo por episódio no TMDB. Se um episódio
+  ainda não tem tempo real e o valor da playlist está claramente errado
+  (temporada inteira com "21min" num programa de ~52min), a duração some em
+  vez de mostrar o número errado.
+- **Acessibilidade do player**: a área de vídeo é anunciada pelo leitor de
+  tela e expõe as ações "Mostrar/ocultar controles" e "Reproduzir ou
+  pausar"; "Pular introdução" agora confirma na tela.
+
+## 1.38.1 — 2026-09-05
+
+- **Canal ao vivo** volta a sair da pausa em vez de ficar preso no buffer —
+  ao continuar, salta para o ponto ao vivo antes de retomar.
+- **Duração dos episódios**: quando o player já mediu o tempo real de um
+  episódio, esse valor substitui a duração errada da playlist.
+
+## 1.38.0 — 2026-09-05
+
+- **Conexões M3U** (lista de canais/VOD por URL `.m3u8`/`.m3u`) e importação
+  de EPG por **XMLTV**, além do Xtream.
+- Navegação por **controle remoto / D-pad** em todo o app e no player.
+- **Servidor reserva**: se o servidor Xtream principal não responde, o app
+  tenta um servidor de reserva automaticamente.
+- Player: carregar uma **legenda .srt** local como faixa extra.
+
 ## 1.37.0 — 2026-09-04
 
 Passo de robustez e desempenho (23 pontos de uma auditoria interna de
