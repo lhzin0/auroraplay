@@ -16,9 +16,15 @@ class ConnectXtreamUseCase @Inject constructor(
         password: String,
         profileId: String?,
         backupServerUrl: String? = null,
+        sourceType: String = "XTREAM",
+        xmltvUrl: String? = null,
     ): Flow<Resource<XtreamConnection>> {
         val normalizedUrl = serverUrl.trim().removeSuffix("/")
         val normalizedBackupUrl = backupServerUrl?.trim()?.removeSuffix("/")?.ifBlank { null }
-        return connectionRepository.addConnection(name.trim(), normalizedUrl, username.trim(), password, profileId, normalizedBackupUrl)
+        val normalizedXmltvUrl = xmltvUrl?.trim()?.removeSuffix("/")?.ifBlank { null }
+        return connectionRepository.addConnection(
+            name.trim(), normalizedUrl, username.trim(), password, profileId,
+            normalizedBackupUrl, sourceType, normalizedXmltvUrl,
+        )
     }
 }

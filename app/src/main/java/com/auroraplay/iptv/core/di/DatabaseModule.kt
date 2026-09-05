@@ -38,4 +38,5 @@ object DatabaseModule {
     @Provides fun provideEpisodeDao(db: AppDatabase): EpisodeDao = db.episodeDao()
     @Provides fun provideFavoriteDao(db: AppDatabase): FavoriteDao = db.favoriteDao()
     @Provides fun provideWatchProgressDao(db: AppDatabase): WatchProgressDao = db.watchProgressDao()
+    @Provides fun provideEpgProgramDao(db: AppDatabase): EpgProgramDao = db.epgProgramDao()
 }

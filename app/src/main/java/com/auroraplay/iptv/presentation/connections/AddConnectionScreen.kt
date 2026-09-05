@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.auroraplay.iptv.core.theme.AuroraColors
 import com.auroraplay.iptv.presentation.components.AppButton
+import com.auroraplay.iptv.presentation.components.CategoryChip
 import com.auroraplay.iptv.presentation.components.ErrorState
 import com.auroraplay.iptv.presentation.components.tvFocusable
 
@@ -61,7 +62,9 @@ fun AddConnectionScreen(
         AnimatedContent(targetState = state.step, label = "addConnectionStep") { step ->
             when (step) {
                 AddConnectionStep.FORM -> ConnectionForm(
-                    onConnect = { name, url, user, pass, backupUrl -> viewModel.connect(name, url, user, pass, profileId, backupUrl) }
+                    onConnect = { name, url, user, pass, backupUrl, sourceType, xmltvUrl ->
+                        viewModel.connect(name, url, user, pass, profileId, backupUrl, sourceType, xmltvUrl)
+                    }
                 )
                 AddConnectionStep.ERROR -> Column(
                     Modifier.fillMaxSize().padding(24.dp),
@@ -110,7 +113,7 @@ private fun SyncStatusView(message: String, isDone: Boolean, onContinue: (() -> 
 }
 
 @Composable
-private fun ConnectionForm(onConnect: (String, String, String, String, String?) -> Unit) {
+private fun ConnectionForm(onConnect: (String, String, String, String, String?, String, String?) -> Unit) {
     var name by remember { mutableStateOf("") }
     var url by remember { mutableStateOf("") }
     var username by remember { mutableStateOf("") }
@@ -118,6 +121,9 @@ private fun ConnectionForm(onConnect: (String, String, String, String, String?) 
     var showPassword by remember { mutableStateOf(false) }
     var backupUrl by remember { mutableStateOf("") }
     var showBackupField by remember { mutableStateOf(false) }
+    var isM3u by remember { mutableStateOf(false) }
+    var xmltvUrl by remember { mutableStateOf("") }
+    var showXmltvField by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -129,71 +135,117 @@ private fun ConnectionForm(onConnect: (String, String, String, String, String?) 
         Text("Adicionar conexão", style = MaterialTheme.typography.headlineMedium, color = AuroraColors.TextPrimary)
         Spacer(Modifier.height(6.dp))
         Text(
-            "Configure sua conexão Xtream para acessar seus canais, filmes e séries.",
+            if (isM3u) "Configure sua lista M3U para acessar os canais." else "Configure sua conexão Xtream para acessar seus canais, filmes e séries.",
             style = MaterialTheme.typography.bodyMedium,
             color = AuroraColors.TextSecondary,
         )
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(20.dp))
+
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            CategoryChip(text = "Xtream", selected = !isM3u, onClick = { isM3u = false })
+            CategoryChip(text = "Lista M3U", selected = isM3u, onClick = { isM3u = true })
+        }
+        Spacer(Modifier.height(20.dp))
 
         LabeledField(label = "Nome da conexão", value = name, onChange = { name = it }, placeholder = "Ex: Minha lista principal")
         Spacer(Modifier.height(16.dp))
-        LabeledField(label = "URL do servidor", value = url, onChange = { url = it }, placeholder = "https://servidor.exemplo.com", keyboardType = KeyboardType.Uri)
+        LabeledField(
+            label = if (isM3u) "URL da playlist M3U" else "URL do servidor",
+            value = url,
+            onChange = { url = it },
+            placeholder = if (isM3u) "https://provedor.exemplo.com/lista.m3u" else "https://servidor.exemplo.com",
+            keyboardType = KeyboardType.Uri,
+        )
         if (url.trim().startsWith("http://", ignoreCase = true)) {
-            Text("Este servidor usa HTTP: login, senha e conteúdo trafegam sem criptografia. Use o endereço HTTPS do provedor, se disponível.",
+            Text(
+                if (isM3u) "Este endereço usa HTTP: o conteúdo trafega sem criptografia. Use o endereço HTTPS do provedor, se disponível."
+                else "Este servidor usa HTTP: login, senha e conteúdo trafegam sem criptografia. Use o endereço HTTPS do provedor, se disponível.",
                 color = AuroraColors.TextSecondary, style = MaterialTheme.typography.bodySmall)
         }
-        Spacer(Modifier.height(16.dp))
-        LabeledField(label = "Usuário", value = username, onChange = { username = it }, placeholder = "usuario")
-        Spacer(Modifier.height(16.dp))
-        LabeledField(
-            label = "Senha",
-            value = password,
-            onChange = { password = it },
-            placeholder = "••••••••",
-            visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
-            trailingText = if (showPassword) "Ocultar" else "Mostrar",
-            onTrailingClick = { showPassword = !showPassword },
-        )
 
-        Spacer(Modifier.height(20.dp))
-        if (showBackupField) {
+        if (!isM3u) {
+            Spacer(Modifier.height(16.dp))
+            LabeledField(label = "Usuário", value = username, onChange = { username = it }, placeholder = "usuario")
+            Spacer(Modifier.height(16.dp))
             LabeledField(
-                label = "Servidor de backup (opcional)",
-                value = backupUrl,
-                onChange = { backupUrl = it },
-                placeholder = "https://servidor-reserva.exemplo.com",
+                label = "Senha",
+                value = password,
+                onChange = { password = it },
+                placeholder = "••••••••",
+                visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
+                trailingText = if (showPassword) "Ocultar" else "Mostrar",
+                onTrailingClick = { showPassword = !showPassword },
+            )
+
+            Spacer(Modifier.height(20.dp))
+            if (showBackupField) {
+                LabeledField(
+                    label = "Servidor de backup (opcional)",
+                    value = backupUrl,
+                    onChange = { backupUrl = it },
+                    placeholder = "https://servidor-reserva.exemplo.com",
+                    keyboardType = KeyboardType.Uri,
+                )
+                Text(
+                    "Usado automaticamente se o servidor principal ficar fora do ar — mesma conta, outro endereço.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = AuroraColors.TextTertiary,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+            } else {
+                ExpandFieldLink(text = "+ Adicionar servidor de backup", onClick = { showBackupField = true })
+            }
+            Spacer(Modifier.height(20.dp))
+        } else {
+            Spacer(Modifier.height(16.dp))
+        }
+
+        if (showXmltvField) {
+            LabeledField(
+                label = "URL do guia de programação XMLTV (opcional)",
+                value = xmltvUrl,
+                onChange = { xmltvUrl = it },
+                placeholder = "https://provedor.exemplo.com/epg.xml",
                 keyboardType = KeyboardType.Uri,
             )
             Text(
-                "Usado automaticamente se o servidor principal ficar fora do ar — mesma conta, outro endereço.",
+                "Preenche a programação dos canais quando o provedor não fornece uma própria — sincronizada junto com o catálogo.",
                 style = MaterialTheme.typography.bodySmall,
                 color = AuroraColors.TextTertiary,
                 modifier = Modifier.padding(top = 6.dp),
             )
         } else {
-            val addBackupInteractionSource = remember { MutableInteractionSource() }
-            Text(
-                "+ Adicionar servidor de backup",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .tvFocusable(shape = RoundedCornerShape(8.dp), accent = MaterialTheme.colorScheme.primary, interactionSource = addBackupInteractionSource)
-                    .clickable(
-                        interactionSource = addBackupInteractionSource,
-                        indication = null,
-                        onClick = { showBackupField = true },
-                    ),
-            )
+            ExpandFieldLink(text = "+ Adicionar guia de programação (XMLTV)", onClick = { showXmltvField = true })
         }
 
         Spacer(Modifier.height(32.dp))
         AppButton(
             text = "Conectar",
-            onClick = { onConnect(name, url, username, password, backupUrl.trim().ifBlank { null }) },
+            onClick = {
+                onConnect(
+                    name, url, username, password,
+                    backupUrl.trim().ifBlank { null },
+                    if (isM3u) "M3U" else "XTREAM",
+                    xmltvUrl.trim().ifBlank { null },
+                )
+            },
             fullWidth = true,
         )
         Spacer(Modifier.height(40.dp))
     }
+}
+
+@Composable
+private fun ExpandFieldLink(text: String, onClick: () -> Unit) {
+    val interactionSource = remember { MutableInteractionSource() }
+    Text(
+        text,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier
+            .tvFocusable(shape = RoundedCornerShape(8.dp), accent = MaterialTheme.colorScheme.primary, interactionSource = interactionSource)
+            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick),
+    )
 }
 
 @Composable

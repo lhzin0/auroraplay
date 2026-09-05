@@ -5,6 +5,7 @@ import com.auroraplay.iptv.data.database.entity.ConnectionEntity
 import com.auroraplay.iptv.data.database.entity.FavoriteEntity
 import com.auroraplay.iptv.data.database.entity.ProfileEntity
 import com.auroraplay.iptv.data.database.entity.WatchProgressEntity
+import com.auroraplay.iptv.domain.model.ConnectionSourceType
 import com.auroraplay.iptv.domain.model.ConnectionStatus
 import com.auroraplay.iptv.domain.model.ContentType
 import com.auroraplay.iptv.domain.model.EpgProgram
@@ -23,6 +24,8 @@ fun ConnectionEntity.toDomain() = XtreamConnection(
     lastSyncMillis = lastSyncMillis,
     profileId = profileId,
     backupServerUrl = backupServerUrl,
+    sourceType = runCatching { ConnectionSourceType.valueOf(sourceType) }.getOrDefault(ConnectionSourceType.XTREAM),
+    xmltvUrl = xmltvUrl,
 )
 
 fun ProfileEntity.toDomain() = Profile(

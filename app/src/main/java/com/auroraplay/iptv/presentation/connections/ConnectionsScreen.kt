@@ -273,6 +273,18 @@ private fun ConnectionRow(
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(connection.name, style = MaterialTheme.typography.titleMedium, color = AuroraColors.TextPrimary)
+                    if (connection.sourceType == com.auroraplay.iptv.domain.model.ConnectionSourceType.M3U) {
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "M3U",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = AuroraColors.TextTertiary,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(AuroraColors.SurfaceHigh)
+                                .padding(horizontal = 5.dp, vertical = 1.dp),
+                        )
+                    }
                     if (connection.isDefault) {
                         Spacer(Modifier.width(8.dp))
                         Text(

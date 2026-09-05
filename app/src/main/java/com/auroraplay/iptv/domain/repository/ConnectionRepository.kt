@@ -19,7 +19,10 @@ interface ConnectionRepository {
 
     /** Validates credentials against the server, persists connection + encrypted password.
      * [backupServerUrl] is an optional mirror for the same account, tried
-     * automatically when the primary is unreachable. */
+     * automatically when the primary is unreachable. For [sourceType]
+     * "M3U", [serverUrl] is the playlist URL itself and [username]/[password]
+     * are unused. [xmltvUrl] is an optional guide import, valid for either
+     * source type. */
     fun addConnection(
         name: String,
         serverUrl: String,
@@ -27,6 +30,8 @@ interface ConnectionRepository {
         password: String,
         profileId: String?,
         backupServerUrl: String? = null,
+        sourceType: String = "XTREAM",
+        xmltvUrl: String? = null,
     ): Flow<Resource<XtreamConnection>>
 
     suspend fun updateConnection(connection: XtreamConnection, newPassword: String?)

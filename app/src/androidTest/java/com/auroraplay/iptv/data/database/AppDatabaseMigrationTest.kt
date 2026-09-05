@@ -58,7 +58,7 @@ class AppDatabaseMigrationTest {
             assertNotNull(progress)
             assertEquals("Filme A", progress!!.title)
             assertEquals(300000L, progress.positionMillis)
-            assertEquals(13, db.openHelper.readableDatabase.version)
+            assertEquals(14, db.openHelper.readableDatabase.version)
         } finally {
             db.close()
         }
@@ -226,6 +226,43 @@ class AppDatabaseMigrationTest {
         db.execSQL("UPDATE connections SET backupServerUrl = 'http://backup.example' WHERE id = 'c1'")
         db.query("SELECT backupServerUrl FROM connections WHERE id = 'c1'").use {
             assertEquals(true, it.moveToFirst()); assertEquals("http://backup.example", it.getString(0))
+        }
+        db.close()
+    }
+
+    /** 13 -> 14 adds M3U/XMLTV support: `sourceType` defaults every existing
+     * (Xtream) connection row to 'XTREAM', `xmltvUrl` and `directStreamUrl`
+     * are nullable/additive, and `epg_programs` is a brand new table. */
+    @Test
+    fun migrate_13_to_14_adds_m3u_and_xmltv_support() {
+        helper.createDatabase(testDb, 13).apply {
+            execSQL(
+                "INSERT INTO connections(id, name, serverUrl, username, isDefault, status, lastSyncMillis, profileId, backupServerUrl) " +
+                    "VALUES('c1', 'Minha lista', 'http://primary.example', 'user', 1, 'ONLINE', NULL, NULL, NULL)",
+            )
+            execSQL(
+                "INSERT INTO channels(id, connectionId, name, logoUrl, categoryId, categoryName, epgChannelId) " +
+                    "VALUES('ch1', 'c1', 'Canal 1', NULL, 'g', 'Geral', NULL)",
+            )
+            close()
+        }
+        val db = helper.runMigrationsAndValidate(testDb, 14, true, *AppDatabaseMigrations.ALL)
+
+        db.query("SELECT sourceType, xmltvUrl FROM connections WHERE id = 'c1'").use {
+            assertEquals(true, it.moveToFirst())
+            assertEquals("XTREAM", it.getString(0))
+            assertEquals(true, it.isNull(1))
+        }
+        db.query("SELECT directStreamUrl FROM channels WHERE id = 'ch1'").use {
+            assertEquals(true, it.moveToFirst()); assertEquals(true, it.isNull(0))
+        }
+
+        db.execSQL(
+            "INSERT INTO epg_programs(id, connectionId, epgChannelId, title, description, startMillis, endMillis) " +
+                "VALUES('c1:ep1:1000', 'c1', 'ep1', 'Jornal', 'Notícias do dia', 1000, 2000)",
+        )
+        db.query("SELECT title FROM epg_programs WHERE connectionId = 'c1' AND epgChannelId = 'ep1'").use {
+            assertEquals(true, it.moveToFirst()); assertEquals("Jornal", it.getString(0))
         }
         db.close()
     }

@@ -21,4 +21,11 @@ data class ChannelEntity(
     val categoryId: String,
     val categoryName: String,
     val epgChannelId: String?,
+    /** Set only for an M3U-sourced channel — the playback URL exactly as the
+     * playlist line gave it. Unlike Xtream (where the URL is rebuilt on read
+     * from a shared id + credentials, see the class doc above), an M3U entry
+     * has no such split to rebuild from: the URL *is* the entry, already
+     * plaintext in the playlist file the user imported. Null for an
+     * Xtream-sourced row, which still rebuilds via [com.auroraplay.iptv.data.api.XtreamUrlBuilder]. */
+    val directStreamUrl: String? = null,
 )

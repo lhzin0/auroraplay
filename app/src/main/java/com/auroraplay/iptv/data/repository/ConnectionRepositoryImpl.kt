@@ -15,14 +15,19 @@ import com.auroraplay.iptv.data.database.dao.SeriesDao
 import com.auroraplay.iptv.data.database.entity.ConnectionEntity
 import com.auroraplay.iptv.data.datastore.SecureCredentialStore
 import com.auroraplay.iptv.data.mapper.toDomain
+import com.auroraplay.iptv.domain.model.ConnectionSourceType
 import com.auroraplay.iptv.domain.model.ConnectionStatus
 import com.auroraplay.iptv.domain.model.XtreamConnection
 import com.auroraplay.iptv.domain.repository.ConnectionRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -38,6 +43,7 @@ class ConnectionRepositoryImpl @Inject constructor(
     private val episodeDao: EpisodeDao,
     private val api: XtreamApiService,
     private val secureStore: SecureCredentialStore,
+    private val httpClient: OkHttpClient,
 ) : ConnectionRepository {
 
     override fun observeConnections(): Flow<List<XtreamConnection>> =
@@ -61,15 +67,24 @@ class ConnectionRepositoryImpl @Inject constructor(
         password: String,
         profileId: String?,
         backupServerUrl: String?,
+        sourceType: String,
+        xmltvUrl: String?,
     ): Flow<Resource<XtreamConnection>> = flow {
         emit(Resource.Loading)
         try {
-            val urlBuilder = XtreamUrlBuilder(serverUrl, username, password)
-            val auth = api.authenticate(urlBuilder.auth())
-            val isAuthOk = auth.userInfo?.auth == 1 || auth.userInfo?.status.equals("Active", ignoreCase = true)
-            if (!isAuthOk) {
-                emit(Resource.Error("Usuário ou senha inválidos, ou servidor indisponível."))
-                return@flow
+            if (sourceType == ConnectionSourceType.M3U.name) {
+                if (!isPlaylistReachable(serverUrl)) {
+                    emit(Resource.Error("Não foi possível baixar a playlist. Confira o endereço."))
+                    return@flow
+                }
+            } else {
+                val urlBuilder = XtreamUrlBuilder(serverUrl, username, password)
+                val auth = api.authenticate(urlBuilder.auth())
+                val isAuthOk = auth.userInfo?.auth == 1 || auth.userInfo?.status.equals("Active", ignoreCase = true)
+                if (!isAuthOk) {
+                    emit(Resource.Error("Usuário ou senha inválidos, ou servidor indisponível."))
+                    return@flow
+                }
             }
 
             val id = UUID.randomUUID().toString()
@@ -84,6 +99,8 @@ class ConnectionRepositoryImpl @Inject constructor(
                 lastSyncMillis = null,
                 profileId = profileId,
                 backupServerUrl = backupServerUrl?.trim()?.ifBlank { null },
+                sourceType = sourceType,
+                xmltvUrl = xmltvUrl?.trim()?.ifBlank { null },
             )
             if (hasNoConnections) dao.clearDefaults()
             secureStore.savePassword(id, password)
@@ -105,11 +122,20 @@ class ConnectionRepositoryImpl @Inject constructor(
                 serverUrl = connection.serverUrl,
                 username = connection.username,
                 backupServerUrl = connection.backupServerUrl?.trim()?.ifBlank { null },
+                xmltvUrl = connection.xmltvUrl?.trim()?.ifBlank { null },
             )
         )
         if (!newPassword.isNullOrBlank()) {
             secureStore.savePassword(connection.id, newPassword)
         }
+    }
+
+    /** A lightweight "is this actually a playlist" check for M3U — no auth,
+     * so there's nothing to validate beyond "the URL answers with content". */
+    private suspend fun isPlaylistReachable(url: String): Boolean = kotlinx.coroutines.withContext(Dispatchers.IO) {
+        runCatching {
+            httpClient.newCall(Request.Builder().url(url).build()).execute().use { it.isSuccessful }
+        }.getOrDefault(false)
     }
 
     override suspend fun deleteConnection(id: String) {
@@ -128,6 +154,12 @@ class ConnectionRepositoryImpl @Inject constructor(
         val password = secureStore.getPassword(id)
         if (entity == null || password == null) {
             emit(Resource.Error("Conexão sem credenciais disponíveis. Importe um backup completo ou cadastre a playlist novamente."))
+            return@flow
+        }
+        if (entity.sourceType == ConnectionSourceType.M3U.name) {
+            val reachable = isPlaylistReachable(entity.serverUrl)
+            dao.updateStatus(id, if (reachable) ConnectionStatus.ONLINE.name else ConnectionStatus.OFFLINE.name)
+            if (reachable) emit(Resource.Success(Unit)) else emit(Resource.Error("Não foi possível baixar a playlist."))
             return@flow
         }
         try {

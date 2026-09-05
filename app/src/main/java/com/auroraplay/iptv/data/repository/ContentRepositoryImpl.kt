@@ -8,13 +8,20 @@ import com.auroraplay.iptv.data.api.XtreamUrlBuilder
 import com.auroraplay.iptv.data.database.dao.CategoryDao
 import com.auroraplay.iptv.data.database.dao.ChannelDao
 import com.auroraplay.iptv.data.database.dao.ConnectionDao
+import com.auroraplay.iptv.data.database.dao.EpgProgramDao
 import com.auroraplay.iptv.data.database.dao.EpisodeDao
 import com.auroraplay.iptv.data.database.dao.MovieDao
 import com.auroraplay.iptv.data.database.dao.SeriesDao
+import com.auroraplay.iptv.data.database.entity.CategoryEntity
+import com.auroraplay.iptv.data.database.entity.ChannelEntity
+import com.auroraplay.iptv.data.database.entity.ConnectionEntity
+import com.auroraplay.iptv.data.database.entity.EpgProgramEntity
 import com.auroraplay.iptv.data.datastore.SecureCredentialStore
 import com.auroraplay.iptv.data.mapper.mergedWith
 import com.auroraplay.iptv.data.mapper.toDomain
 import com.auroraplay.iptv.data.mapper.toEntity
+import com.auroraplay.iptv.data.playlist.M3uPlaylistParser
+import com.auroraplay.iptv.data.playlist.XmlTvParser
 import com.auroraplay.iptv.domain.model.Category
 import com.auroraplay.iptv.domain.model.Channel
 import com.auroraplay.iptv.domain.model.ContentType
@@ -27,11 +34,14 @@ import com.auroraplay.iptv.domain.repository.SearchResults
 import com.auroraplay.iptv.domain.repository.SyncStage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -95,7 +105,126 @@ class ContentRepositoryImpl @Inject constructor(
     private val seriesDao: SeriesDao,
     private val episodeDao: EpisodeDao,
     private val metadataEnricher: MetadataEnricher,
+    private val epgProgramDao: EpgProgramDao,
+    private val httpClient: OkHttpClient,
 ) : ContentRepository {
+
+    /** Fetches a plain-text URL (M3U playlist or XMLTV guide) — both are
+     * unauthenticated GETs, unlike every Xtream call in this class. */
+    private suspend fun fetchText(url: String): String? = kotlinx.coroutines.withContext(Dispatchers.IO) {
+        runCatching {
+            httpClient.newCall(Request.Builder().url(url).build()).execute().use { response ->
+                if (!response.isSuccessful) null else response.body?.string()
+            }
+        }.getOrNull()
+    }
+
+    /** The whole M3U sync path: no Xtream auth, no movies/series/EPG API —
+     * just download, parse, and replace the LIVE category + channel rows.
+     * [emit] mirrors the stage events the Xtream path emits so the shared
+     * AddConnectionViewModel/SyncContentUseCase UI needs no M3U-specific case. */
+    private suspend fun syncM3uConnection(connectionId: String, connection: ConnectionEntity, emit: FlowCollector<Resource<SyncStage>>) {
+        try {
+            emit.emit(Resource.Success(SyncStage.CONNECTING))
+            val text = fetchText(connection.serverUrl)
+            if (text.isNullOrBlank()) {
+                connectionDao.updateStatus(connectionId, "OFFLINE")
+                emit.emit(Resource.Error("Não foi possível baixar a playlist."))
+                return
+            }
+
+            emit.emit(Resource.Success(SyncStage.CHANNELS))
+            val entries = M3uPlaylistParser.parse(text)
+            val categoriesByName = entries.mapNotNull { it.groupTitle?.trim()?.takeIf(String::isNotBlank) }
+                .distinct()
+                .associateWith { name -> name.hashCode().toString() }
+            categoryDao.replace(
+                connectionId,
+                ContentType.LIVE.name,
+                categoriesByName.map { (name, id) -> CategoryEntity(id = id, connectionId = connectionId, name = name, type = ContentType.LIVE.name) },
+            )
+            val defaultCategoryId = "m3u-geral"
+            val channels = entries.mapIndexed { index, e ->
+                val categoryName = e.groupTitle?.trim()?.takeIf(String::isNotBlank)
+                ChannelEntity(
+                    // The playlist has no stable id of its own — index + name
+                    // is what stays consistent across a re-sync of the same
+                    // file, the same way an unchanged provider stream id would.
+                    id = "m3u-$index-${e.name.hashCode()}",
+                    connectionId = connectionId,
+                    name = e.name,
+                    logoUrl = e.logoUrl,
+                    categoryId = categoryName?.let { categoriesByName[it] } ?: defaultCategoryId,
+                    categoryName = categoryName ?: "Geral",
+                    epgChannelId = e.tvgId,
+                    directStreamUrl = e.streamUrl,
+                )
+            }
+            if (channels.any { it.categoryId == defaultCategoryId }) {
+                categoryDao.upsertAll(listOf(CategoryEntity(id = defaultCategoryId, connectionId = connectionId, name = "Geral", type = ContentType.LIVE.name)))
+            }
+            channelDao.replace(connectionId, channels)
+
+            importXmlTvIfConfigured(connectionId, connection.xmltvUrl)
+
+            connectionDao.updateLastSync(connectionId, System.currentTimeMillis())
+            connectionDao.updateStatus(connectionId, "ONLINE")
+            emit.emit(Resource.Success(SyncStage.DONE))
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            AppLog.w("ContentSync", "M3U sync failed for $connectionId", e)
+            connectionDao.updateStatus(connectionId, "OFFLINE")
+            emit.emit(Resource.Error(mapSyncError(e), e))
+        }
+    }
+
+    /** Downloads and replaces the local XMLTV cache for a connection — a
+     * no-op when no guide URL is configured, and a silent no-op (old rows
+     * kept) when the download/parse fails, since this always runs alongside
+     * a catalog sync that must not fail because of it.
+     *
+     * A multi-day, multi-channel guide routinely runs to tens or hundreds of
+     * MB — parsed straight off the response's stream (SAX, see [XmlTvParser])
+     * rather than buffered into a `String` first the way [fetchText] does for
+     * the much smaller M3U case, so this never holds the whole file in memory. */
+    private suspend fun importXmlTvIfConfigured(connectionId: String, xmltvUrl: String?) {
+        val url = xmltvUrl?.trim()?.takeIf { it.isNotBlank() } ?: return
+        // A guide this size is routinely shipped pre-gzipped (a plain
+        // `.xml.gz` file, not OkHttp's transparent Content-Encoding — most
+        // hosts serving one send it as a static octet-stream with no
+        // encoding header, so this has to unzip it by hand).
+        val isGzip = url.substringBefore('?').endsWith(".gz", ignoreCase = true)
+        runCatching {
+            val programs = kotlinx.coroutines.withContext(Dispatchers.IO) {
+                httpClient.newCall(Request.Builder().url(url).build()).execute().use { response ->
+                    if (!response.isSuccessful) return@use emptyList()
+                    val body = response.body ?: return@use emptyList()
+                    val reader = if (isGzip) {
+                        java.util.zip.GZIPInputStream(body.byteStream()).reader(Charsets.UTF_8)
+                    } else {
+                        body.charStream()
+                    }
+                    reader.use { XmlTvParser.parse(it) }
+                }
+            }
+            if (programs.isEmpty()) return
+            epgProgramDao.replace(
+                connectionId,
+                programs.map {
+                    EpgProgramEntity(
+                        id = "$connectionId:${it.channelId}:${it.startMillis}",
+                        connectionId = connectionId,
+                        epgChannelId = it.channelId,
+                        title = it.title,
+                        description = it.description,
+                        startMillis = it.startMillis,
+                        endMillis = it.endMillis,
+                    )
+                },
+            )
+        }.onFailure { AppLog.w("ContentSync", "XMLTV import failed for $connectionId", it) }
+    }
 
     /** Xtream credentials for a connection, resolved through a live server —
      * the primary first; on a network-level failure (not a credentials
@@ -121,6 +250,11 @@ class ContentRepositoryImpl @Inject constructor(
 
     override fun syncConnection(connectionId: String): Flow<Resource<SyncStage>> = flow {
         emit(Resource.Loading)
+        val connectionEntity = connectionDao.getById(connectionId)
+        if (connectionEntity?.sourceType == com.auroraplay.iptv.domain.model.ConnectionSourceType.M3U.name) {
+            syncM3uConnection(connectionId, connectionEntity, this)
+            return@flow
+        }
         val urlBuilder = urlBuilderFor(connectionId)
         if (urlBuilder == null) {
             emit(Resource.Error("Conexão sem credenciais disponíveis. Importe um backup completo ou cadastre a playlist novamente."))
@@ -223,6 +357,12 @@ class ContentRepositoryImpl @Inject constructor(
             }
             // Episodes are fetched lazily per-series (get_series_info) when the user opens details,
             // to avoid one request per series during a full sync.
+
+            // Best-effort, independent of the outcome above: some Xtream
+            // providers ship no usable EPG of their own, so a user-supplied
+            // XMLTV guide is importable regardless. Never turns a successful
+            // catalog sync into an error just because the guide URL is down.
+            importXmlTvIfConfigured(connectionId, connectionEntity?.xmltvUrl)
 
             when (syncOutcome(channelsReached, moviesReached, seriesReached)) {
                 // Every section reached the server — a genuine full sync.
@@ -512,13 +652,31 @@ class ContentRepositoryImpl @Inject constructor(
         channelId: String,
         limit: Int,
     ): List<com.auroraplay.iptv.domain.model.EpgProgram> {
-        val urlBuilder = urlBuilderFor(connectionId) ?: return emptyList()
-        return runCatching {
+        val connection = connectionDao.getById(connectionId)
+        val isM3u = connection?.sourceType == com.auroraplay.iptv.domain.model.ConnectionSourceType.M3U.name
+
+        // Xtream has its own EPG API — tried first (unless this is an M3U
+        // connection, which has none). A local XMLTV import is the fallback
+        // either way: for M3U it's the only source, and for Xtream it covers
+        // a provider whose API returns nothing for this channel.
+        val fromApi = if (isM3u) emptyList() else runCatching {
+            val urlBuilder = urlBuilderFor(connectionId) ?: return@runCatching emptyList()
             val response = api.getShortEpg(urlBuilder.shortEpg(channelId), limit = limit)
-            response.epgListings.orEmpty()
-                .mapNotNull { it.toDomain() }
-                .sortedBy { it.startMillis }
+            response.epgListings.orEmpty().mapNotNull { it.toDomain() }.sortedBy { it.startMillis }
         }.getOrDefault(emptyList())
+        if (fromApi.isNotEmpty()) return fromApi
+
+        val epgChannelId = channelDao.getById(connectionId, channelId)?.epgChannelId?.takeIf { it.isNotBlank() }
+            ?: return emptyList()
+        return epgProgramDao.getForChannel(connectionId, epgChannelId, limit).map {
+            com.auroraplay.iptv.domain.model.EpgProgram(
+                id = it.id,
+                title = it.title,
+                description = it.description,
+                startMillis = it.startMillis,
+                endMillis = it.endMillis,
+            )
+        }
     }
 
     private fun mapSyncError(e: Exception): String = when (e) {

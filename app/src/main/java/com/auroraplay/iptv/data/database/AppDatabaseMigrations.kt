@@ -226,7 +226,28 @@ object AppDatabaseMigrations {
         }
     }
 
+    // M3U playlist connections + XMLTV guide import. `sourceType` distinguishes
+    // an M3U connection from Xtream (which stays the default for every
+    // existing row); `xmltvUrl` is importable for either kind. `channels`
+    // gains `directStreamUrl` for M3U rows only — see the field's doc comment
+    // for why that doesn't repeat the audit #4 mistake. `epg_programs` is a
+    // brand new table, created here rather than left to Room's auto-create
+    // (which only applies to a fresh install, not an upgrade).
+    private val MIGRATION_13_14 = object : Migration(13, 14) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE `connections` ADD COLUMN `sourceType` TEXT NOT NULL DEFAULT 'XTREAM'")
+            db.execSQL("ALTER TABLE `connections` ADD COLUMN `xmltvUrl` TEXT")
+            db.execSQL("ALTER TABLE `channels` ADD COLUMN `directStreamUrl` TEXT")
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `epg_programs` (`id` TEXT NOT NULL, `connectionId` TEXT NOT NULL, `epgChannelId` TEXT NOT NULL, `title` TEXT NOT NULL, `description` TEXT NOT NULL, `startMillis` INTEGER NOT NULL, `endMillis` INTEGER NOT NULL, PRIMARY KEY(`id`))"
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_epg_programs_connectionId_epgChannelId_startMillis` ON `epg_programs` (`connectionId`, `epgChannelId`, `startMillis`)"
+            )
+        }
+    }
+
     val ALL: Array<Migration> = arrayOf(
-        MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13,
+        MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14,
     )
 }

@@ -18,6 +18,15 @@ data class XtreamConnection(
      * [serverUrl] is unreachable (a network failure, not a credentials
      * rejection: retrying the same bad login elsewhere won't help). */
     val backupServerUrl: String? = null,
+    val sourceType: ConnectionSourceType = ConnectionSourceType.XTREAM,
+    /** Optional XMLTV guide URL, importable for either [sourceType]. */
+    val xmltvUrl: String? = null,
 )
 
 enum class ConnectionStatus { ONLINE, OFFLINE, UNKNOWN, CONNECTING }
+
+/** XTREAM: the usual username/password panel API. M3U: [XtreamConnection.serverUrl]
+ * is the playlist URL itself and carries live channels only — no movies,
+ * series, or Xtream-side EPG, since a flat M3U file has no reliable way to
+ * tell those apart or an API to ask. */
+enum class ConnectionSourceType { XTREAM, M3U }

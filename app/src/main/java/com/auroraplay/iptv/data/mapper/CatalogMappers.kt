@@ -58,7 +58,9 @@ fun ChannelEntity.toDomain(urlBuilder: XtreamUrlBuilder?) = Channel(
     // Also sanitised on read, so rows synced before this cleanup landed
     // still display cleanly without waiting for a re-sync.
     categoryName = MetadataSanitizer.categoryName(categoryName) ?: categoryName,
-    streamUrl = urlBuilder?.liveStreamPlayback(id).orEmpty(),
+    // M3U rows carry their own URL (see ChannelEntity.directStreamUrl); an
+    // Xtream row has none and gets its playback URL rebuilt from credentials.
+    streamUrl = directStreamUrl ?: urlBuilder?.liveStreamPlayback(id).orEmpty(),
     epgChannelId = epgChannelId,
 )
 

@@ -17,4 +17,12 @@ data class ConnectionEntity(
      * [serverUrl] is unreachable (a network failure, not a credentials
      * rejection: retrying the same bad login elsewhere won't help). */
     val backupServerUrl: String? = null,
+    /** "XTREAM" (default) or "M3U". For M3U, [serverUrl] holds the playlist
+     * URL itself and [username]/password are unused (kept blank). */
+    val sourceType: String = "XTREAM",
+    /** Optional XMLTV guide URL, importable for either [sourceType] — some
+     * Xtream providers ship no usable EPG of their own, and M3U has no EPG
+     * API at all. Programs land in `epg_programs`, matched to a channel by
+     * [ChannelEntity.epgChannelId]. */
+    val xmltvUrl: String? = null,
 )

@@ -5,6 +5,7 @@ import androidx.room.RoomDatabase
 import com.auroraplay.iptv.data.database.dao.CategoryDao
 import com.auroraplay.iptv.data.database.dao.ChannelDao
 import com.auroraplay.iptv.data.database.dao.ConnectionDao
+import com.auroraplay.iptv.data.database.dao.EpgProgramDao
 import com.auroraplay.iptv.data.database.dao.EpisodeDao
 import com.auroraplay.iptv.data.database.dao.FavoriteDao
 import com.auroraplay.iptv.data.database.dao.MovieDao
@@ -14,6 +15,7 @@ import com.auroraplay.iptv.data.database.dao.WatchProgressDao
 import com.auroraplay.iptv.data.database.entity.CategoryEntity
 import com.auroraplay.iptv.data.database.entity.ChannelEntity
 import com.auroraplay.iptv.data.database.entity.ConnectionEntity
+import com.auroraplay.iptv.data.database.entity.EpgProgramEntity
 import com.auroraplay.iptv.data.database.entity.EpisodeEntity
 import com.auroraplay.iptv.data.database.entity.FavoriteEntity
 import com.auroraplay.iptv.data.database.entity.MovieEntity
@@ -32,8 +34,9 @@ import com.auroraplay.iptv.data.database.entity.WatchProgressEntity
         EpisodeEntity::class,
         FavoriteEntity::class,
         WatchProgressEntity::class,
+        EpgProgramEntity::class,
     ],
-    version = 13,
+    version = 14,
     // Schemas are exported to app/schemas/ and committed; the migration tests
     // validate against them. (Turned on at v7 — see build.gradle.kts.)
     exportSchema = true,
@@ -48,4 +51,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun episodeDao(): EpisodeDao
     abstract fun favoriteDao(): FavoriteDao
     abstract fun watchProgressDao(): WatchProgressDao
+    abstract fun epgProgramDao(): EpgProgramDao
 }
