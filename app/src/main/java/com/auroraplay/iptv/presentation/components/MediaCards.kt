@@ -48,6 +48,7 @@ fun MovieCard(
 
     Column(
         modifier = modifier
+            .tvBringIntoViewOnFocus()
             .then(if (width != null) Modifier.width(width) else Modifier.fillMaxWidth())
             .scale(visuals.scale)
             .onFocusChanged { isFocused = it.isFocused }
@@ -151,6 +152,7 @@ fun ChannelCard(
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
+            .tvBringIntoViewOnFocus()
             .fillMaxWidth()
             .scale(visuals.scale)
             .then(cardSurface)

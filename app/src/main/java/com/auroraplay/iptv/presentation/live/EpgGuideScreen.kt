@@ -4,6 +4,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -37,6 +39,8 @@ import com.auroraplay.iptv.domain.model.EpgProgram
 import com.auroraplay.iptv.presentation.components.ChannelAvatar
 import com.auroraplay.iptv.presentation.components.EmptyState
 import com.auroraplay.iptv.presentation.components.Spacing
+import com.auroraplay.iptv.presentation.components.rememberTvFocusVisuals
+import com.auroraplay.iptv.presentation.components.tvBringIntoViewOnFocus
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -87,13 +91,19 @@ fun EpgGuideScreen(
 @Composable
 private fun EpgChannelRow(row: ChannelEpgRow, onClick: () -> Unit) {
     val shape = RoundedCornerShape(14.dp)
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val visuals = rememberTvFocusVisuals(interactionSource, pressed = pressed, pressedScale = 0.99f, focusedScale = 1f)
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 76.dp)
+            .tvBringIntoViewOnFocus()
             .frostSurface(shape, flat = AuroraColors.SurfaceHigh)
-            .clickable(onClick = onClick)
+            .background(MaterialTheme.colorScheme.primary.copy(alpha = visuals.ringAlpha * 0.12f), shape)
+            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
             .padding(10.dp),
     ) {
         // Channel identity: logo + name side by side, fixed width so every

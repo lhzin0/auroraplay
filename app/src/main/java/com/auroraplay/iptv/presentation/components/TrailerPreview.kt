@@ -59,6 +59,7 @@ fun TrailerPreview(
             .aspectRatio(16f / 9f)
             .clip(RoundedCornerShape(16.dp))
             .background(Color(0xFF111014))
+            .tvFocusable(shape = RoundedCornerShape(16.dp), accent = Color.White)
             .clickable { context.openYouTubeTrailer(youtubeVideoId) },
     ) {
         AsyncImage(

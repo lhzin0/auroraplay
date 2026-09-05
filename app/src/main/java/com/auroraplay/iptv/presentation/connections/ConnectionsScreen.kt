@@ -5,6 +5,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -29,6 +30,8 @@ import com.auroraplay.iptv.domain.model.XtreamConnection
 import com.auroraplay.iptv.domain.repository.SyncStage
 import com.auroraplay.iptv.sync.syncLabel
 import com.auroraplay.iptv.presentation.components.EmptyState
+import com.auroraplay.iptv.presentation.components.tvBringIntoViewOnFocus
+import com.auroraplay.iptv.presentation.components.tvFocusable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -109,6 +112,7 @@ fun ConnectionsScreen(
                     onClick = onBack,
                     modifier = Modifier
                         .size(36.dp)
+                        .tvFocusable(shape = CircleShape, accent = MaterialTheme.colorScheme.primary)
                         .background(AuroraColors.SurfaceHigh, CircleShape),
                 ) {
                     Icon(
@@ -130,13 +134,22 @@ fun ConnectionsScreen(
                 )
                 // Import / export share the same muted treatment; "add" is the
                 // primary action and keeps the accent tint.
-                IconButton(onClick = { openDocumentLauncher.launch(arrayOf("application/json")) }) {
+                IconButton(
+                    onClick = { openDocumentLauncher.launch(arrayOf("application/json")) },
+                    modifier = Modifier.tvFocusable(shape = CircleShape, accent = MaterialTheme.colorScheme.primary),
+                ) {
                     Icon(Icons.Default.FileDownload, contentDescription = "Importar backup", tint = AuroraColors.TextSecondary, modifier = Modifier.size(22.dp))
                 }
-                IconButton(onClick = { showExportWarning = true }) {
+                IconButton(
+                    onClick = { showExportWarning = true },
+                    modifier = Modifier.tvFocusable(shape = CircleShape, accent = MaterialTheme.colorScheme.primary),
+                ) {
                     Icon(Icons.Default.FileUpload, contentDescription = "Exportar backup", tint = AuroraColors.TextSecondary, modifier = Modifier.size(22.dp))
                 }
-                IconButton(onClick = onAddConnection) {
+                IconButton(
+                    onClick = onAddConnection,
+                    modifier = Modifier.tvFocusable(shape = CircleShape, accent = MaterialTheme.colorScheme.primary),
+                ) {
                     Icon(Icons.Default.Add, contentDescription = "Adicionar conexão", tint = MaterialTheme.colorScheme.primary)
                 }
             }
@@ -241,13 +254,17 @@ private fun ConnectionRow(
         else -> AuroraColors.TextTertiary
     }
     val shortUrl = connection.serverUrl.removePrefix("https://").removePrefix("http://").take(30)
+    val interactionSource = remember { MutableInteractionSource() }
+    val cardShape = RoundedCornerShape(16.dp)
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .tvBringIntoViewOnFocus()
+            .clip(cardShape)
             .background(AuroraColors.SurfaceDark)
-            .clickable { showActions = !showActions }
+            .tvFocusable(shape = cardShape, accent = MaterialTheme.colorScheme.primary, interactionSource = interactionSource, focusedScale = 1.02f)
+            .clickable(interactionSource = interactionSource, indication = null) { showActions = !showActions }
             .padding(16.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -301,12 +318,15 @@ private fun ConnectionRow(
 @Composable
 private fun ActionChip(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit, danger: Boolean = false, enabled: Boolean = true) {
     val color = (if (danger) AuroraColors.Error else AuroraColors.TextSecondary).copy(alpha = if (enabled) 1f else 0.45f)
+    val interactionSource = remember { MutableInteractionSource() }
+    val chipShape = RoundedCornerShape(100.dp)
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
-            .clip(RoundedCornerShape(100.dp))
+            .clip(chipShape)
             .background(AuroraColors.SurfaceHigh)
-            .clickable(enabled = enabled, onClick = onClick)
+            .tvFocusable(shape = chipShape, accent = MaterialTheme.colorScheme.primary, interactionSource = interactionSource, enabled = enabled)
+            .clickable(enabled = enabled, interactionSource = interactionSource, indication = null, onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
         Icon(icon, contentDescription = text, tint = color, modifier = Modifier.size(16.dp))

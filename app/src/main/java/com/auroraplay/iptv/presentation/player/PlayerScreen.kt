@@ -23,6 +23,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
@@ -53,10 +54,17 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
@@ -73,6 +81,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.auroraplay.iptv.core.theme.AuroraColors
 import com.auroraplay.iptv.core.theme.frostSurface
 import com.auroraplay.iptv.core.util.toTimeLabel
+import com.auroraplay.iptv.presentation.components.tvFocusable
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import com.auroraplay.iptv.domain.model.ContentType
@@ -305,6 +314,26 @@ fun PlayerScreen(
         }
     }
 
+    // A TV remote has no touchscreen, so tap-to-reveal and double-tap-to-seek
+    // (above) are simply unreachable once the controls fade out. The fix is
+    // NOT to make this whole full-screen Box the focus holder: Compose's 2D
+    // focus search picks a directional target by comparing bounds against the
+    // currently focused node, and a node the size of the entire screen has no
+    // sensible "below"/"left of" — confirmed on-device, DPAD_DOWN from a
+    // full-screen-focused root never reached the transport buttons at all.
+    // Instead, a 1dp anchor (below) holds focus only while controls are
+    // hidden, and focus is handed explicitly to the Play/Pause button — a
+    // normal, small-bounds node — the moment the controls reappear, so
+    // directional search among the visible buttons works the same way it
+    // does everywhere else in the app.
+    val hiddenControlsFocusRequester = remember { FocusRequester() }
+    val playPauseFocusRequester = remember { FocusRequester() }
+    LaunchedEffect(controlsVisible, isLocked, pipActive) {
+        if (pipActive || isLocked) return@LaunchedEffect
+        runCatching {
+            if (controlsVisible) playPauseFocusRequester.requestFocus() else hiddenControlsFocusRequester.requestFocus()
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -359,6 +388,55 @@ fun PlayerScreen(
                 }
             }
     ) {
+        // Invisible focus anchor: holds focus only while the controls are
+        // hidden (see the LaunchedEffect above), purely so a key press has
+        // somewhere to land. A 1dp bounds — not the whole screen — keeps
+        // Compose's directional focus search well-defined for whatever comes
+        // next once the controls reappear.
+        Box(
+            modifier = Modifier
+                .size(1.dp)
+                .focusRequester(hiddenControlsFocusRequester)
+                .focusable()
+                .onKeyEvent { event ->
+                    if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                    if (pipActive || isLocked || controlsVisibleState) return@onKeyEvent false
+                    when (event.key) {
+                        Key.DirectionCenter, Key.Enter, Key.NumPadEnter, Key.DirectionUp, Key.DirectionDown -> {
+                            controlsVisible = true
+                            true
+                        }
+                        Key.DirectionRight -> {
+                            if (loadState.isLive) {
+                                viewModel.nextChannel()
+                            } else {
+                                viewModel.playerManager.seekForward()
+                                seekForward = true
+                                seekBump++
+                                hiddenSeekRipple = HiddenSeekRipple(seekBump, true)
+                            }
+                            true
+                        }
+                        Key.DirectionLeft -> {
+                            if (loadState.isLive) {
+                                viewModel.previousChannel()
+                            } else {
+                                viewModel.playerManager.seekBackward()
+                                seekForward = false
+                                seekBump++
+                                hiddenSeekRipple = HiddenSeekRipple(seekBump, false)
+                            }
+                            true
+                        }
+                        Key.MediaPlayPause -> {
+                            viewModel.playerManager.togglePlayPause()
+                            true
+                        }
+                        else -> false
+                    }
+                },
+        )
+
         loadState.loadError?.let { error ->
             Box(
                 Modifier.fillMaxSize().background(Color.Black),
@@ -478,6 +556,7 @@ fun PlayerScreen(
                     style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier
                         .clip(RoundedCornerShape(12.dp))
+                        .tvFocusable(shape = RoundedCornerShape(12.dp), accent = Color.White)
                         .clickable { viewModel.cancelAutoNext() }
                         .padding(horizontal = 8.dp, vertical = 3.dp),
                 )
@@ -487,10 +566,18 @@ fun PlayerScreen(
         if (pipActive) {
             // PiP: video only, nothing else.
         } else if (isLocked) {
-            // Only the unlock affordance remains tappable while locked.
+            // Only the unlock affordance remains tappable while locked. On a
+            // TV, focus needs to move here explicitly — nothing else on
+            // screen can receive it while locked.
+            val unlockFocusRequester = remember { FocusRequester() }
+            LaunchedEffect(Unit) { unlockFocusRequester.requestFocus() }
             IconButton(
                 onClick = { isLocked = false },
-                modifier = Modifier.align(Alignment.CenterEnd).padding(16.dp),
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(16.dp)
+                    .focusRequester(unlockFocusRequester)
+                    .tvFocusable(shape = CircleShape, accent = Color.White),
             ) {
                 Icon(Icons.Default.LockOpen, contentDescription = "Desbloquear", tint = Color.White)
             }
@@ -576,6 +663,7 @@ fun PlayerScreen(
                     },
                     onOpenAudio = { showAudioSubsSheet = true },
                     onSkipIntro = { viewModel.playerManager.skipIntro() },
+                    playPauseFocusRequester = playPauseFocusRequester,
                 )
             }
         }

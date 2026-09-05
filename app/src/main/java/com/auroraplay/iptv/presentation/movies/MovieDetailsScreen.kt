@@ -41,6 +41,7 @@ import com.auroraplay.iptv.presentation.components.Spacing
 import com.auroraplay.iptv.presentation.components.ErrorState
 import com.auroraplay.iptv.presentation.components.MovieCard
 import com.auroraplay.iptv.presentation.components.SectionHeader
+import com.auroraplay.iptv.presentation.components.tvFocusable
 
 @Composable
 fun MovieDetailsScreen(
@@ -73,6 +74,7 @@ fun MovieDetailsScreen(
                                 onClick = onBack,
                                 modifier = Modifier
                                     .size(42.dp)
+                                    .tvFocusable(shape = CircleShape, accent = Color.White)
                                     .background(Color.Black.copy(alpha = 0.45f), CircleShape),
                             ) {
                                 Icon(

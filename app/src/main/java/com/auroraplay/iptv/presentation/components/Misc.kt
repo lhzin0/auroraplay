@@ -52,7 +52,10 @@ fun SectionHeader(
         if (onSeeAllClick != null) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.clickable { onSeeAllClick() },
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .tvFocusable(shape = RoundedCornerShape(8.dp), accent = MaterialTheme.colorScheme.primary)
+                    .clickable { onSeeAllClick() },
             ) {
                 Text("Ver tudo", style = MaterialTheme.typography.labelLarge, color = AuroraColors.TextSecondary)
                 Icon(Icons.Default.ChevronRight, contentDescription = null, tint = AuroraColors.TextSecondary)
@@ -76,7 +79,15 @@ fun ProfileAvatar(
             .size(size)
             .clip(CircleShape)
             .background(color)
-            .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
+            .then(
+                if (onClick != null) {
+                    Modifier
+                        .tvFocusable(shape = CircleShape, accent = MaterialTheme.colorScheme.primary)
+                        .clickable { onClick() }
+                } else {
+                    Modifier
+                },
+            ),
         contentAlignment = Alignment.Center,
     ) {
         if (!avatarUri.isNullOrBlank()) {

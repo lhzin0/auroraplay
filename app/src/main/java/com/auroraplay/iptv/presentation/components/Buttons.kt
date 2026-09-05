@@ -48,6 +48,7 @@ fun AppButton(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
         modifier = modifier
+            .tvBringIntoViewOnFocus()
             .scale(visuals.scale)
             .then(if (fullWidth) Modifier.fillMaxWidth() else Modifier)
             // Frosted accent glass when FrostGlass is on; flat accent fill when off.
@@ -109,6 +110,7 @@ fun GlassButton(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
         modifier = modifier
+            .tvBringIntoViewOnFocus()
             .scale(visuals.scale)
             .then(surface)
             .border(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = visuals.ringAlpha), shape)
@@ -181,6 +183,7 @@ fun CategoryChip(
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
+            .tvBringIntoViewOnFocus()
             .heightIn(min = 36.dp)
             .then(chipSurface)
             .border(

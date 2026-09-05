@@ -2,6 +2,8 @@ package com.auroraplay.iptv.presentation.series
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -20,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,6 +45,9 @@ import com.auroraplay.iptv.presentation.components.MovieCard
 import com.auroraplay.iptv.presentation.components.SeasonDropdown
 import com.auroraplay.iptv.presentation.components.Spacing
 import com.auroraplay.iptv.presentation.components.DetailMediaPager
+import com.auroraplay.iptv.presentation.components.rememberTvFocusVisuals
+import com.auroraplay.iptv.presentation.components.tvBringIntoViewOnFocus
+import com.auroraplay.iptv.presentation.components.tvFocusable
 
 @Composable
 fun SeriesDetailsScreen(
@@ -83,6 +89,7 @@ fun SeriesDetailsScreen(
                                 onClick = onBack,
                                 modifier = Modifier
                                     .size(42.dp)
+                                    .tvFocusable(shape = CircleShape, accent = Color.White)
                                     .background(Color.Black.copy(alpha = 0.45f), CircleShape),
                             ) {
                                 Icon(
@@ -258,6 +265,11 @@ fun SeriesDetailsScreen(
                                 IconButton(
                                     onClick = { viewModel.refresh() },
                                     enabled = !state.isRefreshingEpisodes,
+                                    modifier = Modifier.tvFocusable(
+                                        shape = CircleShape,
+                                        accent = MaterialTheme.colorScheme.primary,
+                                        enabled = !state.isRefreshingEpisodes,
+                                    ),
                                 ) {
                                     if (state.isRefreshingEpisodes) {
                                         CircularProgressIndicator(
@@ -374,6 +386,7 @@ private fun DetailIconAction(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
+            .tvFocusable(shape = RoundedCornerShape(12.dp), accent = MaterialTheme.colorScheme.primary)
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 6.dp),
     ) {
@@ -399,9 +412,19 @@ private fun EpisodeRow(
     onClick: () -> Unit,
     onToggleDownload: () -> Unit,
 ) {
+    // Two separately clickable zones (thumbnail + title) share one
+    // interaction source so D-pad focus on either shows the same subtle
+    // row-wide tint — a scale+ring per zone would overlap the neighboring
+    // episode rows above/below.
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val visuals = rememberTvFocusVisuals(interactionSource, pressed = pressed, pressedScale = 0.99f, focusedScale = 1f)
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .tvBringIntoViewOnFocus()
+            .background(MaterialTheme.colorScheme.primary.copy(alpha = visuals.ringAlpha * 0.12f))
             .padding(horizontal = 20.dp, vertical = 10.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -411,7 +434,7 @@ private fun EpisodeRow(
                     .aspectRatio(16f / 9f)
                     .clip(RoundedCornerShape(8.dp))
                     .background(AuroraColors.SurfaceHigh)
-                    .clickable(onClick = onClick),
+                    .clickable(interactionSource = interactionSource, indication = null, onClick = onClick),
             ) {
                 if (thumbnailUrl != null) {
                     AsyncImage(model = thumbnailUrl, contentDescription = title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
@@ -428,7 +451,7 @@ private fun EpisodeRow(
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .clickable(onClick = onClick),
+                    .clickable(interactionSource = interactionSource, indication = null, onClick = onClick),
             ) {
                 Text(
                     "$episodeNumber. $title",
@@ -490,6 +513,7 @@ private fun EpisodeDownloadIcon(
         modifier = Modifier
             .size(40.dp)
             .clip(CircleShape)
+            .tvFocusable(shape = CircleShape, accent = MaterialTheme.colorScheme.primary)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {

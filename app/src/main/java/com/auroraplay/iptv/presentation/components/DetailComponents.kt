@@ -117,6 +117,7 @@ fun IconTextAction(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
+            .tvFocusable(shape = RoundedCornerShape(12.dp), accent = MaterialTheme.colorScheme.primary)
             .clickable(onClick = onClick)
             .padding(horizontal = Spacing.lg, vertical = Spacing.md),
     ) {

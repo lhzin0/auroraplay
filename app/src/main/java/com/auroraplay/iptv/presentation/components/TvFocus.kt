@@ -6,15 +6,20 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 
 /**
  * D-pad focus treatment shared by every interactive surface.
@@ -42,6 +47,26 @@ import androidx.compose.ui.unit.dp
  * skip that machinery entirely off-TV.
  */
 val LocalIsTvDevice = staticCompositionLocalOf { false }
+
+/**
+ * Scrolls this element back into view the instant it gains D-pad focus.
+ *
+ * A `LazyColumn`/`LazyRow`/`LazyVerticalGrid` never keeps the focused item
+ * on screen by itself — nothing else in Compose does either — so without
+ * this, moving focus with the remote's arrows can walk it straight off the
+ * visible viewport with no way to tell where it went. TV-gated like the
+ * rest of this file: off-TV, focus via D-pad never happens, so this is a
+ * plain passthrough.
+ */
+@Composable
+fun Modifier.tvBringIntoViewOnFocus(): Modifier {
+    if (!LocalIsTvDevice.current) return this
+    val requester = remember { BringIntoViewRequester() }
+    val scope = rememberCoroutineScope()
+    return this
+        .bringIntoViewRequester(requester)
+        .onFocusEvent { state -> if (state.isFocused) scope.launch { requester.bringIntoView() } }
+}
 
 @Composable
 fun Modifier.tvFocusable(
@@ -80,6 +105,7 @@ fun Modifier.tvFocusable(
     )
 
     return this
+        .tvBringIntoViewOnFocus()
         .scale(scale)
         .border(width = ringWidth, color = accent.copy(alpha = ringAlpha), shape = shape)
         .focusable(enabled = enabled, interactionSource = source)

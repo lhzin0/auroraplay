@@ -3,9 +3,11 @@ package com.auroraplay.iptv.presentation.player
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
@@ -21,6 +23,9 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.auroraplay.iptv.core.theme.AuroraColors
+import com.auroraplay.iptv.presentation.components.rememberTvFocusVisuals
+import com.auroraplay.iptv.presentation.components.tvBringIntoViewOnFocus
+import com.auroraplay.iptv.presentation.components.tvFocusable
 
 @Composable
 fun LiveChannelQuickList(
@@ -94,6 +99,7 @@ fun LiveChannelQuickList(
                         tint = AuroraColors.TextTertiary,
                         modifier = Modifier
                             .size(18.dp)
+                            .tvFocusable(shape = CircleShape, accent = MaterialTheme.colorScheme.primary)
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null,
@@ -181,16 +187,21 @@ fun EpisodePickerSheet(
                     }
                     item(key = ep.id) {
                         val active = ep.id == currentEpisodeId
+                        val interactionSource = remember { MutableInteractionSource() }
+                        val pressed by interactionSource.collectIsPressedAsState()
+                        val visuals = rememberTvFocusVisuals(interactionSource, pressed = pressed, pressedScale = 0.99f, focusedScale = 1f)
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
+                                .tvBringIntoViewOnFocus()
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(10.dp))
                                 .background(
                                     if (active) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
                                     else Color.White.copy(alpha = 0.04f)
                                 )
-                                .clickable { onSelect(ep.id) }
+                                .background(Color.White.copy(alpha = visuals.ringAlpha * 0.12f))
+                                .clickable(interactionSource = interactionSource, indication = null) { onSelect(ep.id) }
                                 .padding(horizontal = 12.dp, vertical = 10.dp),
                         ) {
                             Text(

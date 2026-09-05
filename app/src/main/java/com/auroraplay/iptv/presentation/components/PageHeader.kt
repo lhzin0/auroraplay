@@ -12,6 +12,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
@@ -160,6 +161,7 @@ private fun IconAction(
         modifier = Modifier
             .size(44.dp) // comfortable touch/focus target
             .clip(RoundedCornerShape(100.dp))
+            .tvFocusable(shape = CircleShape, accent = MaterialTheme.colorScheme.primary)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -213,6 +215,7 @@ fun ContextualSearchField(
                 modifier = Modifier
                     .size(32.dp)
                     .clip(RoundedCornerShape(100.dp))
+                    .tvFocusable(shape = CircleShape, accent = MaterialTheme.colorScheme.primary)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,

@@ -8,6 +8,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -20,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.auroraplay.iptv.core.theme.AuroraColors
 import com.auroraplay.iptv.core.theme.frostSurface
+import com.auroraplay.iptv.presentation.components.rememberTvFocusVisuals
 import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
@@ -100,11 +102,15 @@ private fun PlayerSettingRow(
     value: String,
     onClick: () -> Unit,
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val visuals = rememberTvFocusVisuals(interactionSource, pressed = pressed, pressedScale = 0.99f, focusedScale = 1f)
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .background(Color.White.copy(alpha = visuals.ringAlpha * 0.12f))
+            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
         Icon(icon, contentDescription = null, tint = AuroraColors.TextSecondary, modifier = Modifier.size(20.dp))

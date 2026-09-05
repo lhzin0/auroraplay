@@ -4,6 +4,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -28,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -48,6 +51,9 @@ import com.auroraplay.iptv.player.download.DownloadState
 import com.auroraplay.iptv.presentation.components.BackButton
 import com.auroraplay.iptv.presentation.components.EmptyState
 import com.auroraplay.iptv.presentation.components.Spacing
+import com.auroraplay.iptv.presentation.components.rememberTvFocusVisuals
+import com.auroraplay.iptv.presentation.components.tvBringIntoViewOnFocus
+import com.auroraplay.iptv.presentation.components.tvFocusable
 
 @Composable
 fun DownloadsScreen(
@@ -104,14 +110,19 @@ private fun MovieDownloadCard(
 ) {
     val item = group.items.first()
     val isCompleted = item.status == Download.STATE_COMPLETED
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val visuals = rememberTvFocusVisuals(interactionSource, pressed = pressed, pressedScale = 0.99f, focusedScale = 1f)
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
+            .tvBringIntoViewOnFocus()
             .clip(RoundedCornerShape(14.dp))
             .background(AuroraColors.SurfaceDark)
-            .clickable(enabled = isCompleted) { onPlay(item) }
+            .background(MaterialTheme.colorScheme.primary.copy(alpha = visuals.ringAlpha * 0.12f))
+            .clickable(enabled = isCompleted, interactionSource = interactionSource, indication = null) { onPlay(item) }
             .padding(Spacing.md),
     ) {
         DownloadPoster(group.posterUrl, fallbackIcon = Icons.Default.Movie)
@@ -131,7 +142,7 @@ private fun MovieDownloadCard(
             Icon(Icons.Default.CheckCircle, contentDescription = null, tint = AuroraColors.Success, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(Spacing.xs))
         }
-        IconButton(onClick = onRemove) {
+        IconButton(onClick = onRemove, modifier = Modifier.tvFocusable(shape = CircleShape, accent = MaterialTheme.colorScheme.primary)) {
             Icon(Icons.Default.Delete, contentDescription = "Remover download", tint = AuroraColors.TextTertiary)
         }
     }
@@ -149,6 +160,9 @@ private fun SeriesDownloadCard(
     onRemoveAll: () -> Unit,
 ) {
     var expanded by rememberSaveable(group.key) { mutableStateOf(false) }
+    val headerInteractionSource = remember { MutableInteractionSource() }
+    val headerPressed by headerInteractionSource.collectIsPressedAsState()
+    val headerVisuals = rememberTvFocusVisuals(headerInteractionSource, pressed = headerPressed, pressedScale = 0.99f, focusedScale = 1f)
 
     Column(
         Modifier
@@ -160,7 +174,9 @@ private fun SeriesDownloadCard(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { expanded = !expanded }
+                .tvBringIntoViewOnFocus()
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = headerVisuals.ringAlpha * 0.12f))
+                .clickable(interactionSource = headerInteractionSource, indication = null) { expanded = !expanded }
                 .padding(Spacing.md),
         ) {
             DownloadPoster(group.posterUrl, fallbackIcon = Icons.Default.Tv)
@@ -196,12 +212,16 @@ private fun SeriesDownloadCard(
                         onRemove = { onRemoveEpisode(episode) },
                     )
                 }
+                val removeAllInteractionSource = remember { MutableInteractionSource() }
+                val removeAllPressed by removeAllInteractionSource.collectIsPressedAsState()
+                val removeAllVisuals = rememberTvFocusVisuals(removeAllInteractionSource, pressed = removeAllPressed, pressedScale = 0.99f, focusedScale = 1f)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(10.dp))
-                        .clickable(onClick = onRemoveAll)
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = removeAllVisuals.ringAlpha * 0.12f))
+                        .clickable(interactionSource = removeAllInteractionSource, indication = null, onClick = onRemoveAll)
                         .padding(horizontal = Spacing.sm, vertical = Spacing.sm),
                 ) {
                     Icon(Icons.Default.Delete, contentDescription = null, tint = AuroraColors.Error, modifier = Modifier.size(18.dp))
@@ -216,12 +236,17 @@ private fun SeriesDownloadCard(
 @Composable
 private fun EpisodeRow(item: DownloadState, onPlay: () -> Unit, onRemove: () -> Unit) {
     val isCompleted = item.status == Download.STATE_COMPLETED
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val visuals = rememberTvFocusVisuals(interactionSource, pressed = pressed, pressedScale = 0.99f, focusedScale = 1f)
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
+            .tvBringIntoViewOnFocus()
             .clip(RoundedCornerShape(10.dp))
-            .clickable(enabled = isCompleted, onClick = onPlay)
+            .background(MaterialTheme.colorScheme.primary.copy(alpha = visuals.ringAlpha * 0.12f))
+            .clickable(enabled = isCompleted, interactionSource = interactionSource, indication = null, onClick = onPlay)
             .padding(horizontal = Spacing.sm, vertical = Spacing.sm),
     ) {
         StatusBadge(item, size = 30.dp)
@@ -236,7 +261,7 @@ private fun EpisodeRow(item: DownloadState, onPlay: () -> Unit, onRemove: () -> 
             )
             Text(statusLine(item), style = MaterialTheme.typography.bodySmall, color = statusColor(item))
         }
-        IconButton(onClick = onRemove) {
+        IconButton(onClick = onRemove, modifier = Modifier.tvFocusable(shape = CircleShape, accent = MaterialTheme.colorScheme.primary)) {
             Icon(Icons.Default.Delete, contentDescription = "Remover episódio", tint = AuroraColors.TextTertiary, modifier = Modifier.size(20.dp))
         }
     }

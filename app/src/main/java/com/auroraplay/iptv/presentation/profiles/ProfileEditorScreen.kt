@@ -7,6 +7,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -46,6 +48,9 @@ import com.auroraplay.iptv.core.theme.AuroraColors
 import com.auroraplay.iptv.presentation.components.AppButton
 import com.auroraplay.iptv.presentation.components.ProfileAvatar
 import com.auroraplay.iptv.presentation.components.Spacing
+import com.auroraplay.iptv.presentation.components.rememberTvFocusVisuals
+import com.auroraplay.iptv.presentation.components.tvBringIntoViewOnFocus
+import com.auroraplay.iptv.presentation.components.tvFocusable
 
 private val avatarEmojis = listOf("🎬", "🍿", "📺", "🎮", "⚽", "🚀", "🐱", "🎧", "🌙", "⭐")
 private val avatarColors = listOf("#7C5CFF", "#32D8E0", "#2ED47A", "#FFA53D", "#FF4FA3", "#FF4B4B")
@@ -117,6 +122,7 @@ fun ProfileEditorScreen(
                     onClick = onBack,
                     modifier = Modifier
                         .size(44.dp)
+                        .tvFocusable(shape = CircleShape, accent = MaterialTheme.colorScheme.primary)
                         .background(Color.Black.copy(alpha = 0.5f), CircleShape)
                         .border(1.dp, Color.White.copy(alpha = 0.06f), CircleShape),
                 ) {
@@ -154,6 +160,7 @@ fun ProfileEditorScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
                                 .clip(RoundedCornerShape(50))
+                                .tvFocusable(shape = RoundedCornerShape(50), accent = MaterialTheme.colorScheme.primary)
                                 .clickable { imagePicker.launch(arrayOf("image/*")) }
                                 .padding(horizontal = 10.dp, vertical = 6.dp),
                         ) {
@@ -221,7 +228,7 @@ fun ProfileEditorScreen(
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     items(avatarEmojis) { emoji ->
                         val selected = emoji == state.emoji && state.avatarUri.isNullOrBlank()
-                        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(60.dp)) {
+                        Box(contentAlignment = Alignment.Center, modifier = Modifier.tvBringIntoViewOnFocus().size(60.dp)) {
                             ProfileAvatar(
                                 emoji = emoji,
                                 colorHex = state.colorHex,
@@ -250,12 +257,14 @@ fun ProfileEditorScreen(
                         Box(
                             modifier = Modifier
                                 .size(44.dp)
+                                .tvBringIntoViewOnFocus()
                                 .clip(CircleShape)
                                 .background(color)
                                 .then(
                                     if (selected) Modifier.border(2.dp, Color.White, CircleShape)
                                     else Modifier,
                                 )
+                                .tvFocusable(shape = CircleShape, accent = MaterialTheme.colorScheme.primary)
                                 .clickable { viewModel.updateColor(hex) },
                             contentAlignment = Alignment.Center,
                         ) {
@@ -496,11 +505,15 @@ private fun ToggleRow(
     onCheckedChange: (Boolean) -> Unit,
     enabled: Boolean = true,
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val visuals = rememberTvFocusVisuals(interactionSource, pressed = pressed, pressedScale = 0.99f, focusedScale = 1f)
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
-            .clickable(enabled = enabled) { onCheckedChange(!checked) }
+            .background(MaterialTheme.colorScheme.primary.copy(alpha = visuals.ringAlpha * 0.12f))
+            .clickable(enabled = enabled, interactionSource = interactionSource, indication = null) { onCheckedChange(!checked) }
             .padding(vertical = Spacing.xs),
         verticalAlignment = Alignment.CenterVertically,
     ) {

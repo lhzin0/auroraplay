@@ -34,6 +34,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.auroraplay.iptv.core.theme.AuroraColors
 import com.auroraplay.iptv.presentation.components.AppButton
 import com.auroraplay.iptv.presentation.components.ErrorState
+import com.auroraplay.iptv.presentation.components.tvFocusable
 
 @Composable
 fun AddConnectionScreen(
@@ -170,15 +171,18 @@ private fun ConnectionForm(onConnect: (String, String, String, String, String?) 
                 modifier = Modifier.padding(top = 6.dp),
             )
         } else {
+            val addBackupInteractionSource = remember { MutableInteractionSource() }
             Text(
                 "+ Adicionar servidor de backup",
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = { showBackupField = true },
-                ),
+                modifier = Modifier
+                    .tvFocusable(shape = RoundedCornerShape(8.dp), accent = MaterialTheme.colorScheme.primary, interactionSource = addBackupInteractionSource)
+                    .clickable(
+                        interactionSource = addBackupInteractionSource,
+                        indication = null,
+                        onClick = { showBackupField = true },
+                    ),
             )
         }
 
@@ -235,15 +239,18 @@ private fun LabeledField(
                 )
             }
             if (trailingText != null && onTrailingClick != null) {
+                val trailingInteractionSource = remember { MutableInteractionSource() }
                 Text(
                     trailingText,
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = onTrailingClick,
-                    ),
+                    modifier = Modifier
+                        .tvFocusable(shape = RoundedCornerShape(8.dp), accent = MaterialTheme.colorScheme.primary, interactionSource = trailingInteractionSource)
+                        .clickable(
+                            interactionSource = trailingInteractionSource,
+                            indication = null,
+                            onClick = onTrailingClick,
+                        ),
                 )
             }
         }

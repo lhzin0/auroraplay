@@ -1,6 +1,9 @@
 package com.auroraplay.iptv.presentation.player
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -9,12 +12,17 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.auroraplay.iptv.core.theme.AuroraColors
 import com.auroraplay.iptv.player.TrackOption
+import com.auroraplay.iptv.presentation.components.rememberTvFocusVisuals
+import com.auroraplay.iptv.presentation.components.tvBringIntoViewOnFocus
 
 /**
  * One sheet for both audio and subtitles — the two were separate before and
@@ -60,11 +68,16 @@ fun AudioAndSubtitlesSheet(
             }
             if (onLoadSubtitleFile != null) {
                 item {
+                    val interactionSource = remember { MutableInteractionSource() }
+                    val pressed by interactionSource.collectIsPressedAsState()
+                    val visuals = rememberTvFocusVisuals(interactionSource, pressed = pressed, pressedScale = 0.99f, focusedScale = 1f)
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
+                            .tvBringIntoViewOnFocus()
                             .fillMaxWidth()
-                            .clickable { onLoadSubtitleFile() }
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = visuals.ringAlpha * 0.12f))
+                            .clickable(interactionSource = interactionSource, indication = null) { onLoadSubtitleFile() }
                             .padding(horizontal = 20.dp, vertical = 14.dp),
                     ) {
                         Icon(Icons.Default.FileUpload, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
@@ -115,11 +128,16 @@ fun PlaybackSpeedSheet(
 
 @Composable
 private fun OptionRow(label: String, selected: Boolean, onClick: () -> Unit) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val visuals = rememberTvFocusVisuals(interactionSource, pressed = pressed, pressedScale = 0.99f, focusedScale = 1f)
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
+            .tvBringIntoViewOnFocus()
             .fillMaxWidth()
-            .clickable { onClick() }
+            .background(MaterialTheme.colorScheme.primary.copy(alpha = visuals.ringAlpha * 0.12f))
+            .clickable(interactionSource = interactionSource, indication = null) { onClick() }
             .padding(horizontal = 20.dp, vertical = 14.dp),
     ) {
         Text(label, style = MaterialTheme.typography.bodyLarge, color = if (selected) MaterialTheme.colorScheme.primary else AuroraColors.TextPrimary, modifier = Modifier.weight(1f))

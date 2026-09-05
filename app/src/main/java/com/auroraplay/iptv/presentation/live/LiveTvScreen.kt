@@ -35,6 +35,7 @@ import com.auroraplay.iptv.core.theme.AuroraColors
 import com.auroraplay.iptv.presentation.components.CategoryChip
 import com.auroraplay.iptv.presentation.components.ChannelCard
 import com.auroraplay.iptv.presentation.components.EmptyState
+import com.auroraplay.iptv.presentation.components.tvFocusable
 import com.auroraplay.iptv.presentation.player.PlayerScreenContent
 
 @Composable
@@ -65,7 +66,10 @@ fun LiveTvScreen(
             onSearchQueryChange = viewModel::updateQuery,
             searchPlaceholder = "Pesquisar canais...",
             trailing = {
-                IconButton(onClick = onOpenGuide) {
+                IconButton(
+                    onClick = onOpenGuide,
+                    modifier = Modifier.tvFocusable(shape = CircleShape, accent = MaterialTheme.colorScheme.primary),
+                ) {
                     Icon(Icons.Default.CalendarViewDay, contentDescription = "Guia de programação", tint = AuroraColors.TextPrimary)
                 }
             },
@@ -102,14 +106,20 @@ fun LiveTvScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
                 ) {
-                    IconButton(onClick = { viewModel.toggleFavorite(channel) }) {
+                    IconButton(
+                        onClick = { viewModel.toggleFavorite(channel) },
+                        modifier = Modifier.tvFocusable(shape = CircleShape, accent = Color.White),
+                    ) {
                         Icon(
                             if (state.favoriteIds.contains(channel.id)) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                             contentDescription = "Favoritar",
                             tint = if (state.favoriteIds.contains(channel.id)) MaterialTheme.colorScheme.primary else Color.White,
                         )
                     }
-                    IconButton(onClick = { onOpenFullscreen(channel.id) }) {
+                    IconButton(
+                        onClick = { onOpenFullscreen(channel.id) },
+                        modifier = Modifier.tvFocusable(shape = CircleShape, accent = Color.White),
+                    ) {
                         Icon(Icons.Default.Fullscreen, contentDescription = "Tela cheia", tint = Color.White)
                     }
                 }

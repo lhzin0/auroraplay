@@ -2,12 +2,15 @@ package com.auroraplay.iptv.presentation.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -15,10 +18,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 
 /**
  * Single media stage used by movie/series details.
@@ -45,6 +50,7 @@ fun DetailMediaPager(
             initialPage = 0,
             pageCount = { pageCount },
         )
+        val pagerScope = rememberCoroutineScope()
 
         Column(
             modifier = modifier.fillMaxWidth(),
@@ -85,8 +91,27 @@ fun DetailMediaPager(
                     androidx.compose.foundation.layout.Row(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        if (pagerState.currentPage > 0) {
-                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, null, tint = Color.White.copy(alpha = 0.55f))
+                        // A swipe on the pager itself has no D-pad equivalent
+                        // on a TV remote, so these indicator arrows double as
+                        // real page-turn targets — harmless as an extra tap
+                        // target on touch too.
+                        Box(
+                            modifier = Modifier.size(32.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (pagerState.currentPage > 0) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                                    contentDescription = "Página anterior",
+                                    tint = Color.White.copy(alpha = 0.55f),
+                                    modifier = Modifier
+                                        .size(28.dp)
+                                        .tvFocusable(shape = CircleShape, accent = Color.White)
+                                        .clickable {
+                                            pagerScope.launch { pagerState.animateScrollToPage(pagerState.currentPage - 1) }
+                                        },
+                                )
+                            }
                         }
                         Box(
                             modifier = Modifier
@@ -99,8 +124,23 @@ fun DetailMediaPager(
                                 color = Color.White.copy(alpha = 0.82f),
                             )
                         }
-                        if (pagerState.currentPage < pageCount - 1) {
-                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Color.White.copy(alpha = 0.55f))
+                        Box(
+                            modifier = Modifier.size(32.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (pagerState.currentPage < pageCount - 1) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                    contentDescription = "Próxima página",
+                                    tint = Color.White.copy(alpha = 0.55f),
+                                    modifier = Modifier
+                                        .size(28.dp)
+                                        .tvFocusable(shape = CircleShape, accent = Color.White)
+                                        .clickable {
+                                            pagerScope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) }
+                                        },
+                                )
+                            }
                         }
                     }
                 }

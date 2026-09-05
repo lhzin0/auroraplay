@@ -262,6 +262,7 @@ private fun HeroSlide(
                 .align(Alignment.TopEnd)
                 .padding(8.dp)
                 .size(36.dp)
+                .tvFocusable(shape = CircleShape, accent = Color.White)
                 .clickable(onClick = onDetails),
             contentAlignment = Alignment.Center,
         ) {

@@ -31,6 +31,8 @@ import com.auroraplay.iptv.presentation.components.EmptyState
 import com.auroraplay.iptv.presentation.components.Spacing
 import com.auroraplay.iptv.presentation.components.SuggestionRow
 import com.auroraplay.iptv.presentation.components.floatingBarClearance
+import com.auroraplay.iptv.presentation.components.tvBringIntoViewOnFocus
+import com.auroraplay.iptv.presentation.components.tvFocusable
 
 @Composable
 fun SearchScreen(
@@ -140,8 +142,10 @@ fun SearchScreen(
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier
+                                        .tvBringIntoViewOnFocus()
                                         .clip(RoundedCornerShape(100.dp))
                                         .background(AuroraColors.SurfaceHigh)
+                                        .tvFocusable(shape = RoundedCornerShape(100.dp), accent = MaterialTheme.colorScheme.primary)
                                         .clickable { viewModel.updateQuery(recent) }
                                         .padding(horizontal = Spacing.md, vertical = Spacing.sm),
                                 ) {

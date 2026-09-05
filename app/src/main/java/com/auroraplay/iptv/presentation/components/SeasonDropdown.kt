@@ -44,6 +44,7 @@ fun SeasonDropdown(
             modifier = Modifier
                 .clip(RoundedCornerShape(10.dp))
                 .background(AuroraColors.SurfaceHigh)
+                .tvFocusable(shape = RoundedCornerShape(10.dp), accent = MaterialTheme.colorScheme.primary, enabled = seasons.size > 1)
                 .clickable(enabled = seasons.size > 1) { expanded = true }
                 .padding(horizontal = Spacing.lg, vertical = Spacing.md),
         ) {

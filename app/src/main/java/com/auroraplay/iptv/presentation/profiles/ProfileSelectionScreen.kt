@@ -10,6 +10,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -48,6 +49,9 @@ import coil.compose.AsyncImage
 import com.auroraplay.iptv.core.theme.AuroraColors
 import com.auroraplay.iptv.domain.model.Profile
 import com.auroraplay.iptv.presentation.components.Spacing
+import com.auroraplay.iptv.presentation.components.rememberTvFocusVisuals
+import com.auroraplay.iptv.presentation.components.tvBringIntoViewOnFocus
+import com.auroraplay.iptv.presentation.components.tvFocusable
 import kotlinx.coroutines.delay
 
 @Composable
@@ -452,23 +456,22 @@ private fun ProfileTile(
 ) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
-    val scale by androidx.compose.animation.core.animateFloatAsState(
-        targetValue = if (pressed) 0.94f else 1f,
-        label = "profileTileScale",
-    )
+    val visuals = rememberTvFocusVisuals(interaction, pressed = pressed, pressedScale = 0.94f, focusedScale = 1.08f)
     val tileColor = runCatching { Color(android.graphics.Color.parseColor(profile.avatarColorHex)) }
         .getOrDefault(AuroraColors.AccentDefault)
+    val tileShape = RoundedCornerShape(22.dp)
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier.scale(scale),
+        modifier = modifier.tvBringIntoViewOnFocus().scale(visuals.scale),
     ) {
         Box(Modifier.size(96.dp)) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .clip(RoundedCornerShape(22.dp))
+                    .clip(tileShape)
                     .background(tileColor)
+                    .border(2.dp, Color.White.copy(alpha = visuals.ringAlpha), tileShape)
                     .combinedClickable(
                         interactionSource = interaction,
                         indication = null,
@@ -520,6 +523,7 @@ private fun ProfileTile(
                         .size(24.dp)
                         .clip(CircleShape)
                         .background(AuroraColors.Error)
+                        .tvFocusable(shape = CircleShape, accent = Color.White)
                         .clickable { onDelete() },
                     contentAlignment = Alignment.Center,
                 ) { Icon(Icons.Default.Delete, "Excluir ${profile.name}", tint = Color.White, modifier = Modifier.size(13.dp)) }
@@ -545,12 +549,14 @@ private fun ActionTile(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier) {
+    val tileShape = RoundedCornerShape(22.dp)
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier.tvBringIntoViewOnFocus()) {
         Box(
             modifier = Modifier
                 .size(96.dp)
-                .clip(RoundedCornerShape(22.dp))
+                .clip(tileShape)
                 .background(AuroraColors.SurfaceHigh)
+                .tvFocusable(shape = tileShape, accent = MaterialTheme.colorScheme.primary)
                 .clickable(onClick = onClick),
             contentAlignment = Alignment.Center,
         ) {

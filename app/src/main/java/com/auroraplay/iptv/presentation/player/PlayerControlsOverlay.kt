@@ -12,11 +12,14 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -34,9 +37,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
@@ -49,6 +58,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.auroraplay.iptv.core.theme.AuroraColors
 import com.auroraplay.iptv.core.util.toTimeLabel
+import com.auroraplay.iptv.presentation.components.tvFocusable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -98,6 +108,10 @@ fun PlayerControlsOverlay(
     onToggleCinematicMode: () -> Unit,
     onOpenAudio: () -> Unit,
     onSkipIntro: () -> Unit,
+    /** Focus lands here the instant the controls become visible — see
+     * PlayerScreen's comment on why the whole-screen root can't be the focus
+     * holder itself. */
+    playPauseFocusRequester: androidx.compose.ui.focus.FocusRequester? = null,
 ) {
     Box(
         modifier = Modifier
@@ -123,7 +137,7 @@ fun PlayerControlsOverlay(
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp, vertical = 8.dp),
             ) {
-                IconButton(onClick = onBack) {
+                IconButton(onClick = onBack, modifier = Modifier.tvFocusable(shape = CircleShape, accent = Color.White)) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar", tint = Color.White)
                 }
                 Column(
@@ -164,7 +178,7 @@ fun PlayerControlsOverlay(
                 }
                 // Three-dots: secondary settings (speed, aspect ratio). Sized
                 // for touch but visually quieter than the transport controls.
-                IconButton(onClick = onOpenSettings) {
+                IconButton(onClick = onOpenSettings, modifier = Modifier.tvFocusable(shape = CircleShape, accent = Color.White)) {
                     Icon(Icons.Default.MoreVert, contentDescription = "Mais opções", tint = Color.White.copy(alpha = 0.9f))
                 }
             }
@@ -286,6 +300,7 @@ fun PlayerControlsOverlay(
                                 // into -H:MM:SS during long films.
                                 .width(64.dp)
                                 .clip(RoundedCornerShape(6.dp))
+                                .tvFocusable(shape = RoundedCornerShape(6.dp), accent = Color.White)
                                 .clickable(onClickLabel = "Alternar entre tempo restante e decorrido", onClick = onToggleTimeDisplay)
                                 .padding(horizontal = 2.dp, vertical = 4.dp),
                         )
@@ -423,7 +438,7 @@ fun PlayerControlsOverlay(
                 }
             }
             Box(Modifier.width(82.dp), contentAlignment = Alignment.Center) {
-                PlayPauseButton(isPlaying = isPlaying, isBuffering = isBuffering, onClick = onPlayPause)
+                PlayPauseButton(isPlaying = isPlaying, isBuffering = isBuffering, onClick = onPlayPause, focusRequester = playPauseFocusRequester)
             }
             Box(Modifier.width(82.dp), contentAlignment = Alignment.Center) {
                 if (isLive) {
@@ -457,15 +472,32 @@ private fun VerticalMiniSlider(
     height: androidx.compose.ui.unit.Dp = 200.dp,
 ) {
     val pct = value.coerceIn(0f, 1f)
+    val interactionSource = remember { MutableInteractionSource() }
+    val focused by interactionSource.collectIsFocusedAsState()
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
             .width(width)
             .height(height)
+            .then(
+                if (focused) Modifier.border(2.dp, Color.White.copy(alpha = 0.85f), RoundedCornerShape(100.dp))
+                else Modifier
+            )
             .semantics(mergeDescendants = true) {
                 contentDescription = label
                 progressBarRangeInfo = androidx.compose.ui.semantics.ProgressBarRangeInfo(pct, 0f..1f)
                 setProgress { target -> onDrag(target - pct); true }
+            }
+            .focusable(interactionSource = interactionSource)
+            // There's no drag gesture to derive a step from with a D-pad —
+            // up/down nudges by a fixed step instead.
+            .onKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                when (event.key) {
+                    Key.DirectionUp -> { onDrag(SLIDER_KEY_STEP); true }
+                    Key.DirectionDown -> { onDrag(-SLIDER_KEY_STEP); true }
+                    else -> false
+                }
             }
             // No capsule/border behind the bar — just the icon, track and
             // knob. A soft drop shadow keeps it legible over bright video.
@@ -537,7 +569,7 @@ private fun TransportIconButton(
                 nudge.animateTo(0f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
             }
         },
-        modifier = Modifier.size(60.dp),
+        modifier = Modifier.size(60.dp).tvFocusable(shape = CircleShape, accent = Color.White),
     ) {
         Icon(
             icon,
@@ -599,7 +631,7 @@ private fun SeekButton(
             onClick()
             scope.launch { runSpin() }
         },
-        modifier = Modifier.size(60.dp),
+        modifier = Modifier.size(60.dp).tvFocusable(shape = CircleShape, accent = Color.White),
     ) {
         Icon(
             glyph,
@@ -619,21 +651,30 @@ private fun SeekButton(
  * play button instead of being a separate centred element that can drift a
  * few pixels off on some aspect ratios. */
 @Composable
-private fun PlayPauseButton(isPlaying: Boolean, isBuffering: Boolean, onClick: () -> Unit) {
+private fun PlayPauseButton(
+    isPlaying: Boolean,
+    isBuffering: Boolean,
+    onClick: () -> Unit,
+    focusRequester: androidx.compose.ui.focus.FocusRequester? = null,
+) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
+    val focused by interaction.collectIsFocusedAsState()
     val pressScale by androidx.compose.animation.core.animateFloatAsState(
         targetValue = if (pressed) 0.88f else 1f,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
         label = "playPausePress",
     )
+    val ringAlpha by androidx.compose.animation.core.animateFloatAsState(if (focused) 1f else 0f, label = "playPauseFocusRing")
     IconButton(
         onClick = onClick,
         interactionSource = interaction,
         modifier = Modifier
             .size(64.dp)
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .scale(pressScale)
-            .background(Color.White.copy(alpha = 0.16f), CircleShape),
+            .background(Color.White.copy(alpha = 0.16f), CircleShape)
+            .border(2.dp, Color.White.copy(alpha = ringAlpha), CircleShape),
     ) {
         Box(contentAlignment = Alignment.Center) {
             if (isBuffering) {
@@ -678,12 +719,34 @@ private fun ThinSeekBar(
     var dragging by remember { mutableStateOf(false) }
     var lastFrac by remember { mutableFloatStateOf(fraction) }
     val shown = fraction.coerceIn(0f, 1f)
+    val interactionSource = remember { MutableInteractionSource() }
+    val focused by interactionSource.collectIsFocusedAsState()
 
     Box(
         modifier = modifier
             .fillMaxWidth()
             .height(34.dp)
+            .then(
+                if (focused) Modifier.border(2.dp, Color.White.copy(alpha = 0.85f), RoundedCornerShape(6.dp))
+                else Modifier
+            )
             .onSizeChanged { widthPx = it.width.toFloat().coerceAtLeast(1f) }
+            .focusable(interactionSource = interactionSource)
+            // Dragging the bar has no D-pad equivalent — left/right nudges
+            // the position by a fixed step per press instead, and commits
+            // immediately (mirroring a tap) since there's no "release" event
+            // from a key the way there is from a finger.
+            .onKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                val step = when (event.key) {
+                    Key.DirectionLeft -> -SEEK_KEY_STEP_FRACTION
+                    Key.DirectionRight -> SEEK_KEY_STEP_FRACTION
+                    else -> return@onKeyEvent false
+                }
+                val f = (fraction + step).coerceIn(0f, 1f)
+                onScrubStart(); onScrub(f); onScrubEnd(f)
+                true
+            }
             .pointerInput(Unit) {
                 detectHorizontalDragGestures(
                     onDragStart = { off ->
@@ -818,6 +881,7 @@ private fun PlayerBottomAction(
                 if (active) Modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = 0.22f))
                 else Modifier
             )
+            .tvFocusable(shape = RoundedCornerShape(12.dp), accent = Color.White)
             .clickable(onClick = onClick)
             .padding(horizontal = 4.dp, vertical = 7.dp),
     ) {
@@ -835,6 +899,13 @@ private fun PlayerBottomAction(
 }
 
 private const val SKIP_INTRO_WINDOW_MILLIS = 5 * 60_000L
+
+/** D-pad left/right step on [ThinSeekBar], as a fraction of total duration —
+ * there's no drag gesture to derive a step from, so this is a fixed nudge. */
+private const val SEEK_KEY_STEP_FRACTION = 0.02f
+
+/** D-pad up/down step on [VerticalMiniSlider], as a fraction of full range. */
+private const val SLIDER_KEY_STEP = 0.05f
 
 @Composable
 private fun ControlPill(

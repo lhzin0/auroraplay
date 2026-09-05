@@ -39,6 +39,8 @@ import com.auroraplay.iptv.core.theme.frostSurface
 import com.auroraplay.iptv.presentation.components.ProfileAvatar
 import com.auroraplay.iptv.presentation.components.Spacing
 import com.auroraplay.iptv.presentation.components.rememberTvFocusVisuals
+import com.auroraplay.iptv.presentation.components.tvBringIntoViewOnFocus
+import com.auroraplay.iptv.presentation.components.tvFocusable
 
 @Composable
 fun SettingsScreen(
@@ -69,6 +71,7 @@ fun SettingsScreen(
                     onClick = onBack,
                     modifier = Modifier
                         .size(44.dp)
+                        .tvFocusable(shape = CircleShape, accent = MaterialTheme.colorScheme.primary)
                         .background(Color.Black.copy(alpha = 0.5f), CircleShape)
                         .border(1.dp, Color.White.copy(alpha = 0.06f), CircleShape),
                 ) {
@@ -406,11 +409,13 @@ private fun ProfileSwitcherDialog(
             Column {
                 profiles.forEach { profile ->
                     val isActive = profile.id == activeProfileId
+                    val rowShape = RoundedCornerShape(10.dp)
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
+                            .clip(rowShape)
+                            .tvFocusable(shape = rowShape, accent = MaterialTheme.colorScheme.primary, enabled = !isActive)
                             .clickable(enabled = !isActive) { onSelect(profile.id) }
                             .padding(vertical = Spacing.sm, horizontal = Spacing.xs),
                     ) {
@@ -487,11 +492,13 @@ private fun SettingsPickerDialog(
         text = {
             Column {
                 options.forEach { (value, label) ->
+                    val rowShape = RoundedCornerShape(10.dp)
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
+                            .clip(rowShape)
+                            .tvFocusable(shape = rowShape, accent = MaterialTheme.colorScheme.primary)
                             .clickable { onSelect(value); onDismiss() }
                             .padding(vertical = Spacing.xs),
                     ) {
@@ -588,14 +595,19 @@ private fun SettingsRow(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
+    // focusedScale = 1f on purpose: a full-width row scaling up would overlap
+    // its neighbors above/below. The background tint (driven by the same
+    // ringAlpha) is the focus affordance here instead of a border ring.
     val visuals = rememberTvFocusVisuals(interactionSource, pressed = pressed, pressedScale = 0.99f, focusedScale = 1f)
 
     Column {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
+                .tvBringIntoViewOnFocus()
                 .fillMaxWidth()
                 .scale(visuals.scale)
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = visuals.ringAlpha * 0.12f))
                 .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
                 .padding(horizontal = Spacing.lg, vertical = Spacing.md),
         ) {
@@ -642,12 +654,19 @@ private fun SettingsSwitchRow(
     onCheckedChange: (Boolean) -> Unit,
     showDivider: Boolean = true,
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val visuals = rememberTvFocusVisuals(interactionSource, pressed = pressed, pressedScale = 0.99f, focusedScale = 1f)
+
     Column {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
+                .tvBringIntoViewOnFocus()
                 .fillMaxWidth()
-                .clickable { onCheckedChange(!checked) }
+                .scale(visuals.scale)
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = visuals.ringAlpha * 0.12f))
+                .clickable(interactionSource = interactionSource, indication = null) { onCheckedChange(!checked) }
                 .padding(horizontal = Spacing.lg, vertical = Spacing.md),
         ) {
             SettingsIconChip(icon)
@@ -675,6 +694,7 @@ private fun AccentSwatch(color: Color, name: String, selected: Boolean, onClick:
     Box(
         modifier = Modifier
             .size(44.dp)
+            .tvFocusable(shape = CircleShape, accent = Color.White)
             .clickable(onClickLabel = "Cor de destaque $name", onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {

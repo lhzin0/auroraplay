@@ -5,6 +5,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -31,6 +33,9 @@ import com.auroraplay.iptv.core.theme.AuroraColors
 import com.auroraplay.iptv.core.util.toRelativeTimeLabel
 import com.auroraplay.iptv.domain.model.ContentType
 import com.auroraplay.iptv.presentation.components.Spacing
+import com.auroraplay.iptv.presentation.components.rememberTvFocusVisuals
+import com.auroraplay.iptv.presentation.components.tvBringIntoViewOnFocus
+import com.auroraplay.iptv.presentation.components.tvFocusable
 
 @Composable
 fun WatchHistoryScreen(
@@ -60,6 +65,7 @@ fun WatchHistoryScreen(
                 onClick = onBack,
                 modifier = Modifier
                     .size(44.dp)
+                    .tvFocusable(shape = CircleShape, accent = MaterialTheme.colorScheme.primary)
                     .background(Color.Black.copy(alpha = 0.5f), CircleShape),
             ) {
                 Icon(
@@ -182,6 +188,9 @@ private fun HistoryCard(
     onDeleteEpisode: (String) -> Unit,
 ) {
     val isSeriesWithEpisodes = entry.type == ContentType.SERIES && entry.episodes.isNotEmpty()
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val visuals = rememberTvFocusVisuals(interactionSource, pressed = pressed, pressedScale = 0.99f, focusedScale = 1f)
     Column(
         Modifier
             .fillMaxWidth()
@@ -192,7 +201,9 @@ private fun HistoryCard(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { if (isSeriesWithEpisodes) onToggleExpand() else onOpen() }
+                .tvBringIntoViewOnFocus()
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = visuals.ringAlpha * 0.12f))
+                .clickable(interactionSource = interactionSource, indication = null) { if (isSeriesWithEpisodes) onToggleExpand() else onOpen() }
                 .padding(10.dp),
         ) {
             AsyncImage(
@@ -243,7 +254,7 @@ private fun HistoryCard(
                         .rotate(animateFloatAsState(if (isExpanded) 180f else 0f, label = "chev").value),
                 )
             }
-            IconButton(onClick = onDelete) {
+            IconButton(onClick = onDelete, modifier = Modifier.tvFocusable(shape = CircleShape, accent = MaterialTheme.colorScheme.primary)) {
                 Icon(
                     Icons.Default.DeleteOutline,
                     contentDescription = "Remover do histórico",
@@ -272,7 +283,7 @@ private fun HistoryCard(
                                 ThinProgress(ep.fraction)
                             }
                         }
-                        IconButton(onClick = { onDeleteEpisode(ep.contentId) }) {
+                        IconButton(onClick = { onDeleteEpisode(ep.contentId) }, modifier = Modifier.tvFocusable(shape = CircleShape, accent = MaterialTheme.colorScheme.primary)) {
                             Icon(
                                 Icons.Default.DeleteOutline,
                                 contentDescription = "Remover episódio do histórico",

@@ -239,11 +239,23 @@ fun HomeScreen(
             // streaming app puts them.
             val hasUnreadNotifications by hiltViewModel<com.auroraplay.iptv.presentation.notifications.NotificationsViewModel>()
                 .notifications.collectAsStateWithLifecycle()
-            IconButton(onClick = onOpenDownloads) {
+            IconButton(
+                onClick = onOpenDownloads,
+                modifier = Modifier.tvFocusable(
+                    shape = androidx.compose.foundation.shape.CircleShape,
+                    accent = MaterialTheme.colorScheme.primary,
+                ),
+            ) {
                 Icon(Icons.Default.Download, contentDescription = "Downloads", tint = AuroraColors.TextPrimary)
             }
             Box {
-                IconButton(onClick = onOpenNotifications) {
+                IconButton(
+                    onClick = onOpenNotifications,
+                    modifier = Modifier.tvFocusable(
+                        shape = androidx.compose.foundation.shape.CircleShape,
+                        accent = MaterialTheme.colorScheme.primary,
+                    ),
+                ) {
                     Icon(Icons.Default.Notifications, contentDescription = "Notificações", tint = AuroraColors.TextPrimary)
                 }
                 if (hasUnreadNotifications.any { !it.read }) {
