@@ -38,6 +38,19 @@ object MetadataSanitizer {
         return value.ifBlank { null }
     }
 
+    /** Same "Xh Ymin" formatting as [duration], from a millisecond runtime
+     * actually measured by the player — used to override a provider's static
+     * duration metadata once it's known to be wrong (see [duration]'s doc:
+     * Xtream listings are frequently stale/incorrect, especially for a
+     * just-added season). */
+    fun durationFromMillis(millis: Long): String? {
+        if (millis <= 0L) return null
+        val totalMinutes = millis / 60_000L
+        val h = totalMinutes / 60
+        val m = totalMinutes % 60
+        return if (h > 0) "${h}h ${m}min" else "${m}min"
+    }
+
     /**
      * Strips provider decorations from category/genre names so chips and
      * badges read cleanly: "➤# DRAMA" -> "Drama", "|BR| FILMES" -> "Filmes".

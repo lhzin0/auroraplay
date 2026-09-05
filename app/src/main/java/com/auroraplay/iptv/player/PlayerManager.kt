@@ -375,7 +375,20 @@ class PlayerManager @Inject constructor(
 
     fun togglePlayPause() {
         val player = activePlayer()
-        if (player.isPlaying) player.pause() else player.play()
+        if (player.isPlaying) {
+            player.pause()
+        } else {
+            // A live stream's DVR window keeps sliding while paused: resuming
+            // from the exact spot it was paused at can point at segments the
+            // server has since dropped from its live window, which gets the
+            // player stuck buffering forever instead of actually resuming —
+            // "pausa e não volta" (reported on a live channel; a manual
+            // pause/tap-play round trip on live TV). Snapping back to the
+            // live edge first avoids that; a no-op for VOD, and a no-op for
+            // live if the pause was short enough that it's already there.
+            if (player.isCurrentMediaItemLive) player.seekToDefaultPosition()
+            player.play()
+        }
     }
 
     fun seekTo(positionMillis: Long) = activePlayer().seekTo(positionMillis)

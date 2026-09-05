@@ -460,10 +460,21 @@ private fun EpisodeRow(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
-                durationLabel?.takeIf { it.isNotBlank() }?.let {
-                    Spacer(Modifier.height(2.dp))
-                    Text(it, style = MaterialTheme.typography.bodySmall, color = AuroraColors.TextTertiary)
-                }
+                // The provider's own duration metadata is frequently wrong or
+                // stale (a season added recently is the most common case) —
+                // once the player has actually measured this episode's real
+                // runtime (saved as resumeDurationMillis on any watch, even a
+                // finished one), that measurement is ground truth and
+                // replaces the static label instead of showing both/the
+                // wrong one.
+                (resumeDurationMillis?.takeIf { it > 60_000L }
+                    ?.let { com.auroraplay.iptv.core.util.MetadataSanitizer.durationFromMillis(it) }
+                    ?: durationLabel)
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let {
+                        Spacer(Modifier.height(2.dp))
+                        Text(it, style = MaterialTheme.typography.bodySmall, color = AuroraColors.TextTertiary)
+                    }
                 resumePositionMillis?.takeIf { it > 0L }?.let { position ->
                     Spacer(Modifier.height(2.dp))
                     Text(
