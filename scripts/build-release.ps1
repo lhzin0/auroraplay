@@ -50,6 +50,20 @@ try {
         fileName = $fileName; downloadUrl = "./downloads/$fileName"; sizeBytes = (Get-Item -LiteralPath $apk).Length; sha256 = $hash
         notes = @('Atualizações pelo GitHub: consulta diária e download automático no Wi-Fi.', 'Progresso nas notificações, cancelamento e instalação quando você escolher.', 'Verificação de integridade, versão, identificador e certificado do APK antes de instalar.', 'Backup protegido por senha e compatibilidade com os arquivos antigos.')
     } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $outputDirectory 'release.json') -Encoding utf8
+
+    # Source snapshot alongside the release — the pre-GitHub habit kept going.
+    # A deterministic `git archive` of the exact commit that was built, named
+    # like the older zips, dropped in the local versions folder. Skipped
+    # quietly if that folder's parent doesn't exist on this machine.
+    $sourceArchiveDir = Join-Path $env:USERPROFILE 'OneDrive\Documentos\versoes aurora'
+    if (Test-Path -LiteralPath (Split-Path $sourceArchiveDir -Parent)) {
+        New-Item -ItemType Directory -Path $sourceArchiveDir -Force | Out-Null
+        $archive = Join-Path $sourceArchiveDir ("AuroraPlay_v{0}_{1}.zip" -f $version, (Get-Date -Format 'yyyy-MM-dd_HH-mm-ss'))
+        & git archive --format=zip -o $archive HEAD
+        if ($LASTEXITCODE -eq 0) { Write-Output "Source snapshot: $archive" }
+        else { Write-Warning 'git archive failed; source snapshot not written.' }
+    }
+
     Write-Output "Verified release: $apk"
     Write-Output "SHA-256: $hash"
 } finally { Pop-Location }

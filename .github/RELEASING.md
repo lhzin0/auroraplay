@@ -38,7 +38,10 @@ GitHub Actions:  pages.yml  ──►  reconstrói o site apontando para a relea
    .\scripts\build-release.ps1 -JavaHome "$HOME\.jdks\jbr-21.0.11"
    ```
    Sai `build/release/AuroraPlay-X.Y.Z.apk` + `release.json` + `SHA256SUMS.txt`,
-   com as assinaturas verificadas nas APIs 24/27/28/32/33/36.
+   com as assinaturas verificadas nas APIs 24/27/28/32/33/36. O script também
+   grava um snapshot do código-fonte (`git archive` do commit compilado) em
+   `%USERPROFILE%\OneDrive\Documentos\versoes aurora\AuroraPlay_vX.Y.Z_<data>_<hora>.zip`
+   — pulado sem erro se a pasta não existir nesta máquina.
 6. O `release.json` do script sai com BOM e com notas fixas — **regere** um
    limpo a partir de `docs/release-notes/X.Y.Z.json` e do `sizeBytes`/`sha256`
    reais do APK antes de anexar:
