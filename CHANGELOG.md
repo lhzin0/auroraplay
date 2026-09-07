@@ -1,3 +1,13 @@
+## 1.38.3 — 2026-09-07
+
+- **Crash ao abrir o vídeo**: corrigido o fechamento inesperado que
+  acontecia "de vez em quando" ao abrir um filme, série ou canal ao vivo —
+  uma condição de corrida na construção do player quando as configurações
+  já estavam em cache.
+- **Próximo episódio automático**: não pula mais de um episódio de uma vez.
+  O avanço agora só dispara quando o player já está de fato no episódio que
+  a tela mostra, não no episódio anterior que acabou de terminar.
+
 ## 1.38.2 — 2026-09-05
 
 - **Canal ao vivo** deixa de travar ao abrir em tela cheia: promover a
