@@ -39,6 +39,10 @@ class AuroraApplication : Application(), Configuration.Provider {
         super.onCreate()
         CrashLogWriter.install(this)
         NewEpisodeScheduler.schedule(this)
+        // Background catalog refresh (the on-launch check below only runs when
+        // the app is actually opened). No-ops unless "Sincronização automática"
+        // is on and its interval has elapsed.
+        runCatching { syncContentUseCase.schedulePeriodic() }
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch { runCatching { appUpdateManager.start() } }
         // Retire work persisted by 1.29.0 when upgrading to manual file backups.
         // Keep existing backup files; only discard the obsolete local account selection.

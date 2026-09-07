@@ -14,4 +14,7 @@ class SyncContentUseCase @Inject constructor(
 
     fun observeActive(): Flow<Map<String, SyncStage?>> = scheduler.observeActive()
     suspend fun cancel(connectionId: String) = scheduler.cancel(connectionId)
+
+    /** One-time: schedules the background periodic catalog refresh. */
+    fun schedulePeriodic() = scheduler.schedulePeriodic()
 }

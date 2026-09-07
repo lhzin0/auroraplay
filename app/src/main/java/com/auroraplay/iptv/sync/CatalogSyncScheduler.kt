@@ -2,14 +2,17 @@ package com.auroraplay.iptv.sync
 
 import android.content.Context
 import androidx.work.Constraints
+import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
+import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.await
 import androidx.work.workDataOf
+import java.util.concurrent.TimeUnit
 import com.auroraplay.iptv.core.util.Resource
 import com.auroraplay.iptv.domain.repository.SyncStage
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -71,8 +74,25 @@ class CatalogSyncScheduler @Inject constructor(@param:ApplicationContext private
         workManager.cancelUniqueWork("catalog_sync:$connectionId").await()
     }
 
+    /**
+     * One-time setup (call from Application.onCreate, like NewEpisodeScheduler).
+     * Wakes every 6h; [PeriodicCatalogSyncWorker] itself no-ops unless
+     * `autoSyncHours` has elapsed since the last sync, so the user's chosen
+     * interval — and "off" — are still honoured.
+     */
+    fun schedulePeriodic() {
+        val request = PeriodicWorkRequestBuilder<PeriodicCatalogSyncWorker>(6, TimeUnit.HOURS)
+            .addTag(PERIODIC_TAG)
+            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+            .build()
+        // KEEP: don't reset the schedule's clock on every app launch.
+        workManager.enqueueUniquePeriodicWork(PERIODIC_WORK, ExistingPeriodicWorkPolicy.KEEP, request)
+    }
+
     companion object {
         const val TAG = "catalog_sync"
+        const val PERIODIC_WORK = "catalog_sync_periodic"
+        const val PERIODIC_TAG = "catalog_sync_periodic"
         const val CONNECTION_TAG = "catalog_connection:"
         const val CONNECTION_ID = "connection_id"
         const val STAGE = "stage"
