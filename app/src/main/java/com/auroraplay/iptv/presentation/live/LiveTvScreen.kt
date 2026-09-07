@@ -60,12 +60,17 @@ fun LiveTvScreen(
     // race PlayerScreen's adoption and, when this dispose lands last, stop()
     // leaves the stream idle with nothing to restart it (its LaunchedEffect
     // keys on the unchanged URL and never re-fires). Reported as a live
-    // channel that "pausa sozinho ao abrir em tela cheia". The flag below is
-    // set on the fullscreen taps so this dispose skips stop() only then.
+    // channel that "pausa sozinho ao abrir em tela cheia".
+    //
+    // Two independent guards so no single race reopens it: the flag is set
+    // synchronously on the fullscreen taps (covers this screen's own paths),
+    // and pipEligible is true whenever PlayerScreen is mounted (covers a
+    // promotion that comes from anywhere else — Search, Home — sharing the
+    // same player).
     val promotingToFullscreen = remember { mutableStateOf(false) }
     DisposableEffect(Unit) {
         onDispose {
-            if (!promotingToFullscreen.value) playerManager.stop()
+            if (!promotingToFullscreen.value && !playerManager.pipEligible.value) playerManager.stop()
         }
     }
     val openFullscreen: (String) -> Unit = { channelId ->

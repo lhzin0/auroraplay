@@ -23,12 +23,19 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import com.auroraplay.iptv.core.util.CrashLogWriter
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import androidx.compose.ui.Alignment
@@ -133,6 +140,12 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                 Box(Modifier.fillMaxSize()) {
                     AuroraNavGraph(isTvDevice = isTvDevice)
 
+                    // Offer to share the crash log once, on the launch after a
+                    // crash — otherwise the only path is Ajustes, which nobody
+                    // finds. No data leaves the device unless the person picks
+                    // a target in the share sheet.
+                    CrashReportPrompt()
+
                     // One single place this shows, instead of every screen
                     // guessing "offline" from whichever call happened to time
                     // out — sits above everything, including the player.
@@ -159,6 +172,41 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
               }
             }
         }
+    }
+
+    @Composable
+    private fun CrashReportPrompt() {
+        val context = LocalContext.current
+        var report by remember { mutableStateOf(CrashLogWriter.pendingCrashReport(context)) }
+        val file = report ?: return
+
+        fun dismiss() {
+            CrashLogWriter.markCrashReportSeen(context)
+            report = null
+        }
+
+        AlertDialog(
+            onDismissRequest = { dismiss() },
+            title = { Text("O app fechou inesperadamente") },
+            text = { Text("Compartilhar o relatório do último fechamento ajuda a corrigir o problema. Nada é enviado automaticamente.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    runCatching {
+                        val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.updates", file)
+                        val sendIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        context.startActivity(android.content.Intent.createChooser(sendIntent, null))
+                    }
+                    dismiss()
+                }) { Text("Compartilhar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { dismiss() }) { Text("Agora não") }
+            },
+        )
     }
 
     private fun isRunningOnTv(): Boolean {

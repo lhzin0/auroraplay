@@ -49,5 +49,27 @@ object CrashLogWriter {
     fun latest(context: Context): File? =
         logDir(context).listFiles()?.maxByOrNull { it.lastModified() }
 
+    /**
+     * The most recent crash log the user hasn't been prompted about yet, or
+     * null. Lets the app offer to share it on the next launch instead of
+     * relying on the person digging into Ajustes.
+     */
+    fun pendingCrashReport(context: Context): File? {
+        val latest = latest(context) ?: return null
+        val seen = prefs(context).getString(KEY_SEEN, null)
+        return latest.takeIf { it.name != seen }
+    }
+
+    /** Records that the current [latest] crash log has been surfaced, so the
+     * launch prompt doesn't reappear for it. */
+    fun markCrashReportSeen(context: Context) {
+        val latest = latest(context) ?: return
+        prefs(context).edit().putString(KEY_SEEN, latest.name).apply()
+    }
+
+    private const val KEY_SEEN = "last_seen_crash"
+    private fun prefs(context: Context) =
+        context.applicationContext.getSharedPreferences("crash_log_prompt", Context.MODE_PRIVATE)
+
     private fun logDir(context: Context) = File(context.applicationContext.filesDir, DIR_NAME)
 }
