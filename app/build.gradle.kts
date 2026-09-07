@@ -127,6 +127,27 @@ ksp {
 }
 
 dependencies {
+    // Google's Sept-2025 androidx train (core 1.19, lifecycle 2.11, navigation
+    // 2.10, hilt 1.4) is built against `agpVersionRequired = 9.1` / compileSdk
+    // 37 and fails `checkDebugAarMetadata` on this project's AGP 8.12. Direct
+    // deps are already pinned, but a cold dependency resolution (a fresh CI
+    // cache) still drifts *transitives* up to that train. Strict pins hold the
+    // whole graph on the last AGP-8.12 line until the AGP/SDK bump.
+    constraints {
+        listOf(
+            "androidx.core:core" to "1.16.0",
+            "androidx.core:core-ktx" to "1.16.0",
+            "androidx.lifecycle:lifecycle-runtime-ktx" to "2.9.4",
+            "androidx.lifecycle:lifecycle-runtime-compose" to "2.9.4",
+            "androidx.lifecycle:lifecycle-viewmodel-ktx" to "2.9.4",
+            "androidx.lifecycle:lifecycle-viewmodel-compose" to "2.9.4",
+            "androidx.navigation:navigation-compose" to "2.9.5",
+            "androidx.hilt:hilt-navigation-compose" to "1.3.0",
+        ).forEach { (module, v) ->
+            implementation(module) { version { strictly(v) } }
+        }
+    }
+
     // Core / Compose
     implementation("androidx.core:core-ktx:1.16.0")
     // BiometricPrompt needs a FragmentActivity to host it (see MainActivity).
