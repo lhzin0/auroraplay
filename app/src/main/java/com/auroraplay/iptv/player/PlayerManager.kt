@@ -507,6 +507,13 @@ class PlayerManager @Inject constructor(
     fun currentPosition(): Long = activePlayer().currentPosition
     fun currentDuration(): Long = activePlayer().duration.takeIf { it != C.TIME_UNSET && it > 0 } ?: 0L
 
+    /** The stream URL the active player was last actually prepared with (set by
+     * a real [play], cleared by [stop]). A caller whose own "current stream"
+     * just changed can compare against this to tell whether the player has
+     * caught up yet — episode auto-advance uses it so it doesn't act on the
+     * PREVIOUS episode's STATE_ENDED during the swap and skip an episode. */
+    fun currentRequestedUrl(): String? = lastRequestedUrl
+
     /** True once the current item has played to the end (ExoPlayer STATE_ENDED).
      * Used to fire the next-episode auto-advance even if the position poll never
      * lands on the final second. */

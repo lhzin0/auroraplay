@@ -136,11 +136,10 @@ class PlayerViewModel @Inject constructor(
     val autoNextInSeconds: StateFlow<Int?> = _autoNextInSeconds.asStateFlow()
 
     /**
-     * Auto-advance heuristic: Xtream gives us no chapter/credits markers, so
-     * "detect the end credits" becomes "the last [CREDITS_WINDOW_MS] of the
-     * episode". While inside that window a countdown is published; it fires
-     * (once per stream) when it reaches zero. The viewer can dismiss it for
-     * the current episode or trigger the jump immediately.
+     * Publishes / fires the "próximo episódio automático" state each position
+     * tick. Eligibility (feature on, it's a series, there's a next episode,
+     * not already advanced/cancelled for this stream) is checked here; the
+     * timing decision itself is [AutoNextEvaluator.evaluate].
      */
     private fun maybeAutoAdvance() {
         val state = _loadState.value
@@ -152,29 +151,27 @@ class PlayerViewModel @Inject constructor(
             if (_autoNextInSeconds.value != null) _autoNextInSeconds.value = null
             return
         }
-        val duration = playerManager.currentDuration()
-        val position = playerManager.currentPosition()
-        if (duration <= 0L && !playerManager.hasPlaybackEnded()) {
-            if (_autoNextInSeconds.value != null) _autoNextInSeconds.value = null
-            return
-        }
-        val remainingMs = (duration - position).coerceAtLeast(0L)
-        when {
-            // The episode is over (STATE_ENDED) or within its final moment —
-            // advance now. This is the branch the old code never reached:
-            // `remainingMs in 1..WINDOW` can't hold once playback ends
-            // (remaining is 0), so the jump never fired.
-            playerManager.hasPlaybackEnded() || remainingMs <= 1_200L -> {
+        // `playerOnCurrentStream`: after an advance, load() flips
+        // state.streamUrl to the next episode a beat before PlayerScreenContent
+        // points the player at it. In that gap the player is still finishing
+        // the PREVIOUS episode (STATE_ENDED), so acting on its
+        // hasPlaybackEnded()/duration would advance again and skip an episode.
+        val action = AutoNextEvaluator.evaluate(
+            playerOnCurrentStream = playerManager.currentRequestedUrl()?.trim() == url?.trim(),
+            hasPlaybackEnded = playerManager.hasPlaybackEnded(),
+            durationMs = playerManager.currentDuration(),
+            positionMs = playerManager.currentPosition(),
+        )
+        when (action) {
+            AutoNextEvaluator.Action.Advance -> {
                 autoAdvancedForUrl = url
                 _autoNextInSeconds.value = null
                 playNextEpisode()
             }
-            // Inside the "credits" window — show the countdown. Its non-null
-            // value also tightens the position poll to 1s (see PlayerScreen).
-            remainingMs <= CREDITS_WINDOW_MS -> {
-                _autoNextInSeconds.value = ((remainingMs + 999L) / 1000L).toInt().coerceAtLeast(1)
-            }
-            else -> if (_autoNextInSeconds.value != null) _autoNextInSeconds.value = null
+            // The non-null countdown also tightens the position poll to 1s (see PlayerScreen).
+            is AutoNextEvaluator.Action.Countdown -> _autoNextInSeconds.value = action.seconds
+            AutoNextEvaluator.Action.Clear ->
+                if (_autoNextInSeconds.value != null) _autoNextInSeconds.value = null
         }
     }
 
@@ -746,10 +743,5 @@ class PlayerViewModel @Inject constructor(
         playerManager.stop()
         scrubCollector?.cancel()
         scrubPreview.release()
-    }
-
-    private companion object {
-        /** Treated as "the credits" for auto-advance (no chapter data from Xtream). */
-        const val CREDITS_WINDOW_MS = 40_000L
     }
 }
