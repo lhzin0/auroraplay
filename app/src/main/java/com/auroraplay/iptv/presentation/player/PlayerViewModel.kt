@@ -89,6 +89,36 @@ class PlayerViewModel @Inject constructor(
     private val _seekSeconds = MutableStateFlow(10)
     val seekSeconds: StateFlow<Int> = _seekSeconds.asStateFlow()
 
+    /** Player "Cinema" ambient glow — a sticky, persisted toggle. The in-player
+     * button is the only thing that flips it, and it holds across episode
+     * changes / re-opening the player / app restarts. */
+    private val _cinemaMode = MutableStateFlow(false)
+    val cinemaMode: StateFlow<Boolean> = _cinemaMode.asStateFlow()
+
+    fun setCinemaMode(enabled: Boolean) {
+        _cinemaMode.value = enabled
+        viewModelScope.launch { runCatching { settingsRepository.updateCinemaMode(enabled) } }
+    }
+
+    /** From Settings > Reprodução > "Próximo episódio automático". */
+    @Volatile
+    private var autoPlayNextEnabled: Boolean = true
+    private var autoAdvancedForUrl: String? = null
+    private var autoNextCancelledForUrl: String? = null
+
+    /** Seconds left before the player jumps to the next episode, or null when
+     * no auto-advance is pending. Drives the small on-player countdown. */
+    private val _autoNextInSeconds = MutableStateFlow<Int?>(null)
+    val autoNextInSeconds: StateFlow<Int?> = _autoNextInSeconds.asStateFlow()
+
+    // MUST stay below every property it touches (_seekSeconds, _cinemaMode,
+    // autoPlayNextEnabled). viewModelScope uses Dispatchers.Main.immediate, so
+    // when it's already on the main thread (it is, inside <init>) the launched
+    // block runs inline — and DataStore emits its first value synchronously
+    // once its cache is warm. An init block placed above these fields therefore
+    // ran `_cinemaMode.value = …` while `_cinemaMode` was still null, crashing
+    // PlayerViewModel construction — i.e. every so often when opening a movie,
+    // series or live channel (reported as an intermittent open crash).
     init {
         // Whatever language someone picked once on any video keeps getting
         // picked automatically from here on — including on a brand new
@@ -112,28 +142,6 @@ class PlayerViewModel @Inject constructor(
             }
         }
     }
-
-    /** Player "Cinema" ambient glow — a sticky, persisted toggle. The in-player
-     * button is the only thing that flips it, and it holds across episode
-     * changes / re-opening the player / app restarts. */
-    private val _cinemaMode = MutableStateFlow(false)
-    val cinemaMode: StateFlow<Boolean> = _cinemaMode.asStateFlow()
-
-    fun setCinemaMode(enabled: Boolean) {
-        _cinemaMode.value = enabled
-        viewModelScope.launch { runCatching { settingsRepository.updateCinemaMode(enabled) } }
-    }
-
-    /** From Settings > Reprodução > "Próximo episódio automático". */
-    @Volatile
-    private var autoPlayNextEnabled: Boolean = true
-    private var autoAdvancedForUrl: String? = null
-    private var autoNextCancelledForUrl: String? = null
-
-    /** Seconds left before the player jumps to the next episode, or null when
-     * no auto-advance is pending. Drives the small on-player countdown. */
-    private val _autoNextInSeconds = MutableStateFlow<Int?>(null)
-    val autoNextInSeconds: StateFlow<Int?> = _autoNextInSeconds.asStateFlow()
 
     /**
      * Publishes / fires the "próximo episódio automático" state each position
