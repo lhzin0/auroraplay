@@ -1,3 +1,19 @@
+## 1.38.4 — 2026-09-07
+
+- **"Continuar assistindo"**: passar para o próximo episódio e sair antes
+  dele começar não tira mais a série da lista na tela inicial — o episódio
+  novo é registrado assim que você avança.
+- **Sincronização automática** agora também roda em segundo plano: o
+  catálogo se atualiza no intervalo escolhido mesmo sem abrir o app (antes
+  só na abertura). Silenciosa, e respeita o "desligado".
+- **Relatório de erro**: se o app fechar inesperadamente, na próxima
+  abertura ele pergunta se quer compartilhar o relatório. Nada é enviado
+  automaticamente; o item em Ajustes continua.
+- Robustez: guardas extras contra o canal ao vivo travar ao ir para tela
+  cheia; "próximo episódio automático" passa a ser controlado por episódio
+  (provedores que reaproveitam a mesma URL não travam mais o avanço).
+- Testes: cobertura nova do transporte do player e da tela de séries.
+
 ## 1.38.3 — 2026-09-07
 
 - **Crash ao abrir o vídeo**: corrigido o fechamento inesperado que
