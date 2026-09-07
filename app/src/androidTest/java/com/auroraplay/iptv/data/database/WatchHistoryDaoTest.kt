@@ -122,6 +122,49 @@ class WatchHistoryDaoTest {
         assertNull(dao.getLatestForSeries(conn, profile, "series-x"))
     }
 
+    private fun progressRow(
+        contentId: String,
+        type: String,
+        positionMillis: Long,
+        durationMillis: Long,
+        season: Int? = null,
+        episode: Int? = null,
+        watchedAt: Long = 1_000L,
+    ) = WatchProgressEntity(
+        connectionId = conn,
+        contentId = contentId,
+        type = type,
+        profileId = profile,
+        positionMillis = positionMillis,
+        durationMillis = durationMillis,
+        seasonNumber = season,
+        episodeNumber = episode,
+        lastWatchedMillis = watchedAt,
+    )
+
+    @Test
+    fun continueWatching_shows_a_queued_next_episode_marker_but_history_does_not() = runBlocking {
+        // Finished the previous episode (~100%) + a 0/0 "queued next" marker
+        // written the instant the user advanced, before playback started.
+        dao.upsert(progressRow("series-1:ep-1", "SERIES", positionMillis = 1_180_000L, durationMillis = 1_200_000L, watchedAt = 10))
+        dao.upsert(progressRow("series-1:ep-2", "SERIES", positionMillis = 0L, durationMillis = 0L, season = 1, episode = 2, watchedAt = 20))
+
+        val cont = dao.observeContinueWatching(conn, profile).first().map { it.contentId }
+        // The finished episode is filtered out (>95%); the queued marker is in.
+        assertEquals(listOf("series-1:ep-2"), cont)
+
+        // The marker must not clutter "Conteúdos assistidos".
+        assertTrue(dao.observeWatchHistory(profile).first().none { it.contentId == "series-1:ep-2" })
+        // getLatestForSeries still resolves to the queued episode.
+        assertEquals("series-1:ep-2", dao.getLatestForSeries(conn, profile, "series-1")?.contentId)
+    }
+
+    @Test
+    fun continueWatching_ignores_a_zeroed_marker_for_a_movie() = runBlocking {
+        dao.upsert(progressRow("movie-9", "MOVIE", positionMillis = 0L, durationMillis = 0L))
+        assertTrue(dao.observeContinueWatching(conn, profile).first().isEmpty())
+    }
+
     @Test
     fun clearWatchHistory_keeps_live_channel_rows() = runBlocking {
         dao.upsert(row("movie-1", "MOVIE"))

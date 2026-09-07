@@ -103,8 +103,11 @@ class PlayerViewModel @Inject constructor(
     /** From Settings > Reprodução > "Próximo episódio automático". */
     @Volatile
     private var autoPlayNextEnabled: Boolean = true
-    private var autoAdvancedForUrl: String? = null
-    private var autoNextCancelledForUrl: String? = null
+    // Keyed by episode id, not stream URL: some providers serve two
+    // consecutive episodes from the same URL, which made a URL key wrongly
+    // suppress auto-advance on the second one.
+    private var autoAdvancedForEpisodeId: String? = null
+    private var autoNextCancelledForEpisodeId: String? = null
 
     /** Seconds left before the player jumps to the next episode, or null when
      * no auto-advance is pending. Drives the small on-player countdown. */
@@ -152,9 +155,10 @@ class PlayerViewModel @Inject constructor(
     private fun maybeAutoAdvance() {
         val state = _loadState.value
         val url = state.streamUrl
+        val episodeId = state.currentEpisodeId
         val eligible = autoPlayNextEnabled && url != null && state.nextEpisode != null &&
-            state.contentType == ContentType.SERIES &&
-            autoAdvancedForUrl != url && autoNextCancelledForUrl != url
+            state.contentType == ContentType.SERIES && episodeId != null &&
+            autoAdvancedForEpisodeId != episodeId && autoNextCancelledForEpisodeId != episodeId
         if (!eligible) {
             if (_autoNextInSeconds.value != null) _autoNextInSeconds.value = null
             return
@@ -172,7 +176,7 @@ class PlayerViewModel @Inject constructor(
         )
         when (action) {
             AutoNextEvaluator.Action.Advance -> {
-                autoAdvancedForUrl = url
+                autoAdvancedForEpisodeId = episodeId
                 _autoNextInSeconds.value = null
                 playNextEpisode()
             }
@@ -185,13 +189,13 @@ class PlayerViewModel @Inject constructor(
 
     /** Viewer dismissed the countdown — no auto-jump for this episode. */
     fun cancelAutoNext() {
-        autoNextCancelledForUrl = _loadState.value.streamUrl
+        autoNextCancelledForEpisodeId = _loadState.value.currentEpisodeId
         _autoNextInSeconds.value = null
     }
 
     /** Viewer chose to jump now instead of waiting out the countdown. */
     fun playNextEpisodeNow() {
-        autoAdvancedForUrl = _loadState.value.streamUrl
+        autoAdvancedForEpisodeId = _loadState.value.currentEpisodeId
         _autoNextInSeconds.value = null
         playNextEpisode()
     }
@@ -524,7 +528,40 @@ class PlayerViewModel @Inject constructor(
         if (state.contentType != ContentType.SERIES || episodeId == state.currentEpisodeId) return
         val seriesId = state.contentId.substringBefore(":")
         persistProgressNow()
+        state.episodes.find { it.id == episodeId }?.let { seedEpisodeProgress(seriesId, it) }
         load(ContentType.SERIES, "$seriesId:$episodeId")
+    }
+
+    /**
+     * Registers [episode] as the series' current position the instant it's
+     * navigated to — before playback starts — as a positionMillis-0 /
+     * durationMillis-0 marker. Without this, advancing to the next episode
+     * and leaving before it starts left no row for it: the finished episode
+     * is filtered out of "Continuar assistindo" (~100%) and the new one had
+     * nothing saved, so the whole series vanished from the rail. The first
+     * real progress save overwrites this marker (same upsert key).
+     */
+    private fun seedEpisodeProgress(seriesId: String, episode: com.auroraplay.iptv.domain.model.Episode) {
+        val profileId = activeProfileId ?: return
+        val connectionId = _loadState.value.connectionId.ifBlank { activeConnectionId } ?: return
+        val seriesName = _loadState.value.title.ifBlank { null }
+        val poster = _loadState.value.posterUrl
+        viewModelScope.launch {
+            saveWatchProgressUseCase(
+                WatchProgress(
+                    connectionId = connectionId,
+                    contentId = "$seriesId:${episode.id}",
+                    type = ContentType.SERIES,
+                    profileId = profileId,
+                    positionMillis = 0L,
+                    durationMillis = 0L,
+                    seasonNumber = episode.seasonNumber,
+                    episodeNumber = episode.episodeNumber,
+                    title = seriesName,
+                    posterUrl = poster,
+                )
+            )
+        }
     }
 
     fun switchChannel(channel: Channel) {
@@ -574,6 +611,7 @@ class PlayerViewModel @Inject constructor(
         val next = _loadState.value.nextEpisode ?: return
         val seriesId = _loadState.value.contentId.substringBefore(":")
         persistProgressNow()
+        seedEpisodeProgress(seriesId, next)
         load(ContentType.SERIES, "$seriesId:${next.id}")
     }
 

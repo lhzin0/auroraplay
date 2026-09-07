@@ -8,15 +8,21 @@ import kotlinx.coroutines.flow.Flow
 interface WatchProgressDao {
     @Query("""SELECT * FROM watch_progress WHERE connectionId = :connectionId AND profileId = :profileId
         AND hiddenFromContinue = 0
-        AND (positionMillis * 1.0 / MAX(durationMillis, 1)) BETWEEN 0.02 AND 0.95
+        AND (
+            (positionMillis * 1.0 / MAX(durationMillis, 1)) BETWEEN 0.02 AND 0.95
+            OR (type = 'SERIES' AND positionMillis = 0 AND durationMillis = 0)
+        )
         ORDER BY lastWatchedMillis DESC""")
     fun observeContinueWatching(connectionId: String, profileId: String): Flow<List<WatchProgressEntity>>
 
     /** Full watch history for the profile — across every connection, so it
      * survives a playlist being removed (audit #17). Newest first. LIVE
-     * channel rows are excluded (they live in "Canais recentes"). */
+     * channel rows are excluded (they live in "Canais recentes"), and so are
+     * the position-0/duration-0 markers written when an episode is queued but
+     * never actually started. */
     @Query("""SELECT * FROM watch_progress WHERE profileId = :profileId
         AND type <> 'LIVE'
+        AND (positionMillis > 0 OR durationMillis > 0)
         ORDER BY lastWatchedMillis DESC""")
     fun observeWatchHistory(profileId: String): Flow<List<WatchProgressEntity>>
 
