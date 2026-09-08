@@ -1,18 +1,18 @@
 {
   "applicationId": "com.auroraplay.iptv",
   "minSdk": 24,
-  "version": "1.39.1",
-  "versionCode": 101,
-  "publishedAt": "2026-09-07",
+  "version": "1.39.2",
+  "versionCode": 102,
+  "publishedAt": "2026-09-08",
   "minAndroid": "7.0",
-  "fileName": "AuroraPlay-1.39.1.apk",
-  "downloadUrl": "./downloads/AuroraPlay-1.39.1.apk",
-  "sizeBytes": 6636923,
-  "sha256": "bf533f7b9fbd97207b41a0681d0ea0c2a9230fb6ab2c23692a733b6120370b0b",
+  "fileName": "AuroraPlay-1.39.2.apk",
+  "downloadUrl": "./downloads/AuroraPlay-1.39.2.apk",
+  "sizeBytes": 6653307,
+  "sha256": "c7b1ef989ec5a333364b7f6e6093e9f9e0705e179b1ed987bd7b513734cd6285",
   "notes": [
-    "Canais: categorias refeitas por gênero (Abertos, Esportes, Notícias, Filmes, Séries, Infantil, Documentários, Música, Novelas, Religioso, Internacionais). Os canais do provedor são agrupados automaticamente e as categorias vazias somem.",
-    "Ao abrir um canal, os filtros de categoria pulam para a categoria dele.",
-    "Busca: a aba \"Canais\" saiu — a busca agora é de filmes e séries. Buscar um gênero (\"anime\", \"terror\"…) traz o resultado em trilhos por categoria; buscar um título continua em lista simples.",
-    "Site do projeto refeito: mais simples, mais direto e sem sumir em alguns navegadores."
+    "Busca por gênero mais visível: a tela vazia sugere gêneros para tocar e lembra que dá para combinar dois com vírgula (\"anime, romance\"). Os pôsteres dos trilhos da busca mostram o ano e a nota, e os trilhos alinham com a tela inicial.",
+    "Canais: o espaço da prévia fica reservado desde o começo (\"Escolha um canal abaixo\"), então escolher um canal não faz a tela \"pular\".",
+    "Player mais limpo: Bloquear, Miniatura e Modo cinema foram para um menu \"⋮ Mais\" no fim da barra.",
+    "\"Atualizado há …\" sob os títulos de Filmes e Séries, mostrando quando o catálogo sincronizou pela última vez."
   ]
 }

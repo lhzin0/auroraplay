@@ -6,4 +6,4 @@ node_modules/
 # Exceção: o APK atual serve de semente até a primeira release por CI
 # (ver .github/RELEASING.md).
 downloads/*.apk
-!downloads/AuroraPlay-1.39.1.apk
+!downloads/AuroraPlay-1.39.2.apk

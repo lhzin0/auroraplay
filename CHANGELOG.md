@@ -1,3 +1,19 @@
+## 1.39.2 — 2026-09-08
+
+- **Busca por gênero mais visível.** A tela vazia da busca sugere gêneros
+  ("Ação", "Comédia"…) — toque para buscar — e lembra que dá para
+  combinar dois com vírgula ("anime, romance"). Os pôsteres nos trilhos
+  da busca mostram o ano e a nota, e os trilhos alinham com a tela
+  inicial.
+- **Canais: a prévia não empurra mais a lista.** O espaço do vídeo fica
+  reservado desde o começo ("Escolha um canal abaixo"), então escolher um
+  canal não faz a tela "pular".
+- **Player mais limpo.** Bloquear, Miniatura e Modo cinema foram para um
+  menu "⋮ Mais" no fim da barra; as ações principais voltam a caber sem
+  aperto.
+- **"Atualizado há …"** aparece sob os títulos de Filmes e Séries, para
+  você saber quando o catálogo foi sincronizado pela última vez.
+
 ## 1.39.1 — 2026-09-07
 
 - **Canais: categorias refeitas por gênero.** Os canais do provedor são
