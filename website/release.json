@@ -1,0 +1,18 @@
+{
+  "applicationId": "com.auroraplay.iptv",
+  "minSdk": 24,
+  "version": "1.39.1",
+  "versionCode": 101,
+  "publishedAt": "2026-09-07",
+  "minAndroid": "7.0",
+  "fileName": "AuroraPlay-1.39.1.apk",
+  "downloadUrl": "./downloads/AuroraPlay-1.39.1.apk",
+  "sizeBytes": 6636923,
+  "sha256": "bf533f7b9fbd97207b41a0681d0ea0c2a9230fb6ab2c23692a733b6120370b0b",
+  "notes": [
+    "Canais: categorias refeitas por gênero (Abertos, Esportes, Notícias, Filmes, Séries, Infantil, Documentários, Música, Novelas, Religioso, Internacionais). Os canais do provedor são agrupados automaticamente e as categorias vazias somem.",
+    "Ao abrir um canal, os filtros de categoria pulam para a categoria dele.",
+    "Busca: a aba \"Canais\" saiu — a busca agora é de filmes e séries. Buscar um gênero (\"anime\", \"terror\"…) traz o resultado em trilhos por categoria; buscar um título continua em lista simples.",
+    "Site do projeto refeito: mais simples, mais direto e sem sumir em alguns navegadores."
+  ]
+}

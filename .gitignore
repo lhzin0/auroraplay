@@ -1,0 +1,20 @@
+# This repository hosts the AuroraPlay download page and its releases only.
+# The Android app's source code is not distributed here.
+
+website/dist/
+website/node_modules/
+node_modules/
+
+.claude/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Never commit local config or credentials
+local.properties
+.env
+.env.*
+
+# Loose build artifacts — release binaries are GitHub Release assets
+/*.apk
+/*.aab

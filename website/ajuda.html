@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#090b10">
+  <title>Ajuda — AuroraPlay</title>
+  <meta name="description" content="Como instalar o AuroraPlay, conectar sua playlist Xtream ou M3U, atualizar sem perder dados e o que entra no backup.">
+  <meta property="og:type" content="website"><meta property="og:locale" content="pt_BR">
+  <meta property="og:title" content="Ajuda — AuroraPlay">
+  <meta property="og:description" content="Instalação, playlists, atualização e backup — as dúvidas antes do primeiro play.">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="./assets/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css"><script src="./app.js" defer></script>
+</head>
+<body>
+<a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
+<header class="header"><div class="container nav-wrap">
+  <a class="brand" href="./"><img src="./assets/logo.svg" width="30" height="30" alt="">AuroraPlay</a>
+  <span class="nav-spacer"></span>
+  <a class="nav-ghost" href="./">← Voltar ao site</a>
+</div></header>
+
+<main id="conteudo" class="container doc">
+  <h1>Ajuda</h1>
+  <p class="doc-lead">O AuroraPlay reproduz a sua própria conexão Xtream ou lista M3U. Tenha em mãos o endereço do servidor, o login e a senha — ou a URL da lista.</p>
+
+  <section id="comecar">
+    <h2>Do download ao primeiro play</h2>
+    <ol class="steps">
+      <li><b>1</b><div><h3>Baixe o aplicativo</h3><p>Use o botão de download da <a href="./#recursos">página inicial</a>. O arquivo termina em <strong>.apk</strong> e funciona no Android 7.0 ou superior.</p></div></li>
+      <li><b>2</b><div><h3>Autorize a instalação</h3><p>Abra o APK. Se o Android pedir, permita a instalação por esta fonte. Se o Play Protect avisar (“nunca viu um app desse desenvolvedor”), toque em <strong>Instalar assim mesmo → Instalar</strong>.</p></div></li>
+      <li><b>3</b><div><h3>Crie seu perfil</h3><p>Conclua a instalação e crie um perfil local. Se já tem um backup completo, restaure-o para recuperar seus dados.</p></div></li>
+      <li><b>4</b><div><h3>Conecte a playlist</h3><p>Em <strong>Minhas conexões → +</strong>, informe servidor, login e senha (Xtream) ou a URL da lista (M3U). Aguarde a sincronização e escolha o que assistir.</p></div></li>
+    </ol>
+    <p style="margin-top:20px"><strong>Na Android TV:</strong> transfira o APK para a TV e abra-o por um gerenciador de arquivos compatível. As etapas variam por aparelho.</p>
+  </section>
+
+  <section class="faq">
+    <h2>Perguntas frequentes</h2>
+    <details><summary>O AuroraPlay já vem com canais ou filmes?</summary><p>Não. É um reprodutor para as suas próprias conexões Xtream ou listas M3U. Você precisa de um servidor, login e senha (ou a URL de uma lista) de um serviço ao qual tenha acesso. O aplicativo não vende assinaturas nem fornece playlist.</p></details>
+    <details><summary>Quais aparelhos são compatíveis?</summary><p>Celulares e tablets com Android 7.0 ou superior e aparelhos com Android TV que permitam instalar APKs. O funcionamento de cada mídia e do Cast depende dos formatos, do servidor e do dispositivo. Não há versão para iPhone ou navegador.</p></details>
+    <details><summary>Por que o Play Protect bloqueia a instalação?</summary><p>Em apps instalados fora da Play Store, o Google avisa (ou, em alguns países, bloqueia) quando ainda não reconhece a assinatura do desenvolvedor. Não é detecção de vírus e não há como desligar esse aviso pelo código do app. Toque em <strong>Instalar assim mesmo</strong> e conclua. Se aparecer <strong>Enviar para análise</strong>, aceite — instalações seguintes dessa versão ficam mais tranquilas.</p></details>
+    <details><summary>Como atualizo sem perder meus dados?</summary><p>Regra geral: baixe o APK novo e instale por cima, sem desinstalar — salve um backup antes. <strong>Exceção da 1.35.0:</strong> a chave de assinatura mudou nessa versão, então quem está na 1.34.0 no Android 9+ precisa desinstalar a 1.34.0 e instalar a nova do zero (backup primeiro; no Android 7 e 8 a atualização direta funciona). Da 1.35.0 em diante a atualização volta a ser por cima, inclusive pelo próprio app em <strong>Ajustes → Versão</strong>.</p></details>
+    <details id="faq-backup"><summary>O que entra no backup?</summary><p>Perfis, conexões com link, login e senha, favoritos, histórico de reprodução e ajustes. Downloads, vídeos, catálogo, cache, fotos locais e biometria não entram. Você pode proteger o arquivo com senha; sem proteção, o JSON traz as senhas legíveis — guarde-o em pasta privada.</p></details>
+    <details><summary>A sincronização parou ou falhou. O que faço?</summary><p>Confira a internet e use <strong>Minhas conexões → Testar</strong>. Depois toque em <strong>Atualizar</strong>. Se as credenciais forem recusadas, confirme o acesso com quem fornece a sua playlist. Para ver o progresso na barra de notificações, permita notificações nas configurações do Android.</p></details>
+    <details><summary>Posso assistir sem internet?</summary><p>Filmes e episódios compatíveis podem ser baixados para assistir pelo aparelho. Canais ao vivo e a atualização do catálogo precisam de conexão. Os vídeos baixados não entram no backup.</p></details>
+    <details><summary>As atualizações do app são automáticas?</summary><p>O app consulta o GitHub diariamente e pode <strong>baixar</strong> novas versões sozinho no Wi-Fi; a <strong>instalação</strong> é sempre você quem confirma. Ajuste em <strong>Ajustes → Versão</strong>. O AuroraPlay nunca se instala sozinho.</p></details>
+    <p style="margin-top:24px">Ao relatar um problema, tenha em mãos a versão do app (<strong>Ajustes → Sobre</strong>), o modelo do aparelho e o que aconteceu. Não publique seu backup, login, senha ou link de playlist com credenciais.</p>
+  </section>
+</main>
+
+<footer class="footer container">
+  <a class="brand" href="./"><img src="./assets/logo.svg" alt="" width="26" height="26"> AuroraPlay</a>
+  <span class="grow"></span>
+  <a href="./privacidade.html">Privacidade</a>
+  <a href="./#recursos">Recursos</a>
+  <span>© 2026</span>
+</footer>
+</body></html>

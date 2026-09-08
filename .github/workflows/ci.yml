@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+    paths:
+      - "website/**"
+      - ".github/workflows/ci.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # O app é compilado, assinado e publicado localmente (scripts/build-release.ps1
+  # + gh release create). O CI só valida o site estático.
+  website:
+    name: Site — build estático
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build e verificação do site
+        working-directory: website
+        run: node scripts/build.mjs
