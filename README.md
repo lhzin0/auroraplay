@@ -1,10 +1,10 @@
 <div align="center">
 
-<img src="./website/assets/logo.svg" alt="AuroraPlay" width="88" height="88" />
+<img src="./website/assets/icon.svg" alt="AuroraPlay" width="96" height="96" />
 
 # AuroraPlay
 
-Reprodutor IPTV/Xtream para Android e Android TV
+Reprodutor IPTV para Android e Android TV — Xtream Codes e listas M3U
 
 [![Site](https://img.shields.io/badge/site-lhzin0.github.io%2Fauroraplay-8476fa?labelColor=27303D)](https://lhzin0.github.io/auroraplay/)
 [![Release](https://img.shields.io/github/v/release/lhzin0/auroraplay?maxAge=3600&label=Est%C3%A1vel&labelColor=06599d&color=043b69&filter=v*)](https://github.com/lhzin0/auroraplay/releases)
@@ -15,18 +15,19 @@ Reprodutor IPTV/Xtream para Android e Android TV
 *Requer Android 7.0 ou superior. Celular, tablet e Android TV.*
 
 Baixe o APK pela página oficial — <https://lhzin0.github.io/auroraplay/> — ou
-pela aba [Releases](https://github.com/lhzin0/auroraplay/releases). A partir da
-1.34.0 o próprio app verifica e baixa novas versões (você escolhe quando
-instalar).
+pela aba [Releases](https://github.com/lhzin0/auroraplay/releases). Depois de
+instalado, o próprio app avisa quando sai uma versão nova e você escolhe
+quando atualizar.
 
 </div>
 
 ## Sobre
 
-AuroraPlay organiza e reproduz **as suas próprias** conexões Xtream Codes:
-canais ao vivo, filmes e séries, com perfis locais, favoritos, "continuar
-assistindo", busca por gênero, backup portátil e atualização pelo próprio app.
-A interface se adapta a celular/tablet e a Android TV.
+AuroraPlay organiza e reproduz **as suas próprias** playlists — uma conta
+Xtream Codes ou uma lista M3U, com guia XMLTV quando houver: canais ao vivo,
+filmes e séries, com perfis, favoritos, "continuar assistindo", downloads,
+backup e atualização pelo próprio app. A interface se adapta a celular, tablet
+e Android TV, em português, inglês e espanhol.
 
 Histórico de versões em [CHANGELOG.md](./CHANGELOG.md). Este repositório
 hospeda a página de download e as versões — o código-fonte do aplicativo
@@ -34,30 +35,48 @@ não é distribuído.
 
 ## Recursos
 
-- Player próprio: play/pause, _seek_, próximo episódio, troca rápida de canais,
-  prévia de quadros na linha do tempo, modo cinematográfico e Picture-in-Picture;
-  transmissão para dispositivos Cast compatíveis.
-- Canais, filmes e séries com categorias do servidor, detalhes, trailer _inline_,
-  temporadas/episódios e "programa atual" quando há EPG.
-- Busca de filmes e séries com filtros e por gênero — um ou vários ao mesmo
-  tempo ("anime, romance"), com os resultados em trilhos por categoria.
-- Perfis locais com favoritos e histórico próprios; PIN e biometria em aparelhos
-  compatíveis; perfil infantil com filtro pelo catálogo.
-- Conexões Xtream múltiplas, teste de acesso, credenciais em
-  `EncryptedSharedPreferences` (AES-256) e sincronização periódica em segundo plano.
-- Backup para um arquivo escolhido por você, opcionalmente cifrado por senha;
-  downloads de filmes e episódios compatíveis para assistir offline.
+**Player**
+- Linha do tempo com prévia de quadros, avançar e voltar com toque duplo,
+  velocidade, próximo episódio automático e "Pular introdução".
+- Multitela: dois canais lado a lado, cada um com seus controles e o som no
+  que você escolher.
+- Modo Cinema (luz ambiente ao redor do vídeo), modo noturno de áudio e timer
+  de sono.
+- Legendas incorporadas ou de um arquivo `.srt`; áudio AC3, E-AC3 e DTS mesmo
+  onde o aparelho não decodifica.
+- Picture-in-Picture, Cast e "Abrir em outro player"; na TV, a tela acompanha
+  a taxa de quadros do vídeo.
+
+**Catálogo**
+- Início com destaques e trilhos, categorias do provedor e categorias próprias
+  (Anime, Doramas, Nacionais, Super-heróis e outras).
+- Busca por título, categoria e gênero; títulos semelhantes, elenco, logos e
+  trailers quando disponíveis.
+- "Não tenho interesse" e listas pessoais para organizar o que aparece.
+
+**Canais ao vivo**
+- Canais por categoria, favoritos, último canal e troca rápida.
+- Guia de programação com lembretes.
+
+**Perfis e dados**
+- Perfis com favoritos e histórico próprios; PIN e biometria; perfil infantil
+  com filtro do catálogo.
+- Várias playlists, teste de acesso e sincronização em segundo plano; senhas
+  guardadas cifradas (AES-256) no aparelho.
+- Backup em arquivo escolhido por você, com senha opcional, e backup automático
+  semanal.
+- Downloads de filmes e episódios para assistir sem internet.
 - Atualização pelo app a partir das Releases do GitHub, com verificação de
   integridade, versão e certificado antes de instalar.
 
-Disponibilidade de EPG, trailers, legendas e Cast depende do conteúdo, do
-servidor e do aparelho.
+Disponibilidade de guia de programação, trailers, legendas e Cast depende do
+conteúdo, do provedor e do aparelho.
 
 ## Aviso
 
 Os desenvolvedores do AuroraPlay não têm afiliação com provedores de conteúdo.
 O aplicativo **não hospeda nenhum conteúdo** e não fornece listas, canais,
-filmes, séries ou assinaturas: você conecta uma playlist Xtream à qual já tem
+filmes, séries ou assinaturas: você conecta uma playlist à qual já tem
 acesso e é responsável pela origem e pela legalidade dela.
 
 Falhas de segurança: consulte [SECURITY.md](./SECURITY.md).
