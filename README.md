@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="./website/assets/icon.svg" alt="AuroraPlay" width="96" height="96" />
+<img src="./website/assets/logo.svg" alt="AuroraPlay" width="88" height="88" />
 
 # AuroraPlay
 
