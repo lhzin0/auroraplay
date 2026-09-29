@@ -88,7 +88,10 @@ for (const file of ['index.html', 'ajuda.html', 'privacidade.html']) {
   await writeFile(resolve(output, file), html);
 }
 if (origin) {
-  const notFound = (await readFile(resolve(output, '404.html'), 'utf8')).replace('href="./" id="home-link"', `href="${escapeHtml(origin)}" id="home-link"`);
+  // The 404 page answers at any depth, so its links and icons can't stay relative.
+  const notFound = (await readFile(resolve(output, '404.html'), 'utf8'))
+    .replace('href="./" id="home-link"', `href="${escapeHtml(origin)}" id="home-link"`)
+    .replace(/href="\.\/assets\//g, `href="${escapeHtml(new URL('assets/', origin).href)}`);
   await writeFile(resolve(output, '404.html'), notFound);
   await writeFile(resolve(output, 'robots.txt'), `User-agent: *\nAllow: /\nSitemap: ${origin}sitemap.xml\n`);
   await writeFile(resolve(output, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${escapeHtml(origin)}</loc></url><url><loc>${escapeHtml(new URL('ajuda.html', origin).href)}</loc></url><url><loc>${escapeHtml(new URL('privacidade.html', origin).href)}</loc></url></urlset>`);
