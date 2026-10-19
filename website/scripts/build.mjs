@@ -65,7 +65,7 @@ if (!release.downloadUrl.startsWith('https://github.com/')) release.downloadUrl 
 if (dirname(output) !== root || basename(output) !== 'dist') throw new Error('Unsafe output path.');
 await rm(output, { recursive: true, force: true });
 await mkdir(resolve(output, 'downloads'), { recursive: true });
-for (const file of ['index.html', 'ajuda.html', 'privacidade.html', 'termos.html', '404.html', 'styles.css', 'app.js']) await cp(resolve(root, file), resolve(output, file));
+for (const file of ['index.html', 'ajuda.html', 'privacidade.html', 'termos.html', 'googlee461f1a7d28ac6c3.html', '404.html', 'styles.css', 'app.js']) await cp(resolve(root, file), resolve(output, file));
 await cp(resolve(root, 'assets'), resolve(output, 'assets'), { recursive: true });
 await writeFile(resolve(output, 'downloads', release.fileName), apk);
 await writeFile(resolve(output, 'release.json'), JSON.stringify(release, null, 2) + '\n');
