@@ -1,12 +1,13 @@
 # AuroraPlay — site de distribuição
 
-Site estático em português para GitHub Pages: apresentação, recursos, download
-do APK, instalação, novidades, perguntas frequentes e transparência sobre dados.
+Site estático em português para Firebase Hosting e GitHub Pages: apresentação,
+recursos, download do APK, instalação, novidades, perguntas frequentes, termos
+de serviço e transparência sobre dados.
 Sem dependências npm, banco de dados, login de visitantes ou serviços pagos.
 Requer Node.js 20+ para os scripts de build.
 
 Faz parte do monorepo do AuroraPlay. A automação (build do site, deploy no
-Pages, releases do APK) vive em `.github/workflows/` na **raiz** do repositório,
+Firebase Hosting, Pages e releases do APK) vive em `.github/workflows/` na **raiz** do repositório,
 não aqui.
 
 ## Prévia local
@@ -33,7 +34,12 @@ Nunca coloque tokens ou senhas em `site.config.json`.
 
 ## Publicação (GitHub Actions, na raiz do repo)
 
-`.github/workflows/pages.yml` publica o site. Ele roda quando:
+`.github/workflows/firebase-hosting-release.yml` publica em
+`https://auroraplay-507422.web.app/` por disparo manual ou quando uma release
+estável é publicada. O workflow usa as variáveis de repositório
+`GCP_WORKLOAD_IDENTITY_PROVIDER` e `GCP_SERVICE_ACCOUNT` para autenticação.
+
+`.github/workflows/pages.yml` também publica no GitHub Pages. Ele roda quando:
 
 - há `push` na `main` que toca em `website/**` (ou no próprio `pages.yml`);
 - uma GitHub Release é publicada (`release.yml` cria a release do APK e o
@@ -59,6 +65,7 @@ por CI. Depois disso o APK pode sair do controle de versão sem mudar código
 
 - `index.html` — apresentação, recursos e ajuda.
 - `privacidade.html` — funcionamento dos dados; acompanhe mudanças do app.
+- `termos.html` — termos de uso do aplicativo e do site.
 - `styles.css` — identidade visual, responsividade, redução de movimento.
 - `app.js` — menu, prévia ilustrativa, metadados da release e cópia do checksum.
 - `release.json` — manifesto público do APK (semente; o CI gera o oficial).

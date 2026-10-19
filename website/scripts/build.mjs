@@ -65,13 +65,13 @@ if (!release.downloadUrl.startsWith('https://github.com/')) release.downloadUrl 
 if (dirname(output) !== root || basename(output) !== 'dist') throw new Error('Unsafe output path.');
 await rm(output, { recursive: true, force: true });
 await mkdir(resolve(output, 'downloads'), { recursive: true });
-for (const file of ['index.html', 'ajuda.html', 'privacidade.html', '404.html', 'styles.css', 'app.js']) await cp(resolve(root, file), resolve(output, file));
+for (const file of ['index.html', 'ajuda.html', 'privacidade.html', 'termos.html', '404.html', 'styles.css', 'app.js']) await cp(resolve(root, file), resolve(output, file));
 await cp(resolve(root, 'assets'), resolve(output, 'assets'), { recursive: true });
 await writeFile(resolve(output, 'downloads', release.fileName), apk);
 await writeFile(resolve(output, 'release.json'), JSON.stringify(release, null, 2) + '\n');
 await writeFile(resolve(output, '.nojekyll'), '');
 const escapeHtml = value => String(value).replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
-for (const file of ['index.html', 'ajuda.html', 'privacidade.html']) {
+for (const file of ['index.html', 'ajuda.html', 'privacidade.html', 'termos.html']) {
   let html = await readFile(resolve(output, file), 'utf8');
   if (file === 'index.html') {
     html = html.replace(/data-version>[^<]+</g, `data-version>${release.version}<`)
@@ -94,11 +94,11 @@ if (origin) {
     .replace(/href="\.\/assets\//g, `href="${escapeHtml(new URL('assets/', origin).href)}`);
   await writeFile(resolve(output, '404.html'), notFound);
   await writeFile(resolve(output, 'robots.txt'), `User-agent: *\nAllow: /\nSitemap: ${origin}sitemap.xml\n`);
-  await writeFile(resolve(output, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${escapeHtml(origin)}</loc></url><url><loc>${escapeHtml(new URL('ajuda.html', origin).href)}</loc></url><url><loc>${escapeHtml(new URL('privacidade.html', origin).href)}</loc></url></urlset>`);
+  await writeFile(resolve(output, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${escapeHtml(origin)}</loc></url><url><loc>${escapeHtml(new URL('ajuda.html', origin).href)}</loc></url><url><loc>${escapeHtml(new URL('privacidade.html', origin).href)}</loc></url><url><loc>${escapeHtml(new URL('termos.html', origin).href)}</loc></url></urlset>`);
 }
 
 // Verify local links, IDs and downloadable files in the exact public output.
-for (const name of ['index.html', 'ajuda.html', 'privacidade.html']) {
+for (const name of ['index.html', 'ajuda.html', 'privacidade.html', 'termos.html']) {
   const html = await readFile(resolve(output, name), 'utf8');
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(match => match[1]);
   if (new Set(ids).size !== ids.length) throw new Error(`Duplicate IDs in ${name}.`);
