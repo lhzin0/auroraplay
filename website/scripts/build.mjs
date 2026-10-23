@@ -22,7 +22,11 @@ let apk = null;
 if (process.env.RELEASE_FROM_GITHUB === 'true' && repository) {
   const headers = { Accept: 'application/vnd.github+json' };
   if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
-  const response = await fetch(`https://api.github.com/repos/${repository}/releases/latest`, { headers, signal: AbortSignal.timeout(20000) });
+  // A release event names the exact version being published. The "latest"
+  // endpoint can still point to the previous release for a short while.
+  const releaseTag = process.env.GITHUB_RELEASE_TAG?.trim();
+  const releasePath = releaseTag ? `releases/tags/${encodeURIComponent(releaseTag)}` : 'releases/latest';
+  const response = await fetch(`https://api.github.com/repos/${repository}/${releasePath}`, { headers, signal: AbortSignal.timeout(20000) });
   if (response.ok) {
     const latest = await response.json();
     const manifest = latest.assets?.find(asset => asset.name === 'release.json');
