@@ -42,6 +42,7 @@ jobs:
         env:
           SITE_URL: https://auroraplay.app.br/
           RELEASE_FROM_GITHUB: 'true'
+          GITHUB_RELEASE_TAG: ${{ github.event.release.tag_name }}
           GITHUB_REPOSITORY: lhzin0/auroraplay
           GITHUB_TOKEN: ${{ github.token }}
         run: |
