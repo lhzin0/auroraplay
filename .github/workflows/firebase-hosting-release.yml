@@ -2,6 +2,12 @@
 name: Publicar AuroraPlay no Firebase
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'website/**'
+      - 'firebase.json'
+      - '.github/workflows/firebase-hosting-release.yml'
   release:
     types: [published]
   workflow_dispatch:
@@ -16,7 +22,7 @@ concurrency:
 
 jobs:
   deploy:
-    if: github.event_name == 'workflow_dispatch' || (!github.event.release.prerelease && !github.event.release.draft)
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (!github.event.release.prerelease && !github.event.release.draft)
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -34,7 +40,7 @@ jobs:
       - name: Compilar site
         working-directory: website
         env:
-          SITE_URL: https://auroraplay-507422.web.app/
+          SITE_URL: https://auroraplay.app.br/
           RELEASE_FROM_GITHUB: 'true'
           GITHUB_REPOSITORY: lhzin0/auroraplay
           GITHUB_TOKEN: ${{ github.token }}
