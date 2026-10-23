@@ -35,8 +35,10 @@ Nunca coloque tokens ou senhas em `site.config.json`.
 ## Publicação (GitHub Actions, na raiz do repo)
 
 `.github/workflows/firebase-hosting-release.yml` publica em
-`https://auroraplay-507422.web.app/` por disparo manual ou quando uma release
-estável é publicada. O workflow usa as variáveis de repositório
+`https://auroraplay.app.br/` e no endereço Firebase
+`https://auroraplay-507422.web.app/` quando uma release estável é publicada,
+quando o site muda na `main` ou por disparo manual. Os dois endereços usam o
+mesmo site do Firebase Hosting. O workflow usa as variáveis de repositório
 `GCP_WORKLOAD_IDENTITY_PROVIDER` e `GCP_SERVICE_ACCOUNT` para autenticação.
 
 `.github/workflows/pages.yml` também publica no GitHub Pages. Ele roda quando:
