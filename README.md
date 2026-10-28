@@ -4,92 +4,37 @@
 
 # AuroraPlay
 
-Reprodutor IPTV para Android e Android TV — Xtream Codes e listas M3U
+**O player para as suas playlists.** Canais ao vivo, filmes e séries de conexões Xtream e listas M3U no celular, tablet e Android TV.
 
-[![Site](https://img.shields.io/badge/site-lhzin0.github.io%2Fauroraplay-8476fa?labelColor=27303D)](https://lhzin0.github.io/auroraplay/)
-[![Release](https://img.shields.io/github/v/release/lhzin0/auroraplay?maxAge=3600&label=Est%C3%A1vel&labelColor=06599d&color=043b69&filter=v*)](https://github.com/lhzin0/auroraplay/releases)
-[![Licença](https://img.shields.io/badge/licen%C3%A7a-propriet%C3%A1ria-lightgrey?labelColor=27303D)](./LICENSE)
-
-## Download
-
-*Requer Android 7.0 ou superior. Celular, tablet e Android TV.*
-
-Baixe o APK pela página oficial — <https://lhzin0.github.io/auroraplay/> — ou
-pela aba [Releases](https://github.com/lhzin0/auroraplay/releases). Depois de
-instalado, o próprio app avisa quando sai uma versão nova e você escolhe
-quando atualizar.
+[Site oficial](https://auroraplay.app.br/) · [Baixar a versão 4.0.2](https://github.com/lhzin0/auroraplay/releases/latest) · [Novidades](https://github.com/lhzin0/auroraplay/releases/tag/v4.0.2)
 
 </div>
 
-## Sobre
+## Download
 
-AuroraPlay organiza e reproduz **as suas próprias** playlists — uma conta
-Xtream Codes ou uma lista M3U, com guia XMLTV quando houver: canais ao vivo,
-filmes e séries, com perfis, favoritos, "continuar assistindo", downloads,
-backup e atualização pelo próprio app. A interface se adapta a celular, tablet
-e Android TV, em português, inglês e espanhol.
+O AuroraPlay requer Android 7.0 ou superior. O APK está na [página de download](https://auroraplay.app.br/) e na [release mais recente](https://github.com/lhzin0/auroraplay/releases/latest). O aplicativo verifica novas versões do canal GitHub e confirma a integridade e a assinatura antes da instalação.
 
-Histórico de versões em [CHANGELOG.md](./CHANGELOG.md). Este repositório
-hospeda a página de download e as versões — o código-fonte do aplicativo
-não é distribuído.
+A edição da Google Play está em **teste fechado** para os participantes da faixa. As edições da Play e do GitHub usam assinaturas diferentes; não tente instalar uma sobre a outra para atualizar. Preserve seus dados e use o canal pelo qual o app foi instalado.
 
-## Recursos
+## O que o aplicativo oferece
 
-**Player**
-- Linha do tempo com prévia de quadros, avançar e voltar com toque duplo,
-  velocidade, próximo episódio automático e "Pular introdução".
-- Multitela: dois canais lado a lado, cada um com seus controles e o som no
-  que você escolher.
-- Modo Cinema (luz ambiente ao redor do vídeo), modo noturno de áudio e timer
-  de sono.
-- Legendas incorporadas ou de um arquivo `.srt`; áudio AC3, E-AC3 e DTS mesmo
-  onde o aparelho não decodifica.
-- Picture-in-Picture, Cast e "Abrir em outro player"; na TV, a tela acompanha
-  a taxa de quadros do vídeo.
+- Reprodução de filmes, séries e canais da playlist adicionada pelo usuário, com áudio, legendas, Picture-in-Picture e opções de tela.
+- Perfis, Minha lista, histórico, progresso, favoritos e downloads para assistir offline quando a fonte permite.
+- Conta Google opcional para sincronizar dados entre aparelhos, além de backup e restauração.
+- Tema claro, escuro ou conforme o sistema; interface para toque e controle remoto.
+- Jogos de hoje e informações de campeonatos quando os dados estão disponíveis.
+- Imagens e informações complementares do TMDB quando o usuário configura uma chave própria.
 
-**Catálogo**
-- Início com destaques e trilhos, categorias do provedor e categorias próprias
-  (Anime, Doramas, Nacionais, Super-heróis e outras).
-- Busca por título, categoria e gênero; títulos semelhantes, elenco, logos e
-  trailers quando disponíveis.
-- "Não tenho interesse" e listas pessoais para organizar o que aparece.
+Recursos como guia de programação, trailers, legendas, Cast e qualidade de reprodução dependem da playlist, do servidor e do aparelho.
 
-**Canais ao vivo**
-- Canais por categoria, favoritos, último canal e troca rápida.
-- Guia de programação com lembretes.
+## Conteúdo, dados e suporte
 
-**Perfis e dados**
-- Perfis com favoritos e histórico próprios; PIN e biometria; perfil infantil
-  com filtro do catálogo.
-- Várias playlists, teste de acesso e sincronização em segundo plano; senhas
-  guardadas cifradas (AES-256) no aparelho.
-- Backup em arquivo escolhido por você, com senha opcional, e backup automático
-  semanal.
-- Downloads de filmes e episódios para assistir sem internet.
-- Atualização pelo app a partir das Releases do GitHub, com verificação de
-  integridade, versão e certificado antes de instalar.
+O AuroraPlay **não fornece canais, filmes, séries, playlists ou assinaturas**. Você adiciona uma fonte à qual já tem acesso e responde pela origem e pelo uso dela.
 
-Disponibilidade de guia de programação, trailers, legendas e Cast depende do
-conteúdo, do provedor e do aparelho.
+Leia a [Política de Privacidade](https://auroraplay.app.br/privacidade.html), os [Termos](https://auroraplay.app.br/termos.html) e a [Ajuda](https://auroraplay.app.br/ajuda.html). Para relatar uma falha de segurança, consulte [SECURITY.md](./SECURITY.md).
 
-## Aviso
-
-Os desenvolvedores do AuroraPlay não têm afiliação com provedores de conteúdo.
-O aplicativo **não hospeda nenhum conteúdo** e não fornece listas, canais,
-filmes, séries ou assinaturas: você conecta uma playlist à qual já tem
-acesso e é responsável pela origem e pela legalidade dela.
-
-Falhas de segurança: consulte [SECURITY.md](./SECURITY.md).
+Este repositório público distribui o site e os pacotes do aplicativo. O código-fonte do app é proprietário; os fontes das bibliotecas que exigem distribuição acompanham cada release.
 
 ## Licença
 
-<pre>
-Copyright © 2026 Henrique Luís Pereira. Todos os direitos reservados.
-
-Software proprietário. Nenhuma licença é concedida sobre o aplicativo, seu
-código-fonte ou seus materiais sem autorização prévia e por escrito do
-titular. O aplicativo distribuído pelos canais oficiais é gratuito para uso
-pessoal, sem garantia de qualquer natureza.
-
-Texto completo em ./LICENSE
-</pre>
+Copyright © 2026 Henrique Luís Pereira. Todos os direitos reservados. Consulte [LICENSE](./LICENSE).
