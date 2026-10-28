@@ -71,6 +71,8 @@ await rm(output, { recursive: true, force: true });
 await mkdir(resolve(output, 'downloads'), { recursive: true });
 for (const file of ['index.html', 'ajuda.html', 'privacidade.html', 'termos.html', 'googlee461f1a7d28ac6c3.html', '404.html', 'styles.css', 'app.js']) await cp(resolve(root, file), resolve(output, file));
 await cp(resolve(root, 'assets'), resolve(output, 'assets'), { recursive: true });
+// The demo list for Google Play's review: open movies (Blender Foundation, CC BY) and public test streams.
+await cp(resolve(root, 'demo'), resolve(output, 'demo'), { recursive: true });
 await writeFile(resolve(output, 'downloads', release.fileName), apk);
 await writeFile(resolve(output, 'release.json'), JSON.stringify(release, null, 2) + '\n');
 await writeFile(resolve(output, '.nojekyll'), '');
