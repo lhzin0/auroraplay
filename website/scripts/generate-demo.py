@@ -2,6 +2,7 @@
 """Public, credential-free M3U/XMLTV test fixture. Python standard library only."""
 
 import argparse
+import json
 import re
 import xml.etree.ElementTree as ET
 from collections import Counter
@@ -37,6 +38,62 @@ TOS_MOV = "https://download.blender.org/demo/movies/ToS/tears_of_steel_720p.mov"
 def entry(key, name, group, url, kind="movie", logo=None):
     return dict(id=key, name=name, group=group, url=url, kind=kind,
                 logo=logo or f"https://picsum.photos/seed/{key}/400/600")
+
+
+THEMES = [
+    ("Aventura", "Horizonte", ["Perdido", "de Cristal", "Distante", "Secreto", "Azul", "Dourado", "da Aurora", "Infinito", "do Norte", "de Fogo", "Esquecido", "Selvagem"]),
+    ("Ficção científica", "Planeta", ["Vermelho", "de Vidro", "Silencioso", "Paralelo", "Elétrico", "Oculto", "da Memória", "Infinito", "do Amanhã", "de Gelo", "Desconhecido", "Digital"]),
+    ("Fantasia", "Reino", ["das Nuvens", "de Jade", "Invisível", "das Estrelas", "Encantado", "do Vento", "da Névoa", "de Prata", "das Marés", "do Tempo", "das Sombras", "Impossível"]),
+    ("Suspense", "Arquivo", ["Secreto", "Noturno", "Invisível", "da Meia-Noite", "Silencioso", "Perdido", "da Janela", "do Farol", "Esquecido", "da Floresta", "da Chuva", "Final"]),
+    ("Documentários", "Retratos", ["do Oceano", "do Deserto", "da Cidade", "da Montanha", "da Floresta", "do Céu", "do Inverno", "da Aurora", "do Vento", "da Terra", "do Silêncio", "do Amanhecer"]),
+    ("Drama", "Cartas", ["ao Horizonte", "de Outono", "da Estação", "da Memória", "da Primavera", "do Interior", "da Praia", "da Janela", "ao Vento", "do Caminho", "de Agosto", "da Última Noite"]),
+    ("Comédia", "Clube", ["dos Distraídos", "da Bagunça", "dos Vizinhos", "da Segunda-Feira", "dos Atrasados", "da Esquina", "do Improviso", "das Ideias", "do Elevador", "das Férias", "do Acaso", "dos Inventores"]),
+    ("Animação", "Ateliê", ["das Cores", "de Papel", "dos Sonhos", "das Nuvens", "de Madeira", "das Estrelas", "das Formas", "de Argila", "do Arco-Íris", "das Folhas", "do Pequeno Sol", "das Aventuras"]),
+    ("Natureza", "Trilhas", ["do Mar", "da Mata", "do Cerrado", "da Serra", "da Cascata", "do Bosque", "da Ilha", "do Rio", "do Lago", "da Geada", "da Gruta", "do Vale"]),
+    ("Mistério", "Segredos", ["do Farol", "da Biblioteca", "da Rua Azul", "do Relógio", "do Jardim", "da Ponte", "do Mapa", "da Torre", "do Espelho", "da Estação", "do Retrato", "do Último Trem"]),
+    ("Viagens", "Diário", ["da Costa", "do Interior", "de Bordo", "da Estrada", "da Montanha", "do Viajante", "do Arquipélago", "do Vale", "da Vila", "de Inverno", "da Fronteira", "do Destino"]),
+    ("Curtas", "Instantes", ["de Luz", "de Chuva", "de Verão", "de Inverno", "de Cor", "de Vento", "de Areia", "de Silêncio", "da Cidade", "do Campo", "da Noite", "do Amanhecer"]),
+]
+
+
+def expanded_catalog():
+    registry_path = ROOT / "stream-tracks.json"
+    if not registry_path.is_file():
+        raise RuntimeError("Prepare as fontes com prepare-demo-streams.py antes de ampliar o catálogo")
+    registry = json.loads(registry_path.read_text(encoding="utf-8"))
+    sources = [key for key, value in registry.items() if len(value.get("audio", [])) >= 2 and value.get("subtitles")]
+    if not sources:
+        raise ValueError("Nenhuma fonte multiáudio com legendas disponível")
+    rows = []
+    for group_index, (genre, noun, suffixes) in enumerate(THEMES):
+        for item_index, suffix in enumerate(suffixes):
+            key = f"aurora.demo.movie.{group_index:02d}.{item_index:02d}"
+            source = sources[(group_index + item_index) % len(sources)]
+            rows.append(entry(key, f"{noun} {suffix} [TESTE]", f"Filmes | {genre}", f"{BASE}movie/{source}/master.m3u8"))
+        for variant, prefix in enumerate(["Crônicas", "Histórias", "Caminhos"]):
+            show_key = f"aurora-demo-show-{group_index:02d}-{variant}"
+            title = f"{prefix} de {noun} [TESTE]"
+            for season in range(1, 4):
+                for number in range(1, 9):
+                    source = sources[(group_index + variant + season + number) % len(sources)]
+                    rows.append(entry(f"{show_key}.s{season}e{number}",
+                        f"{title} S{season:02d}E{number:02d} - {suffixes[(number + season) % len(suffixes)]}",
+                        f"Séries | {genre}", f"{BASE}series/{source}/master.m3u8", "episode",
+                        f"https://picsum.photos/seed/{show_key}/400/600"))
+    channel_groups = [("Documentários", 5), ("Animação", 5), ("Aventura", 5), ("Clássicos", 4), ("Multiáudio", 6), ("Cultura", 4)]
+    for group_index, (genre, count) in enumerate(channel_groups):
+        for number in range(1, count + 1):
+            source = sources[(group_index + number) % len(sources)]
+            key = f"aurora.channel.extra.{group_index}.{number}"
+            rows.append(entry(key, f"Aurora {genre} {number:02d} [TESTE]", f"Canais | {genre}",
+                f"{BASE}channel/{source}/master.m3u8", "channel", f"https://picsum.photos/seed/{key}/240/240"))
+    for sport, label in [("sports1", "Futebol"), ("sports2", "Basquete"), ("sports3", "Feminino")]:
+        for number in range(2, 5):
+            source = sources[number % len(sources)]
+            key = f"aurora.channel.extra.{number}.{sport}"
+            rows.append(entry(key, f"Aurora Esportes {label} {number} [TESTE]", f"Esportes | {label}",
+                f"{BASE}channel/{source}/master.m3u8", "channel", f"https://picsum.photos/seed/{key}/240/240"))
+    return rows
 
 
 def catalog():
@@ -103,7 +160,7 @@ def catalog():
     rows += [entry(f"aurora.channel.{key}", name, group, url, "channel",
                    f"https://picsum.photos/seed/aurora-channel-{key}/240/240")
              for key, name, group, url in channels]
-    return rows
+    return rows + expanded_catalog()
 
 
 def m3u(rows):
@@ -161,16 +218,22 @@ def xmltv(rows, day):
 
 
 def validate(rows, playlist, guide):
-    assert len(rows) == 50 and len({row["id"] for row in rows}) == len(rows)
+    assert len(rows) == 1096 and len({row["id"] for row in rows}) == len(rows)
     assert len({row["name"] for row in rows}) == len(rows)
-    assert Counter(row["kind"] for row in rows) == {"movie": 16, "episode": 24, "channel": 10}
+    assert Counter(row["kind"] for row in rows) == {"movie": 160, "episode": 888, "channel": 48}
     assert playlist.count("#EXTINF:") == len(rows)
     for row in rows:
         assert row["url"].startswith("https://")
         assert all(character not in row["name"] for character in ['\n', '\r', ','])
         if row["kind"] == "episode":
             assert re.search(r"\bS\d{2}E\d{2}\b", row["name"])
-            assert row["url"].rsplit(".", 1)[-1] in {"mp4", "webm", "mov"}
+            assert row["url"].rsplit(".", 1)[-1] in {"mp4", "webm", "mov"} or "/series/" in row["url"]
+        if row["url"].startswith(BASE) and row["url"].endswith("master.m3u8"):
+            expected_kind = "series" if row["kind"] == "episode" else "movie" if row["kind"] == "movie" else "channel"
+            assert f"/{expected_kind}/" in row["url"], "HLS deve ser classificado corretamente pelo app"
+    assert len({row["logo"] for row in rows if row["kind"] == "movie"}) == 160
+    shows = {re.split(r"\sS\d{2}E\d{2}\b", row["name"], maxsplit=1)[0] for row in rows if row["kind"] == "episode"}
+    assert len(shows) == 40
     root = ET.fromstring(guide)
     expected = {row["id"] for row in rows if row["kind"] == "channel"}
     assert {node.attrib["id"] for node in root.findall("channel")} == expected
@@ -204,7 +267,7 @@ def main():
         ROOT.mkdir(parents=True, exist_ok=True)
         (ROOT / "aurora-demo.m3u").write_text(playlist, encoding="utf-8")
         (ROOT / "aurora-demo.xml").write_text(guide, encoding="utf-8")
-    print("Demo válida: 16 filmes/amostras, 4 séries (24 episódios), 10 canais e 960 programas XMLTV.")
+    print("Demo válida: 160 filmes/amostras, 40 séries (888 episódios), 48 canais e 4608 programas XMLTV.")
 
 
 if __name__ == "__main__":

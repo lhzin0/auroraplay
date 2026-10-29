@@ -9,6 +9,7 @@ on:
     paths:
       - "website/scripts/generate-demo.py"
       - "website/scripts/prepare-demo-streams.py"
+      - "website/scripts/test_demo_streams.py"
       - ".github/workflows/refresh-demo.yml"
 
 permissions:
@@ -28,6 +29,8 @@ jobs:
           ref: main
       - name: Verificar fontes com áudios e legendas reais
         run: python3 website/scripts/prepare-demo-streams.py
+      - name: Testar metadados e classificações HLS
+        run: python3 -m unittest discover -s website/scripts -p 'test_demo_streams.py'
       - name: Gerar e validar M3U e XMLTV
         run: |
           python3 website/scripts/generate-demo.py
