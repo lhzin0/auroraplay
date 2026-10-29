@@ -6,6 +6,10 @@ de serviço e transparência sobre dados.
 Sem dependências npm, banco de dados, login de visitantes ou serviços pagos.
 Requer Node.js 20+ para os scripts de build.
 
+O build referencia CSS e JavaScript por arquivos com hash do conteúdo em `dist/static/`, em todas as páginas. Isso evita combinar HTML novo com estilos/scripts antigos guardados no navegador. Os endereços sem hash permanecem como alternativa para páginas antigas; no Firebase, HTML, manifesto, demonstração e arquivos sem hash exigem revalidação, enquanto `/static/**` pode usar cache longo. Não edite o conteúdo de um arquivo já versionado: gere outro build.
+
+`npm test` verifica a atualização dos endereços quando CSS/JS mudam, o isolamento de arquivos antigos em cache e os links de publicação em subdiretórios (GitHub Pages).
+
 Faz parte do monorepo do AuroraPlay. A automação (build do site, deploy no
 Firebase Hosting, Pages e releases do APK) vive em `.github/workflows/` na **raiz** do repositório,
 não aqui.

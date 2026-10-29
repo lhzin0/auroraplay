@@ -34,4 +34,6 @@ jobs:
 
       - name: Build e verificação do site
         working-directory: website
-        run: node scripts/build.mjs
+        run: |
+          npm test
+          node scripts/build.mjs

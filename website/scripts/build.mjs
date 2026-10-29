@@ -2,6 +2,7 @@ import { readFile, writeFile, mkdir, cp, rm, stat } from 'node:fs/promises';
 import { resolve, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
+import { versionAssets } from './version-assets.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const output = resolve(root, 'dist');
@@ -102,6 +103,9 @@ if (origin) {
   await writeFile(resolve(output, 'robots.txt'), `User-agent: *\nAllow: /\nSitemap: ${origin}sitemap.xml\n`);
   await writeFile(resolve(output, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${escapeHtml(origin)}</loc></url><url><loc>${escapeHtml(new URL('ajuda.html', origin).href)}</loc></url><url><loc>${escapeHtml(new URL('privacidade.html', origin).href)}</loc></url><url><loc>${escapeHtml(new URL('termos.html', origin).href)}</loc></url></urlset>`);
 }
+
+// Changed CSS/JS must bypass previously cached unversioned browser resources.
+await versionAssets(output, ['index.html', 'ajuda.html', 'privacidade.html', 'termos.html', '404.html']);
 
 // Verify local links, IDs and downloadable files in the exact public output.
 for (const name of ['index.html', 'ajuda.html', 'privacidade.html', 'termos.html']) {
