@@ -1,0 +1,99 @@
+{
+  "elephants": {
+    "source": "https://playertest.longtailvideo.com/adaptive/elephants_dream_v4/index.m3u8",
+    "checked_at": "2026-10-29T13:04:27.175563+00:00",
+    "audio": [
+      {
+        "type": "AUDIO",
+        "language": "en",
+        "label": "Inglês",
+        "group": "aac",
+        "channels": null,
+        "source_name": "English",
+        "uri": "https://playertest.longtailvideo.com/adaptive/elephants_dream_v4/media/b160000-english.m3u8"
+      },
+      {
+        "type": "AUDIO",
+        "language": "sp",
+        "label": "sp",
+        "group": "aac",
+        "channels": null,
+        "source_name": "Spanish",
+        "uri": "https://playertest.longtailvideo.com/adaptive/elephants_dream_v4/media/b160000-spanish.m3u8"
+      },
+      {
+        "type": "AUDIO",
+        "language": "en",
+        "label": "Inglês",
+        "group": "aac",
+        "channels": null,
+        "source_name": "Commentary (eng)",
+        "uri": "https://playertest.longtailvideo.com/adaptive/elephants_dream_v4/media/b160000-commentary.m3u8"
+      }
+    ],
+    "subtitles": [
+      {
+        "type": "SUBTITLES",
+        "language": "zh",
+        "label": "Chinês",
+        "group": "subs",
+        "channels": null,
+        "source_name": "Chinese",
+        "uri": "https://playertest.longtailvideo.com/adaptive/elephants_dream_v4/chinese/ed.m3u8"
+      },
+      {
+        "type": "SUBTITLES",
+        "language": "fr",
+        "label": "Francês",
+        "group": "subs",
+        "channels": null,
+        "source_name": "French",
+        "uri": "https://playertest.longtailvideo.com/adaptive/elephants_dream_v4/french/ed.m3u8"
+      }
+    ]
+  },
+  "bipbop": {
+    "source": "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8",
+    "checked_at": "2026-10-29T13:04:27.414839+00:00",
+    "audio": [
+      {
+        "type": "AUDIO",
+        "language": "en",
+        "label": "Inglês • Estéreo",
+        "group": "aud1",
+        "channels": "2",
+        "source_name": "English",
+        "uri": "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/a1/prog_index.m3u8"
+      },
+      {
+        "type": "AUDIO",
+        "language": "en",
+        "label": "Inglês • 5.1",
+        "group": "aud2",
+        "channels": "6",
+        "source_name": "English",
+        "uri": "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/a2/prog_index.m3u8"
+      },
+      {
+        "type": "AUDIO",
+        "language": "en",
+        "label": "Inglês • 5.1",
+        "group": "aud3",
+        "channels": "6",
+        "source_name": "English",
+        "uri": "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/a3/prog_index.m3u8"
+      }
+    ],
+    "subtitles": [
+      {
+        "type": "SUBTITLES",
+        "language": "en",
+        "label": "Inglês",
+        "group": "sub1",
+        "channels": null,
+        "source_name": "English",
+        "uri": "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/s1/en/prog_index.m3u8"
+      }
+    ]
+  }
+}
