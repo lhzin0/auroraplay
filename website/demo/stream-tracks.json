@@ -1,12 +1,13 @@
 {
   "elephants": {
     "source": "https://playertest.longtailvideo.com/adaptive/elephants_dream_v4/index.m3u8",
-    "checked_at": "2026-10-29T13:04:27.175563+00:00",
+    "checked_at": "2026-10-29T13:14:49.355102+00:00",
+    "duration": 653.827,
     "audio": [
       {
         "type": "AUDIO",
         "language": "en",
-        "label": "Inglês",
+        "label": "Inglês • AAC",
         "group": "aac",
         "channels": null,
         "source_name": "English",
@@ -14,8 +15,8 @@
       },
       {
         "type": "AUDIO",
-        "language": "sp",
-        "label": "sp",
+        "language": "es",
+        "label": "Espanhol • AAC",
         "group": "aac",
         "channels": null,
         "source_name": "Spanish",
@@ -24,7 +25,7 @@
       {
         "type": "AUDIO",
         "language": "en",
-        "label": "Inglês",
+        "label": "Inglês • AAC • Comentários",
         "group": "aac",
         "channels": null,
         "source_name": "Commentary (eng)",
@@ -49,17 +50,42 @@
         "channels": null,
         "source_name": "French",
         "uri": "https://playertest.longtailvideo.com/adaptive/elephants_dream_v4/french/ed.m3u8"
+      },
+      {
+        "type": "SUBTITLES",
+        "group": "subs",
+        "language": "pt-BR",
+        "label": "Português (Brasil) • Demonstração",
+        "uri": "https://raw.githubusercontent.com/lhzin0/auroraplay/main/website/demo/subtitles/elephants/pt-BR.m3u8",
+        "generated": true
+      },
+      {
+        "type": "SUBTITLES",
+        "group": "subs",
+        "language": "en",
+        "label": "Inglês • Demonstração",
+        "uri": "https://raw.githubusercontent.com/lhzin0/auroraplay/main/website/demo/subtitles/elephants/en.m3u8",
+        "generated": true
+      },
+      {
+        "type": "SUBTITLES",
+        "group": "subs",
+        "language": "es",
+        "label": "Espanhol • Demonstração",
+        "uri": "https://raw.githubusercontent.com/lhzin0/auroraplay/main/website/demo/subtitles/elephants/es.m3u8",
+        "generated": true
       }
     ]
   },
   "bipbop": {
     "source": "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8",
-    "checked_at": "2026-10-29T13:04:27.414839+00:00",
+    "checked_at": "2026-10-29T13:14:50.930466+00:00",
+    "duration": 600.043,
     "audio": [
       {
         "type": "AUDIO",
         "language": "en",
-        "label": "Inglês • Estéreo",
+        "label": "Inglês • AAC • Estéreo",
         "group": "aud1",
         "channels": "2",
         "source_name": "English",
@@ -68,7 +94,7 @@
       {
         "type": "AUDIO",
         "language": "en",
-        "label": "Inglês • 5.1",
+        "label": "Inglês • Dolby Digital • 5.1",
         "group": "aud2",
         "channels": "6",
         "source_name": "English",
@@ -77,7 +103,7 @@
       {
         "type": "AUDIO",
         "language": "en",
-        "label": "Inglês • 5.1",
+        "label": "Inglês • Dolby Digital Plus • 5.1",
         "group": "aud3",
         "channels": "6",
         "source_name": "English",
@@ -93,6 +119,153 @@
         "channels": null,
         "source_name": "English",
         "uri": "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/s1/en/prog_index.m3u8"
+      },
+      {
+        "type": "SUBTITLES",
+        "group": "sub1",
+        "language": "pt-BR",
+        "label": "Português (Brasil) • Demonstração",
+        "uri": "https://raw.githubusercontent.com/lhzin0/auroraplay/main/website/demo/subtitles/bipbop/pt-BR.m3u8",
+        "generated": true
+      },
+      {
+        "type": "SUBTITLES",
+        "group": "sub1",
+        "language": "en",
+        "label": "Inglês • Demonstração",
+        "uri": "https://raw.githubusercontent.com/lhzin0/auroraplay/main/website/demo/subtitles/bipbop/en.m3u8",
+        "generated": true
+      },
+      {
+        "type": "SUBTITLES",
+        "group": "sub1",
+        "language": "es",
+        "label": "Espanhol • Demonstração",
+        "uri": "https://raw.githubusercontent.com/lhzin0/auroraplay/main/website/demo/subtitles/bipbop/es.m3u8",
+        "generated": true
+      }
+    ]
+  },
+  "angel": {
+    "source": "https://storage.googleapis.com/shaka-demo-assets/angel-one-hls/hls.m3u8",
+    "checked_at": "2026-10-29T13:14:52.507494+00:00",
+    "duration": 60.0,
+    "audio": [
+      {
+        "type": "AUDIO",
+        "language": "en",
+        "label": "Inglês • AAC • Estéreo",
+        "group": "default-audio-group",
+        "channels": "2",
+        "source_name": "stream_5",
+        "uri": "https://storage.googleapis.com/shaka-demo-assets/angel-one-hls/playlist_a-eng-0128k-aac-2c.mp4.m3u8"
+      },
+      {
+        "type": "AUDIO",
+        "language": "de",
+        "label": "Alemão • AAC • Estéreo",
+        "group": "default-audio-group",
+        "channels": "2",
+        "source_name": "stream_4",
+        "uri": "https://storage.googleapis.com/shaka-demo-assets/angel-one-hls/playlist_a-deu-0128k-aac-2c.mp4.m3u8"
+      },
+      {
+        "type": "AUDIO",
+        "language": "it",
+        "label": "Italiano • AAC • Estéreo",
+        "group": "default-audio-group",
+        "channels": "2",
+        "source_name": "stream_8",
+        "uri": "https://storage.googleapis.com/shaka-demo-assets/angel-one-hls/playlist_a-ita-0128k-aac-2c.mp4.m3u8"
+      },
+      {
+        "type": "AUDIO",
+        "language": "fr",
+        "label": "Francês • AAC • Estéreo",
+        "group": "default-audio-group",
+        "channels": "2",
+        "source_name": "stream_7",
+        "uri": "https://storage.googleapis.com/shaka-demo-assets/angel-one-hls/playlist_a-fra-0128k-aac-2c.mp4.m3u8"
+      },
+      {
+        "type": "AUDIO",
+        "language": "es",
+        "label": "Espanhol • AAC • Estéreo",
+        "group": "default-audio-group",
+        "channels": "2",
+        "source_name": "stream_9",
+        "uri": "https://storage.googleapis.com/shaka-demo-assets/angel-one-hls/playlist_a-spa-0128k-aac-2c.mp4.m3u8"
+      },
+      {
+        "type": "AUDIO",
+        "language": "en",
+        "label": "Inglês • AAC • 5.1",
+        "group": "default-audio-group",
+        "channels": "6",
+        "source_name": "stream_6",
+        "uri": "https://storage.googleapis.com/shaka-demo-assets/angel-one-hls/playlist_a-eng-0384k-aac-6c.mp4.m3u8"
+      }
+    ],
+    "subtitles": [
+      {
+        "type": "SUBTITLES",
+        "language": "en",
+        "label": "Inglês",
+        "group": "default-text-group",
+        "channels": null,
+        "source_name": "stream_0",
+        "uri": "https://storage.googleapis.com/shaka-demo-assets/angel-one-hls/playlist_s-en.webvtt.m3u8"
+      },
+      {
+        "type": "SUBTITLES",
+        "language": "el",
+        "label": "el",
+        "group": "default-text-group",
+        "channels": null,
+        "source_name": "stream_1",
+        "uri": "https://storage.googleapis.com/shaka-demo-assets/angel-one-hls/playlist_s-el.webvtt.m3u8"
+      },
+      {
+        "type": "SUBTITLES",
+        "language": "fr",
+        "label": "Francês",
+        "group": "default-text-group",
+        "channels": null,
+        "source_name": "stream_2",
+        "uri": "https://storage.googleapis.com/shaka-demo-assets/angel-one-hls/playlist_s-fr.webvtt.m3u8"
+      },
+      {
+        "type": "SUBTITLES",
+        "language": "pt-BR",
+        "label": "Português (Brasil)",
+        "group": "default-text-group",
+        "channels": null,
+        "source_name": "stream_3",
+        "uri": "https://storage.googleapis.com/shaka-demo-assets/angel-one-hls/playlist_s-pt-BR.webvtt.m3u8"
+      },
+      {
+        "type": "SUBTITLES",
+        "group": "default-text-group",
+        "language": "pt-BR",
+        "label": "Português (Brasil) • Demonstração",
+        "uri": "https://raw.githubusercontent.com/lhzin0/auroraplay/main/website/demo/subtitles/angel/pt-BR.m3u8",
+        "generated": true
+      },
+      {
+        "type": "SUBTITLES",
+        "group": "default-text-group",
+        "language": "en",
+        "label": "Inglês • Demonstração",
+        "uri": "https://raw.githubusercontent.com/lhzin0/auroraplay/main/website/demo/subtitles/angel/en.m3u8",
+        "generated": true
+      },
+      {
+        "type": "SUBTITLES",
+        "group": "default-text-group",
+        "language": "es",
+        "label": "Espanhol • Demonstração",
+        "uri": "https://raw.githubusercontent.com/lhzin0/auroraplay/main/website/demo/subtitles/angel/es.m3u8",
+        "generated": true
       }
     ]
   }

@@ -1,0 +1,18 @@
+#EXTM3U
+#EXT-X-VERSION:3
+#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="Espanhol • Demonstração",LANGUAGE="es",DEFAULT=NO,AUTOSELECT=YES,FORCED=NO,URI="https://raw.githubusercontent.com/lhzin0/auroraplay/main/website/demo/subtitles/elephants/es.m3u8"
+#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="Inglês • Demonstração",LANGUAGE="en",DEFAULT=NO,AUTOSELECT=YES,FORCED=NO,URI="https://raw.githubusercontent.com/lhzin0/auroraplay/main/website/demo/subtitles/elephants/en.m3u8"
+#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="Português (Brasil) • Demonstração",LANGUAGE="pt-BR",DEFAULT=NO,AUTOSELECT=YES,FORCED=NO,URI="https://raw.githubusercontent.com/lhzin0/auroraplay/main/website/demo/subtitles/elephants/pt-BR.m3u8"
+#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="Chinês",FORCED=NO,AUTOSELECT=YES,URI="https://playertest.longtailvideo.com/adaptive/elephants_dream_v4/chinese/ed.m3u8",LANGUAGE="zh"
+#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="Francês",FORCED=NO,AUTOSELECT=YES,URI="https://playertest.longtailvideo.com/adaptive/elephants_dream_v4/french/ed.m3u8",LANGUAGE="fr"
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",LANGUAGE="en",NAME="Inglês • AAC",DEFAULT=YES,AUTOSELECT=YES,URI="https://playertest.longtailvideo.com/adaptive/elephants_dream_v4/media/b160000-english.m3u8"
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",LANGUAGE="es",NAME="Espanhol • AAC",DEFAULT=NO,AUTOSELECT=YES,URI="https://playertest.longtailvideo.com/adaptive/elephants_dream_v4/media/b160000-spanish.m3u8"
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",LANGUAGE="en",NAME="Inglês • AAC • Comentários",DEFAULT=NO,AUTOSELECT=NO,URI="https://playertest.longtailvideo.com/adaptive/elephants_dream_v4/media/b160000-commentary.m3u8"
+#EXT-X-STREAM-INF:BANDWIDTH=2962000,NAME="Main",CODECS="avc1.66.30",RESOLUTION=1280x720,AUDIO="aac",SUBTITLES="subs"
+https://playertest.longtailvideo.com/adaptive/elephants_dream_v4/media/b2962000-video.m3u8
+#EXT-X-STREAM-INF:BANDWIDTH=1427000,NAME="Main",CODECS="avc1.66.30",RESOLUTION=768x432,AUDIO="aac",SUBTITLES="subs"
+https://playertest.longtailvideo.com/adaptive/elephants_dream_v4/media/b1427000-video.m3u8
+#EXT-X-STREAM-INF:BANDWIDTH=688000,NAME="Main",CODECS="avc1.66.30",RESOLUTION=448x252,AUDIO="aac",SUBTITLES="subs"
+https://playertest.longtailvideo.com/adaptive/elephants_dream_v4/media/b688000-video.m3u8
+#EXT-X-STREAM-INF:BANDWIDTH=331000,NAME="Main",CODECS="avc1.66.30",RESOLUTION=284x160,AUDIO="aac",SUBTITLES="subs"
+https://playertest.longtailvideo.com/adaptive/elephants_dream_v4/media/b331000-video.m3u8
