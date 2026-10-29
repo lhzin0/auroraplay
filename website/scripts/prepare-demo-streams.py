@@ -54,7 +54,7 @@ def normalized_language(attrs):
 def readable_label(attrs, codec=None):
     language = normalized_language(attrs)
     key = language.lower()
-    label = LANGUAGES.get(key) or LANGUAGES.get(key.split("-")[0]) or language
+    label = {"el": "Grego", "ell": "Grego", "gre": "Grego"}.get(key) or LANGUAGES.get(key) or LANGUAGES.get(key.split("-")[0]) or language
     kind = attrs.get("TYPE")
     original = attrs.get("NAME", "")
     if kind == "AUDIO":
