@@ -16,9 +16,7 @@ não aqui.
 npm run dev
 ```
 
-Abra `http://127.0.0.1:4173`. O download usa o APK em `downloads/`. Os painéis
-da página são ilustrações da experiência — sem nomes de servidores, logins ou
-senhas de teste.
+Abra `http://127.0.0.1:4173`. O download usa o APK em `downloads/`. A área de demonstração apresenta a lista M3U e as credenciais públicas de teste do serviço Xtream. O painel visual do topo é uma ilustração do catálogo.
 
 ## Build local
 
@@ -82,3 +80,15 @@ Referências:
 [GitHub Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)
 ·
 [GitHub Releases](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository).
+# Site e catálogo público de testes
+
+A página inicial é responsiva, com navegação para celular e acesso ao catálogo em `#testar`.
+
+- M3U: copiar a URL pública, baixar `demo/aurora-demo.m3u` e copiar o guia XMLTV.
+- Xtream: servidor `https://auroraplay-xtream-demo.lhz1n.chatgpt.site`, usuário `aurora`, senha pública `teste`.
+- O botão de verificação faz uma consulta ao servidor Xtream somente quando acionado, sem cookies.
+- Os dois acessos usam o mesmo catálogo público. O serviço Xtream mantém uma cópia de segurança do catálogo se a consulta ao GitHub estiver indisponível.
+- JavaScript habilita abas com navegação por teclado e cópia com alternativa para navegadores antigos. Sem JavaScript, os dois painéis continuam visíveis e os endereços podem ser selecionados.
+
+Preserve os atributos `data-version`, `data-size`, `data-min-android`, `data-sha256` e `data-download`: o build e `app.js` usam o manifesto da versão para preencher os dados de download. A demonstração não altera esse fluxo de publicação do APK.
+
