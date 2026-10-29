@@ -2,6 +2,7 @@
 """Public, credential-free M3U/XMLTV test fixture. Python standard library only."""
 
 import argparse
+import html
 import json
 import re
 import xml.etree.ElementTree as ET
@@ -54,6 +55,71 @@ THEMES = [
     ("Viagens", "Diário", ["da Costa", "do Interior", "de Bordo", "da Estrada", "da Montanha", "do Viajante", "do Arquipélago", "do Vale", "da Vila", "de Inverno", "da Fronteira", "do Destino"]),
     ("Curtas", "Instantes", ["de Luz", "de Chuva", "de Verão", "de Inverno", "de Cor", "de Vento", "de Areia", "de Silêncio", "da Cidade", "do Campo", "da Noite", "do Amanhecer"]),
 ]
+
+STORIES = {
+    "Aventura": "Uma equipe de exploradores encontra um mapa incompleto e parte em busca de uma passagem esquecida. Entre paisagens desconhecidas e escolhas difíceis, o grupo descobre que chegar ao destino exige mais confiança do que coragem.",
+    "Ficção científica": "Um sinal recebido de um lugar aparentemente desabitado coloca uma pesquisadora diante de uma descoberta capaz de mudar o futuro. Enquanto tenta compreender a mensagem, ela percebe que alguém já conhece as respostas que procura.",
+    "Fantasia": "Uma jovem cartógrafa encontra um mapa capaz de revelar caminhos que ninguém consegue enxergar. Para impedir o desaparecimento de seu reino, ela precisa atravessar terras esquecidas e descobrir a verdadeira origem de uma antiga magia.",
+    "Suspense": "Uma gravação sem remetente reúne pessoas que acreditavam ter deixado o passado para trás. A cada nova pista, as versões se contradizem e uma decisão tomada anos antes volta a ameaçar todos os envolvidos.",
+    "Documentários": "Uma jornada de observação acompanha paisagens, comunidades e pequenas transformações que costumam passar despercebidas. Histórias pessoais e descobertas do cotidiano revelam novas maneiras de olhar para o mundo.",
+    "Drama": "Um reencontro inesperado obriga uma família a lidar com promessas antigas e planos interrompidos. Entre lembranças e novos começos, cada pessoa precisa decidir o que está disposta a deixar para trás.",
+    "Comédia": "Uma ideia aparentemente simples reúne um grupo de pessoas que não poderia ser mais diferente. Quando o plano sai do controle, pequenos imprevistos se transformam em uma sequência de encontros improváveis e soluções nada convencionais.",
+    "Animação": "Um pequeno inventor transforma objetos esquecidos em companheiros de aventura. Quando uma de suas criações ganha vida, ele embarca em uma viagem cheia de cor, descobertas e amizades para encontrar um novo lar.",
+    "Natureza": "Um percurso por ambientes naturais acompanha a vida em diferentes escalas, dos detalhes quase invisíveis às grandes paisagens. Mudanças de luz, água e estações revelam as relações que mantêm cada ecossistema em movimento.",
+    "Mistério": "Um objeto encontrado por acaso conecta acontecimentos que pareciam não ter relação. Para compreender a ligação entre eles, uma investigadora precisa reconstruir memórias, seguir pistas discretas e questionar sua própria versão dos fatos.",
+    "Viagens": "Uma viagem sem roteiro se transforma em uma coleção de encontros, paisagens e histórias locais. A cada parada, novos caminhos revelam que conhecer um lugar também significa aprender a enxergar de outra maneira.",
+    "Curtas": "Um encontro breve muda o rumo de um dia comum. Contada em pequenos gestos e detalhes, a história acompanha o instante em que uma escolha simples abre espaço para uma possibilidade inesperada.",
+}
+TEST_NOTE = "Sinopse fictícia para testes. O vídeo reproduzido é uma amostra de demonstração."
+EPISODE_BEATS = ["uma descoberta coloca o plano inicial em dúvida", "uma nova pista aproxima o grupo de uma resposta", "um encontro inesperado revela outra versão da história", "uma escolha difícil muda o caminho dos protagonistas", "as consequências do episódio anterior exigem uma nova estratégia", "uma revelação conecta acontecimentos que pareciam isolados", "o grupo se prepara para enfrentar seu maior desafio", "a jornada chega a um ponto decisivo e abre espaço para um novo começo"]
+
+
+def descriptions(rows):
+    profiles_path = ROOT / "stream-tracks.json"
+    profiles = json.loads(profiles_path.read_text(encoding="utf-8")) if profiles_path.exists() else {}
+    originals = {
+        "aurora.movie.bbb": "Um grande coelho tenta aproveitar um dia tranquilo, mas três pequenos animais transformam sua rotina em uma sequência de provocações. Quando a brincadeira vai longe demais, ele prepara uma resposta à altura. Curta de animação aberto da Blender Foundation.",
+        "aurora.movie.sintel": "Uma jovem viajante atravessa territórios perigosos à procura do pequeno dragão que resgatou e criou. Sua busca a leva a enfrentar perdas e a descobrir o verdadeiro custo de uma promessa. Curta de animação aberto da Blender Foundation.",
+        "aurora.movie.elephants": "Dois personagens percorrem uma estrutura mecânica enigmática guiados por visões diferentes sobre o lugar em que vivem. A jornada coloca imaginação, controle e confiança em conflito. Curta de animação aberto da Blender Foundation.",
+        "aurora.movie.tears": "Em uma Amsterdã do futuro, um grupo tenta recriar acontecimentos do passado para impedir uma catástrofe. Relações humanas e máquinas se cruzam em um experimento que pode decidir o destino de todos. Curta aberto da Blender Foundation.",
+    }
+    collections = {
+        "Coleção Blender [TESTE]": "Uma coleção de filmes abertos e amostras da Blender Foundation, organizada em temporadas para testar a navegação entre episódios, o progresso e a reprodução automática do próximo vídeo.",
+        "Dez Segundos [TESTE]": "Uma série de vídeos curtos que combina animação e imagens da natureza. Os episódios rápidos permitem testar o fim da reprodução, a troca de temporada e o botão de próximo episódio sem longas esperas.",
+        "Laboratório de Imagem [TESTE]": "Uma coleção comparativa de amostras em 360p, 720p e 1080p. Cada episódio ajuda a avaliar o carregamento, a nitidez e o comportamento do player em diferentes resoluções.",
+        "Laboratório de Codecs [TESTE]": "Uma coleção técnica com amostras H.264, HEVC, AV1 e VP9. Os episódios permitem verificar a compatibilidade do aparelho, a decodificação e o tratamento de formatos diferentes.",
+    }
+    for row in rows:
+        source = row["url"].rstrip("/").split("/")[-2] if row["url"].endswith("/master.m3u8") else None
+        duration = profiles.get(source, {}).get("duration")
+        if duration:
+            row["duration_secs"] = round(duration)
+        elif "_10s_" in row["url"]:
+            row["duration_secs"] = 10
+        if row["kind"] == "channel":
+            continue
+        genre = row["group"].split(" | ")[-1]
+        row["genre"] = genre
+        if row["kind"] == "episode":
+            match = re.search(r"\sS(\d{2})E(\d{2})\b(?:\s*-\s*(.*))?", row["name"])
+            series_name = row["name"][:match.start()]
+            season, episode = int(match[1]), int(match[2])
+            title = match[3] or f"Episódio {episode}"
+            row.update(series_name=series_name, season=season, episode=episode, episode_title=title)
+            clean = series_name.replace(" [TESTE]", "")
+            row["series_description"] = collections.get(series_name) or f"{clean}. {STORIES.get(genre, STORIES['Aventura'])} Ao longo de três temporadas, novas pistas ampliam a jornada e as relações entre os personagens. {TEST_NOTE}"
+            if series_name in collections:
+                row["description"] = f"Temporada {season}, episódio {episode}: {title}. Amostra selecionada para testar a navegação, o progresso e a reprodução deste episódio. O conteúdo pertence à coleção de demonstração."
+            else:
+                row["description"] = f"Temporada {season}, episódio {episode}: {title}. Neste capítulo de {clean}, {EPISODE_BEATS[(episode - 1) % len(EPISODE_BEATS)]}. {TEST_NOTE}"
+        elif row["id"] in originals:
+            row["description"] = originals[row["id"]]
+        elif row["id"].startswith("aurora.clip.") or row["id"].startswith("aurora.codec."):
+            row["description"] = f"{row['name']}. Vídeo curto de demonstração para avaliar a abertura do player, a qualidade da imagem e o término da reprodução. A compatibilidade do codec depende do aparelho utilizado."
+        else:
+            clean = row["name"].replace(" [TESTE]", "")
+            row["description"] = f"{clean}. {STORIES.get(genre, STORIES['Aventura'])} {TEST_NOTE}"
+    return rows
 
 
 def expanded_catalog():
@@ -160,7 +226,7 @@ def catalog():
     rows += [entry(f"aurora.channel.{key}", name, group, url, "channel",
                    f"https://picsum.photos/seed/aurora-channel-{key}/240/240")
              for key, name, group, url in channels]
-    return rows + expanded_catalog()
+    return descriptions(rows + expanded_catalog())
 
 
 def m3u(rows):
@@ -170,7 +236,13 @@ def m3u(rows):
              "# Canais HLS sob demanda não são transmissões lineares. O guia é uma simulação de interface.",
              "# Codecs HEVC, AV1 e VP9 dependem da capacidade do aparelho."]
     for row in rows:
-        lines += [f'#EXTINF:-1 tvg-id="{row["id"]}" tvg-logo="{row["logo"]}" group-title="{row["group"]}",{row["name"]}', row["url"]]
+        attrs = {"tvg-id": row["id"], "tvg-logo": row["logo"], "group-title": row["group"]}
+        if row.get("description"):
+            attrs["tvg-description"] = row["description"]
+        if row.get("series_description"):
+            attrs["series-description"] = row["series_description"]
+        attributes = " ".join(f'{key}="{html.escape(value, quote=True)}"' for key, value in attrs.items())
+        lines += [f'#EXTINF:-1 {attributes},{row["name"]}', row["url"]]
     return "\n".join(lines) + "\n"
 
 
@@ -228,6 +300,9 @@ def validate(rows, playlist, guide):
         if row["kind"] == "episode":
             assert re.search(r"\bS\d{2}E\d{2}\b", row["name"])
             assert row["url"].rsplit(".", 1)[-1] in {"mp4", "webm", "mov"} or "/series/" in row["url"]
+            assert len(row.get("series_description", "")) >= 80
+        if row["kind"] != "channel":
+            assert len(row.get("description", "")) >= 80
         if row["url"].startswith(BASE) and row["url"].endswith("master.m3u8"):
             expected_kind = "series" if row["kind"] == "episode" else "movie" if row["kind"] == "movie" else "channel"
             assert f"/{expected_kind}/" in row["url"], "HLS deve ser classificado corretamente pelo app"
@@ -267,6 +342,7 @@ def main():
         ROOT.mkdir(parents=True, exist_ok=True)
         (ROOT / "aurora-demo.m3u").write_text(playlist, encoding="utf-8")
         (ROOT / "aurora-demo.xml").write_text(guide, encoding="utf-8")
+        (ROOT / "catalog.json").write_text(json.dumps({"schema_version": 1, "generated_date": (args.date or datetime.now(ZONE).date()).isoformat(), "entries": rows}, ensure_ascii=False, separators=(",", ":")) + "\n", encoding="utf-8")
     print("Demo válida: 160 filmes/amostras, 40 séries (888 episódios), 48 canais e 4608 programas XMLTV.")
 
 
