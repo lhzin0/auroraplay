@@ -1,7 +1,7 @@
 {
   "elephants": {
     "source": "https://playertest.longtailvideo.com/adaptive/elephants_dream_v4/index.m3u8",
-    "checked_at": "2026-11-16T01:02:27.074122+00:00",
+    "checked_at": "2026-11-16T11:20:22.733169+00:00",
     "duration": 653.827,
     "audio": [
       {
@@ -79,7 +79,7 @@
   },
   "bipbop": {
     "source": "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8",
-    "checked_at": "2026-11-16T01:02:27.207269+00:00",
+    "checked_at": "2026-11-16T11:20:22.815297+00:00",
     "duration": 600.043,
     "audio": [
       {
@@ -148,7 +148,7 @@
   },
   "angel": {
     "source": "https://storage.googleapis.com/shaka-demo-assets/angel-one-hls/hls.m3u8",
-    "checked_at": "2026-11-16T01:02:28.390971+00:00",
+    "checked_at": "2026-11-16T11:20:23.541290+00:00",
     "duration": 60.0,
     "audio": [
       {
